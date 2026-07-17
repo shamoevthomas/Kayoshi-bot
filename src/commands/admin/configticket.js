@@ -1,0 +1,205 @@
+import {
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelSelectMenuBuilder,
+  RoleSelectMenuBuilder,
+  ChannelType,
+  ComponentType,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js';
+import { parseMotifs, createCategories, buildTicketPanel } from '../../lib/tickets.js';
+import { setTicketConfig } from '../../lib/store.js';
+
+const P = PermissionFlagsBits;
+
+function textInput(id, label, placeholder, style, max) {
+  return new TextInputBuilder()
+    .setCustomId(id)
+    .setLabel(label.slice(0, 45))
+    .setPlaceholder(placeholder)
+    .setStyle(style)
+    .setRequired(true)
+    .setMaxLength(max);
+}
+
+function channelSelectRow(customId) {
+  return new ActionRowBuilder().addComponents(
+    new ChannelSelectMenuBuilder().setCustomId(customId).setPlaceholder('Choisis un salon').addChannelTypes(ChannelType.GuildText),
+  );
+}
+
+export default {
+  data: new SlashCommandBuilder()
+    .setName('configticket')
+    .setDescription('Configurer le système de tickets (assistant guidé).')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false),
+
+  async execute(interaction) {
+    const guild = interaction.guild;
+    const filter = (i) => i.user.id === interaction.user.id;
+    const timeout = () => interaction.editReply({ content: '⏱️ Configuration annulée (délai dépassé). Relance `/configticket`.', components: [], embeds: [] });
+
+    const config = {
+      panelChannelId: null,
+      staffRoleIds: [],
+      transcriptChannelId: null,
+      panelTitle: '',
+      panelDescription: '',
+      welcomeMode: 'same',
+      commonWelcome: '',
+      motifs: [],
+      counter: 0,
+      tickets: {},
+    };
+
+    // ===== 1/5 — Salon du panneau =====
+    const step1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('cfg_create').setLabel('Créer un salon').setStyle(ButtonStyle.Success).setEmoji('➕'),
+      new ButtonBuilder().setCustomId('cfg_existing').setLabel('Salon existant').setStyle(ButtonStyle.Primary).setEmoji('📁'),
+    );
+    const msg = await interaction.reply({
+      content: '**1/5 — Salon du panneau**\nOù placer le panneau où les membres ouvriront un ticket ?',
+      components: [step1],
+      ephemeral: true,
+      fetchReply: true,
+    });
+
+    const staffPrompt = '\n\n**2/5 — Rôle(s) staff**\nQui doit voir et gérer les tickets ?';
+    const staffRow = new ActionRowBuilder().addComponents(
+      new RoleSelectMenuBuilder().setCustomId('cfg_staff').setPlaceholder('Choisis le/les rôle(s) staff').setMinValues(1).setMaxValues(10),
+    );
+
+    try {
+      const b1 = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter });
+      if (b1.customId === 'cfg_create') {
+        const ch = await guild.channels.create({ name: 'créer-un-ticket', type: ChannelType.GuildText });
+        config.panelChannelId = ch.id;
+        await b1.update({ content: `✅ Salon créé : <#${ch.id}>${staffPrompt}`, components: [staffRow] });
+      } else {
+        await b1.update({ content: 'Choisis le salon du panneau :', components: [channelSelectRow('cfg_panelchan')] });
+        const s = await msg.awaitMessageComponent({ componentType: ComponentType.ChannelSelect, time: 300_000, filter });
+        config.panelChannelId = s.values[0];
+        await s.update({ content: `✅ Panneau dans <#${config.panelChannelId}>${staffPrompt}`, components: [staffRow] });
+      }
+
+      // ===== 2/5 — Rôles staff =====
+      const roleSel = await msg.awaitMessageComponent({ componentType: ComponentType.RoleSelect, time: 300_000, filter });
+      config.staffRoleIds = roleSel.values;
+      const transcriptRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('cfg_tcreate').setLabel('Créer un salon d’archives').setStyle(ButtonStyle.Success).setEmoji('➕'),
+        new ButtonBuilder().setCustomId('cfg_texisting').setLabel('Salon existant').setStyle(ButtonStyle.Primary).setEmoji('📁'),
+      );
+      await roleSel.update({
+        content: `✅ Staff : ${config.staffRoleIds.map((r) => `<@&${r}>`).join(' ')}\n\n**3/5 — Salon des transcriptions**\nOù archiver les tickets fermés ?`,
+        components: [transcriptRow],
+      });
+
+      // ===== 3/5 — Salon des transcriptions =====
+      const modeRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('cfg_same').setLabel('Même texte partout').setStyle(ButtonStyle.Primary).setEmoji('📋'),
+        new ButtonBuilder().setCustomId('cfg_per').setLabel('Personnalisé par catégorie').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
+      );
+      const modePrompt = "\n\n**4/5 — Texte d'accueil dans les tickets**\nLe même texte pour toutes les catégories, ou un texte différent par catégorie ?";
+
+      const b3 = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter });
+      if (b3.customId === 'cfg_tcreate') {
+        const ch = await guild.channels.create({
+          name: 'ticket-transcripts',
+          type: ChannelType.GuildText,
+          permissionOverwrites: [
+            { id: guild.roles.everyone.id, deny: [P.ViewChannel] },
+            ...config.staffRoleIds.map((r) => ({ id: r, allow: [P.ViewChannel] })),
+            { id: guild.members.me.id, allow: [P.ViewChannel, P.SendMessages, P.AttachFiles] },
+          ],
+        });
+        config.transcriptChannelId = ch.id;
+        await b3.update({ content: `✅ Archives : <#${ch.id}>${modePrompt}`, components: [modeRow] });
+      } else {
+        await b3.update({ content: 'Choisis le salon des transcriptions :', components: [channelSelectRow('cfg_tchan')] });
+        const s = await msg.awaitMessageComponent({ componentType: ComponentType.ChannelSelect, time: 300_000, filter });
+        config.transcriptChannelId = s.values[0];
+        await s.update({ content: `✅ Archives dans <#${config.transcriptChannelId}>${modePrompt}`, components: [modeRow] });
+      }
+
+      // ===== 4/5 — Mode d'accueil → ouvre le formulaire principal =====
+      const modeBtn = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter });
+      config.welcomeMode = modeBtn.customId === 'cfg_per' ? 'per' : 'same';
+
+      const modal = new ModalBuilder().setCustomId('cfg_modal').setTitle('5/5 — Contenu des tickets');
+      const inputs = [
+        textInput('title', 'Titre du panneau', '🎫 Ouvrir un ticket', TextInputStyle.Short, 100),
+        textInput('desc', 'Texte du panneau (description)', 'Sélectionne un motif ci-dessous pour ouvrir un ticket.', TextInputStyle.Paragraph, 1000),
+        textInput('motifs', 'Motifs — 1/ligne : Nom | emoji | desc', 'Support | 🎫 | Aide générale\nBug | 🐛 | Signaler un bug', TextInputStyle.Paragraph, 1000),
+      ];
+      if (config.welcomeMode === 'same') {
+        inputs.push(textInput('welcome', "Texte d'accueil dans le ticket", 'Un membre du staff va te répondre au plus vite.', TextInputStyle.Paragraph, 1000));
+      }
+      modal.addComponents(...inputs.map((i) => new ActionRowBuilder().addComponents(i)));
+      await modeBtn.showModal(modal);
+
+      const sub = await modeBtn.awaitModalSubmit({ time: 600_000, filter: (i) => i.customId === 'cfg_modal' && i.user.id === interaction.user.id });
+      config.panelTitle = sub.fields.getTextInputValue('title');
+      config.panelDescription = sub.fields.getTextInputValue('desc');
+      config.motifs = parseMotifs(sub.fields.getTextInputValue('motifs'));
+      if (config.welcomeMode === 'same') config.commonWelcome = sub.fields.getTextInputValue('welcome');
+
+      if (config.motifs.length === 0) {
+        return sub.update({ content: '❌ Aucun motif valide détecté. Relance `/configticket` (format : `Nom | emoji | description`).', components: [], embeds: [] });
+      }
+
+      // ===== Texte par catégorie (si personnalisé) =====
+      const promptCategory = (inter, idx) => {
+        const m = config.motifs[idx];
+        const openBtn = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('cfg_wt').setLabel(`Saisir le texte (${idx + 1}/${config.motifs.length})`).setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+        );
+        return inter.update({ content: `**Texte d'accueil — catégorie ${idx + 1}/${config.motifs.length} : ${m.label}**\nClique pour le saisir.`, components: [openBtn], embeds: [] });
+      };
+
+      if (config.welcomeMode === 'per') {
+        await promptCategory(sub, 0);
+        for (let i = 0; i < config.motifs.length; i++) {
+          const wb = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter: (x) => x.customId === 'cfg_wt' && x.user.id === interaction.user.id });
+          const wModal = new ModalBuilder()
+            .setCustomId('cfg_wtmodal')
+            .setTitle(`Texte — ${config.motifs[i].label}`.slice(0, 45))
+            .addComponents(new ActionRowBuilder().addComponents(textInput('wt', `Accueil : ${config.motifs[i].label}`, 'Un membre du staff va te répondre.', TextInputStyle.Paragraph, 1000)));
+          await wb.showModal(wModal);
+          const ws = await wb.awaitModalSubmit({ time: 600_000, filter: (x) => x.customId === 'cfg_wtmodal' && x.user.id === interaction.user.id });
+          config.motifs[i].welcome = ws.fields.getTextInputValue('wt');
+          if (i < config.motifs.length - 1) await promptCategory(ws, i + 1);
+          else await ws.update({ content: '⏳ Finalisation…', components: [], embeds: [] });
+        }
+      } else {
+        await sub.update({ content: '⏳ Finalisation…', components: [], embeds: [] });
+      }
+
+      // ===== Finalisation : catégories + sauvegarde + panneau =====
+      await createCategories(guild, config);
+      setTicketConfig(guild.id, config);
+      const panelChannel = guild.channels.cache.get(config.panelChannelId) ?? (await guild.channels.fetch(config.panelChannelId));
+      await panelChannel.send(buildTicketPanel(config));
+
+      await interaction.editReply({
+        content:
+          `✅ **Système de tickets configuré !**\n` +
+          `• Panneau publié dans <#${config.panelChannelId}>\n` +
+          `• Archives : <#${config.transcriptChannelId}>\n` +
+          `• Staff : ${config.staffRoleIds.map((r) => `<@&${r}>`).join(' ')}\n` +
+          `• Motifs (${config.motifs.length}) : ${config.motifs.map((m) => m.label).join(', ')}`,
+        components: [],
+        embeds: [],
+      });
+    } catch (err) {
+      if (err?.code === 'InteractionCollectorError' || err?.name === 'Error') return timeout().catch(() => {});
+      console.error(err);
+      return interaction.editReply({ content: '❌ Une erreur est survenue pendant la configuration.', components: [], embeds: [] }).catch(() => {});
+    }
+  },
+};
