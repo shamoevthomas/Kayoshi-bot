@@ -17,6 +17,10 @@ export async function handleLinkFilter(message) {
   if (!config?.channelIds?.length || !config?.roleIds?.length) return;
   if (!config.channelIds.includes(message.channel.id)) return;
 
+  // Un rôle autorisé (exception) l'emporte : le membre peut poster des liens.
+  const exempt = message.member.roles.cache.some((r) => config.allowedRoleIds?.includes(r.id));
+  if (exempt) return;
+
   // Seuls les membres portant un des rôles interdits sont filtrés
   const blocked = message.member.roles.cache.some((r) => config.roleIds.includes(r.id));
   if (!blocked) return;
