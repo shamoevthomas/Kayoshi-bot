@@ -6,9 +6,9 @@ import { sendLog, Colors } from './logger.js';
 const URL_GLOBAL =
   /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(discord\.(gg|com\/invite)\/[^\s]+)|(\b[a-z0-9-]+\.(com|net|org|fr|io|gg|xyz|me|tv|co|shop|store|link|app|dev|site|online|be|eu)\b[^\s]*)/gi;
 
-// Un lien GIF est autorisé (Tenor, Giphy, ou fichier .gif — inclut le bouton GIF de Discord).
+// Un lien GIF est autorisé (Tenor, Giphy, Kiplys, ou fichier .gif — inclut le bouton GIF de Discord).
 function isGifLink(url) {
-  return /tenor\.(com|co)|giphy\.com|\.gif(\?|#|$)/i.test(url);
+  return /tenor\.(com|co)|giphy\.com|k(i|l)ip(l)?y\.[a-z]+|\.gif(\?|#|$)/i.test(url);
 }
 
 export async function handleLinkFilter(message) {
