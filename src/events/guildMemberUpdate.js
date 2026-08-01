@@ -1,10 +1,36 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
-import { sendLog, Colors, findExecutor } from '../lib/logger.js';
+import { sendLog, Colors, findExecutor, findAuditEntry } from '../lib/logger.js';
 
 export default {
   name: Events.GuildMemberUpdate,
   async execute(oldMember, newMember) {
     const guild = newMember.guild;
+
+    // --- Mute / Unmute (timeout) ---
+    const oldTo = oldMember.communicationDisabledUntilTimestamp ?? null;
+    const newTo = newMember.communicationDisabledUntilTimestamp ?? null;
+    if (oldTo !== newTo) {
+      const entry = await findAuditEntry(guild, AuditLogEvent.MemberUpdate, newMember.id);
+      // La commande /mute du bot loggue déjà → on ignore si l'exécuteur est le bot.
+      // Pas d'exécuteur = fin de timeout automatique → on ne loggue pas.
+      if (entry?.executor && entry.executor.id !== guild.client.user.id) {
+        const muted = newTo && newTo > Date.now();
+        await sendLog(
+          guild,
+          new EmbedBuilder()
+            .setColor(muted ? Colors.channel : Colors.join)
+            .setAuthor({ name: muted ? '🔇 Membre rendu muet' : '🔊 Membre démuet' })
+            .setDescription(`${newMember.user.tag} (\`${newMember.id}\`)`)
+            .addFields(
+              ...(muted ? [{ name: 'Jusqu’à', value: `<t:${Math.floor(newTo / 1000)}:F>`, inline: true }] : []),
+              { name: 'Raison', value: entry.reason || 'Aucune raison précisée' },
+              { name: 'Par', value: `${entry.executor}`, inline: true },
+            )
+            .setTimestamp(),
+        );
+      }
+    }
+
     const oldRoles = oldMember.roles.cache;
     const newRoles = newMember.roles.cache;
     const added = newRoles.filter((r) => !oldRoles.has(r.id));

@@ -1,5 +1,5 @@
-import { Events, EmbedBuilder } from 'discord.js';
-import { sendLog, Colors } from '../lib/logger.js';
+import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
+import { sendLog, Colors, findAuditEntry } from '../lib/logger.js';
 import { addMemberEvent } from '../lib/store.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { onMemberLeave } from '../lib/verification.js';
@@ -13,6 +13,24 @@ export default {
     await onMemberLeave(member).catch((err) => console.error(err));
 
     addMemberEvent(member.guild.id, 'leave', member.id);
+
+    // Détecte si ce départ est en fait une expulsion (kick) faite via Discord/un autre bot.
+    // La commande /kick du bot loggue déjà elle-même → on ignore si l'exécuteur est le bot.
+    const kick = await findAuditEntry(member.guild, AuditLogEvent.MemberKick, member.id);
+    if (kick && kick.executor?.id !== member.guild.client.user.id) {
+      await sendLog(
+        member.guild,
+        new EmbedBuilder()
+          .setColor(Colors.leave)
+          .setAuthor({ name: '👢 Membre expulsé' })
+          .setDescription(`${member.user.tag} (\`${member.id}\`)`)
+          .addFields(
+            { name: 'Raison', value: kick.reason || 'Aucune raison précisée' },
+            { name: 'Par', value: kick.executor ? `${kick.executor}` : 'Inconnu', inline: true },
+          )
+          .setTimestamp(),
+      );
+    }
 
     // Message de départ (si configuré)
     await sendGreeting(member.guild, 'leave', member).catch((err) => console.error(err));

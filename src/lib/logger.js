@@ -39,3 +39,17 @@ export async function findExecutor(guild, type, targetId) {
     return null;
   }
 }
+
+// Comme findExecutor mais renvoie aussi la raison : { executor, reason } ou null.
+export async function findAuditEntry(guild, type, targetId) {
+  try {
+    const logs = await guild.fetchAuditLogs({ type, limit: 5 });
+    const entry = logs.entries.find(
+      (e) => (!targetId || e.targetId === targetId) && Date.now() - e.createdTimestamp < 10_000,
+    );
+    if (!entry) return null;
+    return { executor: entry.executor ?? null, reason: entry.reason ?? null };
+  } catch {
+    return null;
+  }
+}
