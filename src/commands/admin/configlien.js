@@ -20,19 +20,19 @@ export default {
 
   async execute(interaction) {
     const filter = (i) => i.user.id === interaction.user.id;
-    const config = { channelIds: [], roleIds: [], allowedRoleIds: [] };
+    const config = { allowedChannelIds: [], roleIds: [], allowedRoleIds: [] };
 
     const channelRow = new ActionRowBuilder().addComponents(
       new ChannelSelectMenuBuilder()
         .setCustomId('cfgl_chans')
-        .setPlaceholder('Salons où les liens sont bloqués')
+        .setPlaceholder('Salons où les liens sont autorisés')
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
         .setMinValues(1)
         .setMaxValues(25),
     );
 
     const msg = await interaction.reply({
-      content: '**1/2 — Salons concernés**\nDans quels salons les liens doivent-ils être bloqués ?',
+      content: '**1/3 — Salons autorisés**\nDans quels salons les liens doivent-ils être autorisé ?',
       components: [channelRow],
       ephemeral: true,
       fetchReply: true,
@@ -40,7 +40,7 @@ export default {
 
     try {
       const chanSel = await msg.awaitMessageComponent({ componentType: ComponentType.ChannelSelect, time: 300_000, filter });
-      config.channelIds = chanSel.values;
+      config.allowedChannelIds = chanSel.values;
 
       const roleRow = new ActionRowBuilder().addComponents(
         new RoleSelectMenuBuilder()
@@ -50,7 +50,7 @@ export default {
           .setMaxValues(25),
       );
       await chanSel.update({
-        content: `✅ ${config.channelIds.length} salon(s) sélectionné(s)\n\n**2/3 — Rôles interdits**\nQuels rôles n’ont PAS le droit de poster des liens dans ces salons ?`,
+        content: `✅ ${config.allowedChannelIds.length} salon(s) autorisé(s)\n\n**2/3 — Rôles interdits**\nQuels rôles n’ont PAS le droit de poster des liens (partout sauf dans les salons autorisés) ?`,
         components: [roleRow],
       });
 
@@ -89,10 +89,10 @@ export default {
           await sel.update({
             content:
               `✅ **Filtre anti-liens configuré !**\n` +
-              `• Salons : ${config.channelIds.map((c) => `<#${c}>`).join(' ')}\n` +
+              `• Salons autorisés : ${config.allowedChannelIds.map((c) => `<#${c}>`).join(' ')}\n` +
               `• Rôles bloqués : ${config.roleIds.map((r) => `<@&${r}>`).join(' ')}\n` +
               `• Rôles autorisés (exceptions) : ${config.allowedRoleIds.length ? config.allowedRoleIds.map((r) => `<@&${r}>`).join(' ') : '_aucun_'}\n\n` +
-              `Tout membre portant un rôle bloqué verra ses messages avec liens supprimés — sauf s’il a aussi un rôle autorisé.`,
+              `Tout membre portant un rôle bloqué verra ses liens supprimés **partout sauf** dans les salons autorisés — sauf s’il a aussi un rôle autorisé (exception).`,
             components: [],
           });
           break;

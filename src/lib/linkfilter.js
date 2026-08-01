@@ -14,10 +14,12 @@ function isGifLink(url) {
 export async function handleLinkFilter(message) {
   if (!message.guild || message.author.bot || !message.member) return;
   const config = getLinkConfig(message.guild.id);
-  if (!config?.channelIds?.length || !config?.roleIds?.length) return;
-  if (!config.channelIds.includes(message.channel.id)) return;
+  if (!config?.roleIds?.length) return;
 
-  // Un rôle autorisé (exception) l'emporte : le membre peut poster des liens.
+  // Les liens sont autorisés dans ces salons (whitelist) : on ne filtre pas.
+  if (config.allowedChannelIds?.includes(message.channel.id)) return;
+
+  // Un rôle autorisé (exception) l'emporte : le membre peut poster des liens partout.
   const exempt = message.member.roles.cache.some((r) => config.allowedRoleIds?.includes(r.id));
   if (exempt) return;
 
