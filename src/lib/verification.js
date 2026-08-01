@@ -2,6 +2,7 @@ import { EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { generateCaptcha } from './captcha.js';
 import { getVerifConfig } from './store.js';
 import { sendLog, Colors } from './logger.js';
+import { formatDuration } from './time.js';
 
 // État en mémoire (perdu au redémarrage, reconstruit à la volée quand un membre écrit).
 const pending = new Map(); // userId -> { answer, attempts, captchaMessageId }
@@ -18,19 +19,23 @@ async function deleteCaptchaMessage(channel, record) {
 }
 
 // Poste (ou reposte) un captcha pour un membre dans le salon de vérification.
+// Message simple (pas d'embed) : mention + image + essais restants + temps restant.
 async function postCaptcha(channel, member, config, attempts = 0) {
   const { text, buffer } = generateCaptcha();
   const file = new AttachmentBuilder(buffer, { name: 'captcha.png' });
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle('🛡️ Vérification anti-bot')
-    .setDescription(`${member}, recopie le texte de l’image **dans ce salon** pour accéder au serveur.`)
-    .setImage('attachment://captcha.png')
-    .setFooter({ text: `${config.maxAttempts} essai(s) maximum` });
+
+  const attemptsLeft = config.maxAttempts - attempts;
+  let content =
+    `🛡️ ${member}, recopie le texte de l’image **dans ce salon** pour accéder au serveur.\n` +
+    `• Essais restants : **${attemptsLeft}**`;
+  if (config.kickAfterMs != null) {
+    const elapsed = Date.now() - (member.joinedTimestamp ?? Date.now());
+    const remaining = Math.max(0, config.kickAfterMs - elapsed);
+    content += `\n• Temps restant avant expulsion : **${formatDuration(remaining)}**`;
+  }
 
   const msg = await channel.send({
-    content: `${member}`,
-    embeds: [embed],
+    content,
     files: [file],
     allowedMentions: { users: [member.id] },
   });
@@ -60,6 +65,17 @@ function scheduleKick(member, config) {
     }
   }, delay);
   kickTimers.set(member.id, timer);
+}
+
+// Au départ d'un membre : supprime son message de vérification et nettoie son état.
+export async function onMemberLeave(member) {
+  const record = pending.get(member.id);
+  clearKickTimer(member.id);
+  pending.delete(member.id);
+  if (!record?.captchaMessageId) return;
+  const config = getVerifConfig(member.guild.id);
+  const channel = config && member.guild.channels.cache.get(config.channelId);
+  if (channel?.isTextBased()) await channel.messages.delete(record.captchaMessageId).catch(() => {});
 }
 
 // À l'arrivée d'un membre : poste le captcha + programme le kick éventuel.

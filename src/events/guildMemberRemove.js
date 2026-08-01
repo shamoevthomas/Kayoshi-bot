@@ -2,11 +2,16 @@ import { Events, EmbedBuilder } from 'discord.js';
 import { sendLog, Colors } from '../lib/logger.js';
 import { addMemberEvent } from '../lib/store.js';
 import { sendGreeting } from '../lib/greetings.js';
+import { onMemberLeave } from '../lib/verification.js';
 
 export default {
   name: Events.GuildMemberRemove,
   async execute(member) {
     if (member.user?.bot) return;
+
+    // Supprime le captcha de vérification en attente pour ce membre
+    await onMemberLeave(member).catch((err) => console.error(err));
+
     addMemberEvent(member.guild.id, 'leave', member.id);
 
     // Message de départ (si configuré)
