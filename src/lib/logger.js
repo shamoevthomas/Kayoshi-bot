@@ -3,6 +3,7 @@ import { getGuildConfig } from './store.js';
 // Couleurs par type d'événement (embeds).
 export const Colors = {
   delete: 0xed4245,
+  edit: 0xfaa61a,
   join: 0x57f287,
   leave: 0xed4245,
   role: 0x5865f2,
