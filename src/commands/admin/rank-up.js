@@ -7,6 +7,7 @@ const RANKUP_TEXT =
   'S\'occuper des embrouilles.\n' +
   'Accueillir les nouveaux.\n' +
   '# Animateur\n' +
+  'Minimum être niveau 10. (faites `/niveau` pour savoir votre niveau actuel)\n' +
   'Au moins faire ___une___ animation tout les un mois.\n' +
   'Sanctionner les membres si il y a une embrouille dans le chat d\'un event ou dans une voc.';
 
