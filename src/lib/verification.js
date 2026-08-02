@@ -78,6 +78,37 @@ export async function onMemberLeave(member) {
   if (channel?.isTextBased()) await channel.messages.delete(record.captchaMessageId).catch(() => {});
 }
 
+// Force la validation d'un membre (comme s'il avait réussi le captcha) : ajoute le
+// rôle, nettoie l'état en attente et le timer de kick. Renvoie un statut.
+export async function forceVerify(member, executor = null) {
+  const config = getVerifConfig(member.guild.id);
+  if (!config) return { ok: false, reason: 'no-config' };
+  if (member.user.bot) return { ok: false, reason: 'bot' };
+  if (member.roles.cache.has(config.roleId)) return { ok: false, reason: 'already' };
+
+  const record = pending.get(member.id);
+  pending.delete(member.id);
+  clearKickTimer(member.id);
+
+  // Supprime le captcha en attente dans le salon de vérification, si présent.
+  if (record?.captchaMessageId) {
+    const channel = member.guild.channels.cache.get(config.channelId);
+    if (channel?.isTextBased()) await channel.messages.delete(record.captchaMessageId).catch(() => {});
+  }
+
+  await member.roles.add(config.roleId);
+  await sendLog(
+    member.guild,
+    new EmbedBuilder()
+      .setColor(Colors.join)
+      .setAuthor({ name: '🛡️ Membre vérifié (manuel)' })
+      .setDescription(`${member} a été vérifié manuellement.`)
+      .addFields(...(executor ? [{ name: 'Par', value: `${executor}`, inline: true }] : []))
+      .setTimestamp(),
+  );
+  return { ok: true };
+}
+
 // À l'arrivée d'un membre : poste le captcha + programme le kick éventuel.
 export async function onMemberJoin(member) {
   if (member.user.bot) return;
