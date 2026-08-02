@@ -21,7 +21,7 @@ export default {
   execute(client) {
     console.log(`✅ Connecté en tant que ${client.user.tag}`);
     // Statut du bot.
-    client.user.setActivity('.gg/ximi best serveur fr', { type: ActivityType.Playing });
+    client.user.setActivity('Le meilleur serv .gg/ximi', { type: ActivityType.Watching });
     // Démarre le suivi arrivées/départs pour chaque serveur.
     for (const [guildId] of client.guilds.cache) ensureTracking(guildId);
     // Vérifie les bans temporaires arrivés à échéance, toutes les 60 s.
