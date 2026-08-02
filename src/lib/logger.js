@@ -12,8 +12,9 @@ export const Colors = {
   server: 0x5865f2,
 };
 
-// Envoie un embed dans le salon de logs configuré pour ce serveur (silencieux si non configuré).
-export async function sendLog(guild, embed) {
+// Envoie un embed (+ éventuellement des fichiers) dans le salon de logs configuré
+// pour ce serveur (silencieux si non configuré).
+export async function sendLog(guild, embed, files = []) {
   if (!guild) return;
   const { logChannelId } = getGuildConfig(guild.id);
   if (!logChannelId) return;
@@ -21,7 +22,7 @@ export async function sendLog(guild, embed) {
     guild.channels.cache.get(logChannelId) ??
     (await guild.channels.fetch(logChannelId).catch(() => null));
   if (!channel?.isTextBased()) return;
-  await channel.send({ embeds: [embed] }).catch(() => {});
+  await channel.send({ embeds: [embed], files }).catch(() => {});
 }
 
 // Best-effort : retrouve l'auteur d'une action via les journaux d'audit.

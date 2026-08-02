@@ -1,5 +1,6 @@
-import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
+import { Events, EmbedBuilder, AttachmentBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
+import { takeCachedAttachments } from '../lib/attachmentCache.js';
 
 export default {
   name: Events.MessageDelete,
@@ -25,10 +26,14 @@ export default {
       )
       .setTimestamp();
 
+    // Photos/vidéos mises en cache à la création → on les ré-attache pour les afficher.
+    const cached = takeCachedAttachments(message.id);
+    const files = cached.map((f) => new AttachmentBuilder(f.buffer, { name: f.name }));
+
     if (message.attachments?.size) {
       embed.addFields({
         name: 'Pièces jointes',
-        value: message.attachments.map((a) => a.url).join('\n').slice(0, 1000),
+        value: message.attachments.map((a) => a.name || a.url).join('\n').slice(0, 1000),
       });
     }
 
@@ -38,6 +43,6 @@ export default {
       embed.addFields({ name: 'Supprimé par', value: `${executor}`, inline: true });
     }
 
-    await sendLog(message.guild, embed);
+    await sendLog(message.guild, embed, files);
   },
 };
