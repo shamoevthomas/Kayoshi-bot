@@ -1,14 +1,22 @@
 import { Events, EmbedBuilder } from 'discord.js';
 import { sendLog, Colors } from '../lib/logger.js';
-import { addMemberEvent } from '../lib/store.js';
+import { addMemberEvent, countJoins, addInviteCredit } from '../lib/store.js';
 import { onMemberJoin } from '../lib/verification.js';
 import { sendGreeting } from '../lib/greetings.js';
+import { detectUsedInvite } from '../lib/invites.js';
 
 export default {
   name: Events.GuildMemberAdd,
   async execute(member) {
     if (member.user.bot) return;
+
+    // Détecte l'invitation utilisée AVANT tout traitement, tant que l'écart de
+    // compteur avec le cache est encore frais.
+    const used = await detectUsedInvite(member.guild).catch(() => null);
+
     addMemberEvent(member.guild.id, 'join', member.id);
+    // countJoins inclut l'arrivée qu'on vient d'enregistrer → on retire 1.
+    const previousJoins = Math.max(0, countJoins(member.guild.id, member.id) - 1);
 
     // Vérification anti-bot (si configurée)
     await onMemberJoin(member).catch((err) => console.error(err));
@@ -19,12 +27,44 @@ export default {
       .setColor(Colors.join)
       .setAuthor({ name: '📥 Arrivée', iconURL: member.user.displayAvatarURL() })
       .setDescription(`${member} (${member.user.tag}) a rejoint le serveur`)
-      .addFields({
-        name: 'Compte créé',
-        value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
-        inline: true,
-      })
+      .addFields(
+        {
+          name: 'Compte créé',
+          value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
+          inline: true,
+        },
+        {
+          name: 'Déjà venu',
+          value: previousJoins > 0 ? `**${previousJoins}** fois auparavant` : 'Première arrivée',
+          inline: true,
+        },
+      )
       .setTimestamp();
+
+    // --- Informations d'invitation ---
+    if (used?.vanity) {
+      embed.addFields({
+        name: 'Invitation',
+        value: `Lien personnalisé — \`discord.gg/${used.code}\``,
+        inline: false,
+      });
+    } else if (used?.inviter) {
+      const total = addInviteCredit(member.guild.id, used.inviter.id);
+      embed.addFields(
+        { name: 'Invitation', value: `\`discord.gg/${used.code}\``, inline: true },
+        { name: 'Créée par', value: `${used.inviter} (${used.inviter.tag})`, inline: true },
+        {
+          name: `Invitations de ${used.inviter.username}`,
+          value: `**${total}** membre(s) invité(s) au total`,
+          inline: false,
+        },
+      );
+    } else if (used?.code) {
+      // Invitation détectée mais créateur inconnu (ex. cache incomplet).
+      embed.addFields({ name: 'Invitation', value: `\`discord.gg/${used.code}\``, inline: true });
+    } else {
+      embed.addFields({ name: 'Invitation', value: 'Indéterminée', inline: true });
+    }
 
     await sendLog(member.guild, embed);
   },

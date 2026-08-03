@@ -2,6 +2,7 @@ import { Events, ActivityType } from 'discord.js';
 import { ensureTracking, getDueTempBans, removeTempBan } from '../lib/store.js';
 import { reconcileVerification } from '../lib/verification.js';
 import { reconcileTempVoice } from '../lib/tempvoice.js';
+import { cacheAllInvites } from '../lib/invites.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -18,8 +19,10 @@ async function processTempBans(client) {
 export default {
   name: Events.ClientReady,
   once: true,
-  execute(client) {
+  async execute(client) {
     console.log(`✅ Connecté en tant que ${client.user.tag}`);
+    // Met en cache les invitations de chaque serveur (pour le suivi des invitations).
+    await cacheAllInvites(client).catch((err) => console.error(err));
     // Statut du bot.
     client.user.setActivity('Le meilleur serv .gg/ximi', { type: ActivityType.Watching });
     // Démarre le suivi arrivées/départs pour chaque serveur.

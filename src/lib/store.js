@@ -91,6 +91,29 @@ export function addMemberEvent(guildId, type, userId) {
   save(data);
 }
 
+// --- Suivi des invitations ---
+// Crédite une invitation à son créateur et renvoie son total cumulé.
+export function addInviteCredit(guildId, inviterId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.inviteCounts = g.inviteCounts ?? {};
+  g.inviteCounts[inviterId] = (g.inviteCounts[inviterId] ?? 0) + 1;
+  data[guildId] = g;
+  save(data);
+  return g.inviteCounts[inviterId];
+}
+
+// Nombre total de membres invités (attribués) par une personne.
+export function getInviteCount(guildId, inviterId) {
+  return getGuildConfig(guildId).inviteCounts?.[inviterId] ?? 0;
+}
+
+// Nombre d'arrivées enregistrées pour un membre (inclut l'arrivée courante).
+export function countJoins(guildId, userId) {
+  const events = getGuildConfig(guildId).memberEvents ?? [];
+  return events.reduce((n, e) => (e.t === 'join' && e.u === userId ? n + 1 : n), 0);
+}
+
 // --- Avertissements (warns) ---
 export function getWarns(guildId, userId) {
   return getGuildConfig(guildId).warns?.[userId] ?? [];

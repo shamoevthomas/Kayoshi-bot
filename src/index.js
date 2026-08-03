@@ -24,6 +24,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent, // contenu des messages supprimés (privilégié)
     GatewayIntentBits.GuildEmojisAndStickers, // ajout emoji/sticker
     GatewayIntentBits.GuildModeration, // bannissements (event guildBanAdd)
+    GatewayIntentBits.GuildInvites, // suivi des invitations (qui a invité qui)
   ],
   partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
 });
