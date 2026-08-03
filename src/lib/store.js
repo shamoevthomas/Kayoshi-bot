@@ -108,6 +108,17 @@ export function getInviteCount(guildId, inviterId) {
   return getGuildConfig(guildId).inviteCounts?.[inviterId] ?? 0;
 }
 
+// Paliers de récompense (invitrank) : liste de { count, roleId }, triée croissant.
+export function getInviteRanks(guildId) {
+  return getGuildConfig(guildId).inviteRanks ?? [];
+}
+
+export function setInviteRanks(guildId, ranks) {
+  const sorted = [...ranks].sort((a, b) => a.count - b.count);
+  setGuildConfig(guildId, { inviteRanks: sorted });
+  return sorted;
+}
+
 // Nombre d'arrivées enregistrées pour un membre (inclut l'arrivée courante).
 export function countJoins(guildId, userId) {
   const events = getGuildConfig(guildId).memberEvents ?? [];

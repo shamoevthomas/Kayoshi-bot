@@ -4,6 +4,7 @@ import { addMemberEvent, countJoins, addInviteCredit } from '../lib/store.js';
 import { onMemberJoin } from '../lib/verification.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { detectUsedInvite } from '../lib/invites.js';
+import { syncInviteRankRole } from '../lib/inviterank.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -59,6 +60,21 @@ export default {
           inline: false,
         },
       );
+
+      // Fait évoluer le rôle de palier du parrain selon son nouveau total.
+      const promoted = await syncInviteRankRole(member.guild, used.inviter.id, total).catch(() => null);
+      if (promoted) {
+        await sendLog(
+          member.guild,
+          new EmbedBuilder()
+            .setColor(Colors.role)
+            .setAuthor({ name: '🏆 Palier d’invitations atteint', iconURL: used.inviter.displayAvatarURL() })
+            .setDescription(
+              `${used.inviter} a atteint **${promoted.count} invitation(s)** et débloque <@&${promoted.roleId}> !`,
+            )
+            .setTimestamp(),
+        );
+      }
     } else if (used?.code) {
       // Invitation détectée mais créateur inconnu (ex. cache incomplet).
       embed.addFields({ name: 'Invitation', value: `\`discord.gg/${used.code}\``, inline: true });
