@@ -2,7 +2,6 @@ import { EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { generateCaptcha } from './captcha.js';
 import { getVerifConfig } from './store.js';
 import { sendLog, Colors } from './logger.js';
-import { formatDuration } from './time.js';
 
 // État en mémoire (perdu au redémarrage, reconstruit à la volée quand un membre écrit).
 const pending = new Map(); // userId -> { answer, attempts, captchaMessageId }
@@ -19,23 +18,29 @@ async function deleteCaptchaMessage(channel, record) {
 }
 
 // Poste (ou reposte) un captcha pour un membre dans le salon de vérification.
-// Message simple (pas d'embed) : mention + image + essais restants + temps restant.
+// Embed : image + essais restants + compte à rebours d'expulsion en direct
+// (timestamp relatif Discord, mis à jour automatiquement côté client).
 async function postCaptcha(channel, member, config, attempts = 0) {
   const { text, buffer } = generateCaptcha();
   const file = new AttachmentBuilder(buffer, { name: 'captcha.png' });
 
   const attemptsLeft = config.maxAttempts - attempts;
-  let content =
-    `🛡️ ${member}, recopie le texte de l’image **dans ce salon** pour accéder au serveur.\n` +
-    `• Essais restants : **${attemptsLeft}**`;
+  const embed = new EmbedBuilder()
+    .setColor(Colors.role)
+    .setAuthor({ name: '🛡️ Vérification', iconURL: member.guild.iconURL() ?? undefined })
+    .setDescription(`${member}, recopie le texte de l’image **dans ce salon** pour accéder au serveur.`)
+    .setImage('attachment://captcha.png')
+    .addFields({ name: 'Essais restants', value: `**${attemptsLeft}**`, inline: true });
+
   if (config.kickAfterMs != null) {
-    const elapsed = Date.now() - (member.joinedTimestamp ?? Date.now());
-    const remaining = Math.max(0, config.kickAfterMs - elapsed);
-    content += `\n• Temps restant avant expulsion : **${formatDuration(remaining)}**`;
+    const deadline = Math.floor(((member.joinedTimestamp ?? Date.now()) + config.kickAfterMs) / 1000);
+    embed.addFields({ name: 'Expulsion', value: `<t:${deadline}:R>`, inline: true });
+    embed.setFooter({ text: 'Vérifie-toi avant la fin du compte à rebours.' });
   }
 
   const msg = await channel.send({
-    content,
+    content: `${member}`,
+    embeds: [embed],
     files: [file],
     allowedMentions: { users: [member.id] },
   });
