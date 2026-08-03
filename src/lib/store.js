@@ -154,6 +154,20 @@ export function recordInviteLeave(guildId, leaverId) {
   return { inviterId, total: s.real + s.bonus };
 }
 
+// Classement des parrains d'un serveur, trié par total décroissant.
+// Renvoie [{ userId, real, left, bonus, total }].
+export function getInviteLeaderboard(guildId) {
+  const g = getGuildConfig(guildId);
+  const ids = new Set([...Object.keys(g.inviteStats ?? {}), ...Object.keys(g.inviteCounts ?? {})]);
+  const rows = [];
+  for (const userId of ids) {
+    const s = getInviteStats(guildId, userId);
+    const total = s.real + s.bonus;
+    if (total > 0 || s.left > 0) rows.push({ userId, ...s, total });
+  }
+  return rows.sort((a, b) => b.total - a.total || b.real - a.real);
+}
+
 // Salon dédié au suivi des invitations (configuré via /inviteconfig).
 export function getInviteLogChannel(guildId) {
   return getGuildConfig(guildId).inviteLogChannelId ?? null;
