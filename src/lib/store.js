@@ -154,6 +154,18 @@ export function recordInviteLeave(guildId, leaverId) {
   return { inviterId, total: s.real + s.bonus };
 }
 
+// Ajoute (ou retire, si n < 0) des invitations bonus à un membre.
+// Renvoie { bonus, total } après application.
+export function addBonusInvites(guildId, userId, n) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  const s = statsFor(g, userId);
+  s.bonus += n;
+  data[guildId] = g;
+  save(data);
+  return { bonus: s.bonus, total: s.real + s.bonus };
+}
+
 // Classement des parrains d'un serveur, trié par total décroissant.
 // Renvoie [{ userId, real, left, bonus, total }].
 export function getInviteLeaderboard(guildId) {
