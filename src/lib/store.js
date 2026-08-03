@@ -154,6 +154,15 @@ export function recordInviteLeave(guildId, leaverId) {
   return { inviterId, total: s.real + s.bonus };
 }
 
+// Salon dédié au suivi des invitations (configuré via /inviteconfig).
+export function getInviteLogChannel(guildId) {
+  return getGuildConfig(guildId).inviteLogChannelId ?? null;
+}
+
+export function setInviteLogChannel(guildId, channelId) {
+  return setGuildConfig(guildId, { inviteLogChannelId: channelId });
+}
+
 // Paliers de récompense (invitrank) : liste de { count, roleId }, triée croissant.
 export function getInviteRanks(guildId) {
   return getGuildConfig(guildId).inviteRanks ?? [];

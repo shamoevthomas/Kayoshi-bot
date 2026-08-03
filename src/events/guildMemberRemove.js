@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
-import { sendLog, Colors, findAuditEntry } from '../lib/logger.js';
+import { sendLog, sendInviteLog, Colors, findAuditEntry } from '../lib/logger.js';
 import { addMemberEvent, recordInviteLeave } from '../lib/store.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { onMemberLeave } from '../lib/verification.js';
@@ -20,7 +20,7 @@ export default {
     const invite = recordInviteLeave(member.guild.id, member.id);
     if (invite) {
       await syncInviteRankRole(member.guild, invite.inviterId, invite.total).catch(() => {});
-      await sendLog(
+      await sendInviteLog(
         member.guild,
         new EmbedBuilder()
           .setColor(Colors.leave)

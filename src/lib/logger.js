@@ -25,6 +25,20 @@ export async function sendLog(guild, embed, files = []) {
   await channel.send({ embeds: [embed], files }).catch(() => {});
 }
 
+// Envoie un embed dans le salon dédié au suivi des invitations (/inviteconfig).
+// Si aucun salon dédié n'est configuré, on retombe sur le salon de logs général.
+export async function sendInviteLog(guild, embed, files = []) {
+  if (!guild) return;
+  const { inviteLogChannelId, logChannelId } = getGuildConfig(guild.id);
+  const channelId = inviteLogChannelId ?? logChannelId;
+  if (!channelId) return;
+  const channel =
+    guild.channels.cache.get(channelId) ??
+    (await guild.channels.fetch(channelId).catch(() => null));
+  if (!channel?.isTextBased()) return;
+  await channel.send({ embeds: [embed], files }).catch(() => {});
+}
+
 // Best-effort : retrouve l'auteur d'une action via les journaux d'audit.
 // Nécessite la permission "Voir les journaux d'audit". Renvoie null si indisponible.
 export async function findExecutor(guild, type, targetId) {

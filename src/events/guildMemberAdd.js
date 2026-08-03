@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder } from 'discord.js';
-import { sendLog, Colors } from '../lib/logger.js';
+import { sendLog, sendInviteLog, Colors } from '../lib/logger.js';
 import { addMemberEvent, countJoins, recordInviteJoin } from '../lib/store.js';
 import { onMemberJoin } from '../lib/verification.js';
 import { sendGreeting } from '../lib/greetings.js';
@@ -24,39 +24,47 @@ export default {
     // Message de bienvenue (si configuré)
     await sendGreeting(member.guild, 'welcome', member).catch((err) => console.error(err));
 
-    const embed = new EmbedBuilder()
-      .setColor(Colors.join)
-      .setAuthor({ name: '📥 Arrivée', iconURL: member.user.displayAvatarURL() })
-      .setDescription(`${member} (${member.user.tag}) a rejoint le serveur`)
-      .addFields(
-        {
+    // --- Log d'arrivée (salon de logs général) ---
+    await sendLog(
+      member.guild,
+      new EmbedBuilder()
+        .setColor(Colors.join)
+        .setAuthor({ name: '📥 Arrivée', iconURL: member.user.displayAvatarURL() })
+        .setDescription(`${member} (${member.user.tag}) a rejoint le serveur`)
+        .addFields({
           name: 'Compte créé',
           value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
           inline: true,
-        },
-        {
-          name: 'Déjà venu',
-          value: previousJoins > 0 ? `**${previousJoins}** fois auparavant` : 'Première arrivée',
-          inline: true,
-        },
-      )
+        })
+        .setTimestamp(),
+    );
+
+    // --- Suivi d'invitation (salon dédié via /inviteconfig) ---
+    const inviteEmbed = new EmbedBuilder()
+      .setColor(Colors.join)
+      .setAuthor({ name: '📨 Suivi d’invitation', iconURL: member.user.displayAvatarURL() })
+      .setDescription(`${member} (${member.user.tag}) a rejoint le serveur.`)
+      .addFields({
+        name: 'Déjà venu',
+        value: previousJoins > 0 ? `**${previousJoins}** fois auparavant` : 'Première arrivée',
+        inline: true,
+      })
       .setTimestamp();
 
-    // --- Informations d'invitation ---
     if (used?.vanity) {
-      embed.addFields({
+      inviteEmbed.addFields({
         name: 'Invitation',
         value: `Lien personnalisé — \`discord.gg/${used.code}\``,
-        inline: false,
+        inline: true,
       });
     } else if (used?.inviter) {
       const total = recordInviteJoin(member.guild.id, used.inviter.id, member.id);
-      embed.addFields(
-        { name: 'Invitation', value: `\`discord.gg/${used.code}\``, inline: true },
-        { name: 'Créée par', value: `${used.inviter} (${used.inviter.tag})`, inline: true },
+      inviteEmbed.addFields(
+        { name: 'Invité par', value: `${used.inviter} (${used.inviter.tag})`, inline: true },
+        { name: 'Lien utilisé', value: `\`discord.gg/${used.code}\``, inline: true },
         {
-          name: `Invitations de ${used.inviter.username}`,
-          value: `**${total}** membre(s) invité(s) au total`,
+          name: `Total de ${used.inviter.username}`,
+          value: `**${total}** membre(s) invité(s)`,
           inline: false,
         },
       );
@@ -64,24 +72,19 @@ export default {
       // Fait évoluer le rôle de palier du parrain selon son nouveau total.
       const promoted = await syncInviteRankRole(member.guild, used.inviter.id, total).catch(() => null);
       if (promoted) {
-        await sendLog(
-          member.guild,
-          new EmbedBuilder()
-            .setColor(Colors.role)
-            .setAuthor({ name: '🏆 Palier d’invitations atteint', iconURL: used.inviter.displayAvatarURL() })
-            .setDescription(
-              `${used.inviter} a atteint **${promoted.count} invitation(s)** et débloque <@&${promoted.roleId}> !`,
-            )
-            .setTimestamp(),
-        );
+        inviteEmbed.addFields({
+          name: '🏆 Palier atteint',
+          value: `${used.inviter} débloque <@&${promoted.roleId}> (${promoted.count}+) !`,
+          inline: false,
+        });
       }
     } else if (used?.code) {
       // Invitation détectée mais créateur inconnu (ex. cache incomplet).
-      embed.addFields({ name: 'Invitation', value: `\`discord.gg/${used.code}\``, inline: true });
+      inviteEmbed.addFields({ name: 'Invitation', value: `\`discord.gg/${used.code}\``, inline: true });
     } else {
-      embed.addFields({ name: 'Invitation', value: 'Indéterminée', inline: true });
+      inviteEmbed.addFields({ name: 'Invitation', value: 'Indéterminée', inline: true });
     }
 
-    await sendLog(member.guild, embed);
+    await sendInviteLog(member.guild, inviteEmbed);
   },
 };
