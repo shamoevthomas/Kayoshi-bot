@@ -58,7 +58,7 @@ export default {
         inline: true,
       });
     } else if (used?.inviter) {
-      const total = recordInviteJoin(member.guild.id, used.inviter.id, member.id);
+      const total = recordInviteJoin(member.guild.id, used.inviter.id, member.id, used.code);
       inviteEmbed.addFields(
         { name: 'Invité par', value: `${used.inviter} (${used.inviter.tag})`, inline: true },
         { name: 'Lien utilisé', value: `\`discord.gg/${used.code}\``, inline: true },

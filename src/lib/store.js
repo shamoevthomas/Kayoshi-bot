@@ -125,33 +125,37 @@ export function getInviteTotal(guildId, userId) {
   return s.real + s.bonus;
 }
 
-// Crédite une arrivée à un parrain et retient qui a invité le nouveau membre.
-export function recordInviteJoin(guildId, inviterId, joinerId) {
+// Crédite une arrivée à un parrain et retient qui a invité le nouveau membre
+// ainsi que le lien (code) utilisé, pour pouvoir l'afficher à son départ.
+export function recordInviteJoin(guildId, inviterId, joinerId, code = null) {
   const data = load();
   const g = data[guildId] ?? {};
   const s = statsFor(g, inviterId);
   s.real += 1;
   g.invitedBy = g.invitedBy ?? {};
-  g.invitedBy[joinerId] = inviterId;
+  g.invitedBy[joinerId] = { inviterId, code };
   data[guildId] = g;
   save(data);
   return s.real + s.bonus;
 }
 
 // Décompte un départ : si on connaît le parrain du partant, real-1 et left+1.
-// Renvoie { inviterId, total } ou null si le parrain est inconnu.
+// Renvoie { inviterId, code, total } ou null si le parrain est inconnu.
 export function recordInviteLeave(guildId, leaverId) {
   const data = load();
   const g = data[guildId];
-  const inviterId = g?.invitedBy?.[leaverId];
-  if (!inviterId) return null;
+  const entry = g?.invitedBy?.[leaverId];
+  if (!entry) return null;
+  // Compat : ancien format = simple chaîne (inviterId sans code).
+  const inviterId = typeof entry === 'string' ? entry : entry.inviterId;
+  const code = typeof entry === 'string' ? null : entry.code ?? null;
   delete g.invitedBy[leaverId];
   const s = statsFor(g, inviterId);
   if (s.real > 0) s.real -= 1;
   s.left += 1;
   data[guildId] = g;
   save(data);
-  return { inviterId, total: s.real + s.bonus };
+  return { inviterId, code, total: s.real + s.bonus };
 }
 
 // Ajoute (ou retire, si n < 0) des invitations bonus à un membre.

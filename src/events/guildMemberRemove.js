@@ -20,16 +20,19 @@ export default {
     const invite = recordInviteLeave(member.guild.id, member.id);
     if (invite) {
       await syncInviteRankRole(member.guild, invite.inviterId, invite.total).catch(() => {});
-      await sendInviteLog(
-        member.guild,
-        new EmbedBuilder()
-          .setColor(Colors.leave)
-          .setAuthor({ name: '📉 Invitation perdue' })
-          .setDescription(
-            `<@${invite.inviterId}> perd une invitation (départ de **${member.user?.tag ?? 'un membre'}**) — total : **${invite.total}**.`,
-          )
-          .setTimestamp(),
-      );
+      const leaveEmbed = new EmbedBuilder()
+        .setColor(Colors.leave)
+        .setAuthor({ name: '📉 Invitation perdue' })
+        .setDescription(
+          `<@${invite.inviterId}> perd une invitation (départ de **${member.user?.tag ?? 'un membre'}**) — total : **${invite.total}**.`,
+        )
+        .addFields({
+          name: 'Rejoint via',
+          value: invite.code ? `\`discord.gg/${invite.code}\`` : 'Lien inconnu',
+          inline: true,
+        })
+        .setTimestamp();
+      await sendInviteLog(member.guild, leaveEmbed);
     }
 
     // Détecte si ce départ est en fait une expulsion (kick) faite via Discord/un autre bot.
@@ -65,6 +68,18 @@ export default {
         value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`,
         inline: true,
       });
+    }
+
+    // Lien d'invitation utilisé à l'arrivée (si connu).
+    if (invite) {
+      embed.addFields(
+        {
+          name: 'Rejoint via',
+          value: invite.code ? `\`discord.gg/${invite.code}\`` : 'Lien inconnu',
+          inline: true,
+        },
+        { name: 'Invité par', value: `<@${invite.inviterId}>`, inline: true },
+      );
     }
 
     await sendLog(member.guild, embed);
