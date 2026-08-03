@@ -92,20 +92,66 @@ export function addMemberEvent(guildId, type, userId) {
 }
 
 // --- Suivi des invitations ---
-// Crédite une invitation à son créateur et renvoie son total cumulé.
-export function addInviteCredit(guildId, inviterId) {
-  const data = load();
-  const g = data[guildId] ?? {};
-  g.inviteCounts = g.inviteCounts ?? {};
-  g.inviteCounts[inviterId] = (g.inviteCounts[inviterId] ?? 0) + 1;
-  data[guildId] = g;
-  save(data);
-  return g.inviteCounts[inviterId];
+// Chaque parrain a des stats { real, left, bonus } :
+//   real  = membres invités toujours présents
+//   left  = membres invités qui ont ensuite quitté
+//   bonus = invitations ajoutées manuellement (réservé à un usage futur)
+// Le total affiché = real + bonus.
+
+// Récupère (et migre depuis l'ancien compteur simple) l'objet stats d'un parrain.
+function statsFor(g, userId) {
+  g.inviteStats = g.inviteStats ?? {};
+  if (!g.inviteStats[userId]) {
+    g.inviteStats[userId] = { real: g.inviteCounts?.[userId] ?? 0, left: 0, bonus: 0 };
+  }
+  const s = g.inviteStats[userId];
+  s.real = s.real ?? 0;
+  s.left = s.left ?? 0;
+  s.bonus = s.bonus ?? 0;
+  return s;
 }
 
-// Nombre total de membres invités (attribués) par une personne.
-export function getInviteCount(guildId, inviterId) {
-  return getGuildConfig(guildId).inviteCounts?.[inviterId] ?? 0;
+// Stats en lecture seule d'un parrain.
+export function getInviteStats(guildId, userId) {
+  const g = getGuildConfig(guildId);
+  const s = g.inviteStats?.[userId];
+  if (s) return { real: s.real ?? 0, left: s.left ?? 0, bonus: s.bonus ?? 0 };
+  return { real: g.inviteCounts?.[userId] ?? 0, left: 0, bonus: 0 };
+}
+
+// Total affiché (real + bonus) d'un parrain.
+export function getInviteTotal(guildId, userId) {
+  const s = getInviteStats(guildId, userId);
+  return s.real + s.bonus;
+}
+
+// Crédite une arrivée à un parrain et retient qui a invité le nouveau membre.
+export function recordInviteJoin(guildId, inviterId, joinerId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  const s = statsFor(g, inviterId);
+  s.real += 1;
+  g.invitedBy = g.invitedBy ?? {};
+  g.invitedBy[joinerId] = inviterId;
+  data[guildId] = g;
+  save(data);
+  return s.real + s.bonus;
+}
+
+// Décompte un départ : si on connaît le parrain du partant, real-1 et left+1.
+// Renvoie { inviterId, total } ou null si le parrain est inconnu.
+export function recordInviteLeave(guildId, leaverId) {
+  const data = load();
+  const g = data[guildId];
+  const inviterId = g?.invitedBy?.[leaverId];
+  if (!inviterId) return null;
+  delete g.invitedBy[leaverId];
+  const s = statsFor(g, inviterId);
+  if (s.real > 0) s.real -= 1;
+  s.left += 1;
+  data[guildId] = g;
+  save(data);
+  return { inviterId, total: s.real + s.bonus };
 }
 
 // Paliers de récompense (invitrank) : liste de { count, roleId }, triée croissant.

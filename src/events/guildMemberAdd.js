@@ -1,6 +1,6 @@
 import { Events, EmbedBuilder } from 'discord.js';
 import { sendLog, Colors } from '../lib/logger.js';
-import { addMemberEvent, countJoins, addInviteCredit } from '../lib/store.js';
+import { addMemberEvent, countJoins, recordInviteJoin } from '../lib/store.js';
 import { onMemberJoin } from '../lib/verification.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { detectUsedInvite } from '../lib/invites.js';
@@ -50,7 +50,7 @@ export default {
         inline: false,
       });
     } else if (used?.inviter) {
-      const total = addInviteCredit(member.guild.id, used.inviter.id);
+      const total = recordInviteJoin(member.guild.id, used.inviter.id, member.id);
       embed.addFields(
         { name: 'Invitation', value: `\`discord.gg/${used.code}\``, inline: true },
         { name: 'Créée par', value: `${used.inviter} (${used.inviter.tag})`, inline: true },

@@ -1,8 +1,9 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findAuditEntry } from '../lib/logger.js';
-import { addMemberEvent } from '../lib/store.js';
+import { addMemberEvent, recordInviteLeave } from '../lib/store.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { onMemberLeave } from '../lib/verification.js';
+import { syncInviteRankRole } from '../lib/inviterank.js';
 
 export default {
   name: Events.GuildMemberRemove,
@@ -13,6 +14,23 @@ export default {
     await onMemberLeave(member).catch((err) => console.error(err));
 
     addMemberEvent(member.guild.id, 'leave', member.id);
+
+    // Décompte d'invitation : si ce membre avait été invité par quelqu'un,
+    // on retire une invitation à son parrain et on réajuste son rôle de palier.
+    const invite = recordInviteLeave(member.guild.id, member.id);
+    if (invite) {
+      await syncInviteRankRole(member.guild, invite.inviterId, invite.total).catch(() => {});
+      await sendLog(
+        member.guild,
+        new EmbedBuilder()
+          .setColor(Colors.leave)
+          .setAuthor({ name: '📉 Invitation perdue' })
+          .setDescription(
+            `<@${invite.inviterId}> perd une invitation (départ de **${member.user?.tag ?? 'un membre'}**) — total : **${invite.total}**.`,
+          )
+          .setTimestamp(),
+      );
+    }
 
     // Détecte si ce départ est en fait une expulsion (kick) faite via Discord/un autre bot.
     // La commande /kick du bot loggue déjà elle-même → on ignore si l'exécuteur est le bot.

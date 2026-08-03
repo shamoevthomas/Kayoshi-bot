@@ -1,11 +1,11 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getInviteCount, getInviteRanks } from '../../lib/store.js';
+import { getInviteStats, getInviteTotal, getInviteRanks } from '../../lib/store.js';
 import { Colors } from '../../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('invitations')
-    .setDescription("Voir le nombre d'invitations d'un membre et son prochain palier.")
+    .setDescription("Suivi des invitations d'un membre (total, détail, palier).")
     .setDMPermission(false)
     .addUserOption((opt) =>
       opt.setName('membre').setDescription('Le membre à consulter (toi par défaut)').setRequired(false),
@@ -13,8 +13,10 @@ export default {
 
   async execute(interaction) {
     const target = interaction.options.getUser('membre') ?? interaction.user;
-    const total = getInviteCount(interaction.guild.id, target.id);
-    const ranks = [...getInviteRanks(interaction.guild.id)].sort((a, b) => a.count - b.count);
+    const guildId = interaction.guild.id;
+    const stats = getInviteStats(guildId, target.id);
+    const total = getInviteTotal(guildId, target.id);
+    const ranks = [...getInviteRanks(guildId)].sort((a, b) => a.count - b.count);
 
     const current = [...ranks].reverse().find((r) => total >= r.count) ?? null;
     const next = ranks.find((r) => r.count > total) ?? null;
@@ -22,7 +24,15 @@ export default {
     const embed = new EmbedBuilder()
       .setColor(Colors.role)
       .setAuthor({ name: `Invitations de ${target.username}`, iconURL: target.displayAvatarURL() })
-      .setDescription(`**${total}** membre(s) invité(s) au total.`)
+      .setDescription(`**${total}** invitation(s) au total.`)
+      .addFields({
+        name: 'Détail',
+        value:
+          `✅ Réelles : **${stats.real}**\n` +
+          `📉 Parties : **${stats.left}**` +
+          (stats.bonus ? `\n🎁 Bonus : **${stats.bonus}**` : ''),
+        inline: false,
+      })
       .setTimestamp();
 
     if (current) {
@@ -32,10 +42,9 @@ export default {
     }
 
     if (next) {
-      const remaining = next.count - total;
       embed.addFields({
         name: 'Prochain palier',
-        value: `<@&${next.roleId}> — encore **${remaining}** invitation(s)`,
+        value: `<@&${next.roleId}> — encore **${next.count - total}** invitation(s)`,
         inline: true,
       });
     } else if (ranks.length) {
