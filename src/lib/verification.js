@@ -17,6 +17,31 @@ async function deleteCaptchaMessage(channel, record) {
   if (record?.captchaMessageId) await channel.messages.delete(record.captchaMessageId).catch(() => {});
 }
 
+// Supprime le(s) message(s) de captcha d'un membre dans le salon de vérification.
+// Fiable même après un redémarrage du bot (l'enregistrement mémoire est perdu) :
+// on scanne aussi les messages récents pour retrouver le captcha du membre.
+async function purgeMemberCaptcha(guild, config, member, record) {
+  const channel = guild.channels.cache.get(config.channelId);
+  if (!channel?.isTextBased()) return;
+
+  // 1) Message connu via l'état en mémoire.
+  if (record?.captchaMessageId) await channel.messages.delete(record.captchaMessageId).catch(() => {});
+
+  // 2) Repli : on retrouve les captchas du membre postés par le bot
+  //    (message qui le mentionne + image/embed de vérification).
+  const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+  if (!recent) return;
+  const botId = guild.client.user.id;
+  const captchas = recent.filter(
+    (m) =>
+      m.author.id === botId &&
+      m.id !== record?.captchaMessageId &&
+      m.mentions.users.has(member.id) &&
+      (m.attachments.size > 0 || m.embeds.some((e) => e.author?.name?.includes('Vérification'))),
+  );
+  for (const [, m] of captchas) await m.delete().catch(() => {});
+}
+
 // Poste (ou reposte) un captcha pour un membre dans le salon de vérification.
 // Embed : image + essais restants + compte à rebours d'expulsion en direct
 // (timestamp relatif Discord, mis à jour automatiquement côté client).
@@ -95,11 +120,8 @@ export async function forceVerify(member, executor = null) {
   pending.delete(member.id);
   clearKickTimer(member.id);
 
-  // Supprime le captcha en attente dans le salon de vérification, si présent.
-  if (record?.captchaMessageId) {
-    const channel = member.guild.channels.cache.get(config.channelId);
-    if (channel?.isTextBased()) await channel.messages.delete(record.captchaMessageId).catch(() => {});
-  }
+  // Supprime le(s) message(s) de captcha du membre (même après un redémarrage).
+  await purgeMemberCaptcha(member.guild, config, member, record).catch(() => {});
 
   await member.roles.add(config.roleId);
   await sendLog(
