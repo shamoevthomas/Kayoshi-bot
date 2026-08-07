@@ -2,6 +2,7 @@ import { Events } from 'discord.js';
 import { handleVerifyMessage } from '../lib/verification.js';
 import { handleLinkFilter } from '../lib/linkfilter.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
+import { bumpGiveawayMessages } from '../lib/store.js';
 
 export default {
   name: Events.MessageCreate,
@@ -10,5 +11,7 @@ export default {
     await handleLinkFilter(message).catch((err) => console.error(err));
     // Met en cache les photos/vidéos pour pouvoir les ré-afficher si le message est supprimé.
     await cacheAttachments(message).catch((err) => console.error(err));
+    // Comptage des messages pour les giveaways avec condition de participation.
+    if (message.guild && !message.author?.bot) bumpGiveawayMessages(message.guild.id, message.author.id);
   },
 };

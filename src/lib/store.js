@@ -423,3 +423,88 @@ export function setGreetConfig(guildId, type, cfg) {
   save(data);
   return cfg;
 }
+
+// --- Giveaways ---
+// Stockés sous data[guildId].giveaways[messageId].
+export function createGiveaway(guildId, messageId, gw) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.giveaways = g.giveaways ?? {};
+  g.giveaways[messageId] = gw;
+  data[guildId] = g;
+  save(data);
+  return gw;
+}
+
+export function getGiveaway(guildId, messageId) {
+  return getGuildConfig(guildId).giveaways?.[messageId] ?? null;
+}
+
+export function updateGiveaway(guildId, messageId, patch) {
+  const data = load();
+  const gws = data[guildId]?.giveaways;
+  if (!gws?.[messageId]) return null;
+  gws[messageId] = { ...gws[messageId], ...patch };
+  save(data);
+  return gws[messageId];
+}
+
+export function deleteGiveaway(guildId, messageId) {
+  const data = load();
+  const gws = data[guildId]?.giveaways;
+  if (!gws?.[messageId]) return;
+  delete gws[messageId];
+  save(data);
+}
+
+export function getGuildGiveaways(guildId) {
+  return getGuildConfig(guildId).giveaways ?? {};
+}
+
+export function addGiveawayParticipant(guildId, messageId, userId) {
+  const data = load();
+  const gw = data[guildId]?.giveaways?.[messageId];
+  if (!gw) return { ok: false };
+  gw.participants = gw.participants ?? [];
+  if (gw.participants.includes(userId)) return { ok: true, already: true };
+  gw.participants.push(userId);
+  save(data);
+  return { ok: true, already: false };
+}
+
+export function removeGiveawayParticipant(guildId, messageId, userId) {
+  const data = load();
+  const gw = data[guildId]?.giveaways?.[messageId];
+  if (!gw) return false;
+  gw.participants = (gw.participants ?? []).filter((id) => id !== userId);
+  save(data);
+  return true;
+}
+
+// Incrémente le compteur de messages du membre pour chaque giveaway actif
+// (non terminé, avec exigence de messages) du serveur.
+export function bumpGiveawayMessages(guildId, userId) {
+  const data = load();
+  const gws = data[guildId]?.giveaways;
+  if (!gws) return;
+  let changed = false;
+  for (const gw of Object.values(gws)) {
+    if (gw.ended || !gw.requiredMessages) continue;
+    gw.messageCounts = gw.messageCounts ?? {};
+    gw.messageCounts[userId] = (gw.messageCounts[userId] ?? 0) + 1;
+    changed = true;
+  }
+  if (changed) save(data);
+}
+
+// Tous les giveaways de tous les serveurs (reconcile au démarrage).
+export function getAllGiveaways() {
+  const data = load();
+  const out = [];
+  for (const [guildId, g] of Object.entries(data)) {
+    for (const [messageId, gw] of Object.entries(g.giveaways ?? {})) {
+      out.push({ guildId, messageId, gw });
+    }
+  }
+  return out;
+}
