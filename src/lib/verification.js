@@ -42,6 +42,21 @@ async function purgeMemberCaptcha(guild, config, member, record) {
   for (const [, m] of captchas) await m.delete().catch(() => {});
 }
 
+// Purge tous les captchas restants du salon de vérification (nettoyage en masse).
+async function purgeAllCaptchas(guild, config) {
+  const channel = guild.channels.cache.get(config.channelId);
+  if (!channel?.isTextBased()) return;
+  const recent = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+  if (!recent) return;
+  const botId = guild.client.user.id;
+  const captchas = recent.filter(
+    (m) =>
+      m.author.id === botId &&
+      (m.attachments.size > 0 || m.embeds.some((e) => e.author?.name?.includes('Vérification'))),
+  );
+  for (const [, m] of captchas) await m.delete().catch(() => {});
+}
+
 // Poste (ou reposte) un captcha pour un membre dans le salon de vérification.
 // Embed : image + essais restants + compte à rebours d'expulsion en direct
 // (timestamp relatif Discord, mis à jour automatiquement côté client).
@@ -134,6 +149,56 @@ export async function forceVerify(member, executor = null) {
       .setTimestamp(),
   );
   return { ok: true };
+}
+
+// Valide TOUS les membres non vérifiés d'un coup, sans spammer les logs
+// (un seul récapitulatif). Renvoie les compteurs.
+export async function forceVerifyAll(guild, executor = null) {
+  const config = getVerifConfig(guild.id);
+  if (!config) return { ok: false, reason: 'no-config' };
+
+  const members = await guild.members.fetch().catch(() => null);
+  if (!members) return { ok: false, reason: 'fetch-failed' };
+
+  let verified = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const [, member] of members) {
+    if (member.user.bot || member.roles.cache.has(config.roleId)) {
+      skipped += 1;
+      continue;
+    }
+    // Nettoie l'état en attente + le timer de kick de ce membre.
+    pending.delete(member.id);
+    clearKickTimer(member.id);
+    try {
+      await member.roles.add(config.roleId);
+      verified += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  // Nettoie les captchas restants dans le salon de vérification.
+  await purgeAllCaptchas(guild, config).catch(() => {});
+
+  // Un seul log récapitulatif (au lieu d'un par membre).
+  await sendLog(
+    guild,
+    new EmbedBuilder()
+      .setColor(Colors.join)
+      .setAuthor({ name: '🛡️ Vérification en masse' })
+      .setDescription(`**${verified}** membre(s) vérifié(s) manuellement.`)
+      .addFields(
+        { name: 'Ignorés (déjà vérifiés / bots)', value: `${skipped}`, inline: true },
+        ...(failed ? [{ name: '⚠️ Échecs', value: `${failed}`, inline: true }] : []),
+        ...(executor ? [{ name: 'Par', value: `${executor}`, inline: true }] : []),
+      )
+      .setTimestamp(),
+  );
+
+  return { ok: true, verified, skipped, failed };
 }
 
 // À l'arrivée d'un membre : poste le captcha + programme le kick éventuel.
