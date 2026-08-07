@@ -12,7 +12,15 @@ export default {
     ),
 
   async execute(interaction) {
-    const member = interaction.options.getMember('membre');
+    const user = interaction.options.getUser('membre');
+
+    // On récupère le membre directement (fetch) : un membre encore en attente de
+    // l'écran d'accueil (onboarding, `pending`) n'est pas toujours résolu par
+    // getMember() → on le force en le récupérant auprès du serveur.
+    let member = interaction.options.getMember('membre');
+    if (!member && user) {
+      member = await interaction.guild.members.fetch(user.id).catch(() => null);
+    }
     if (!member) {
       await interaction.reply({ content: '❌ Ce membre est introuvable sur le serveur.', ephemeral: true });
       return;
