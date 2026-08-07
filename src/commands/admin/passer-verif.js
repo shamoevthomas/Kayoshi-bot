@@ -18,50 +18,58 @@ export default {
     ),
 
   async execute(interaction) {
-    // Discord refuse de résoudre un membre encore en écran d'accueil (pending) via
-    // l'option Utilisateur (erreur « Utilisateur invalide »). D'où l'option `id` :
-    // le bot, lui, sait récupérer un membre pending par son ID côté serveur.
-    const user = interaction.options.getUser('membre');
-    const rawId = interaction.options.getString('id')?.trim();
-    const targetId = rawId || user?.id;
+    // On diffère tout de suite : fetch du membre + ajout de rôle + log peuvent
+    // dépasser les 3 s de la fenêtre de réponse d'une interaction.
+    await interaction.deferReply({ ephemeral: true });
 
-    if (!targetId) {
-      await interaction.reply({
-        content: '❌ Précise un **membre** ou un **id**. Astuce : si Discord affiche « Utilisateur invalide » en sélectionnant le membre, colle plutôt son ID dans l’option `id`.',
-        ephemeral: true,
-      });
-      return;
+    try {
+      // Discord refuse de résoudre un membre encore en écran d'accueil (pending)
+      // via l'option Utilisateur (« Utilisateur invalide »). D'où l'option `id` :
+      // le bot sait récupérer un membre pending par son ID côté serveur.
+      const user = interaction.options.getUser('membre');
+      const rawId = interaction.options.getString('id')?.trim();
+      const targetId = rawId || user?.id;
+
+      if (!targetId) {
+        return interaction.editReply({
+          content: '❌ Précise un **membre** ou un **id**. Astuce : si Discord affiche « Utilisateur invalide » en sélectionnant le membre, colle plutôt son ID dans l’option `id`.',
+        });
+      }
+
+      if (!/^\d{17,20}$/.test(targetId)) {
+        return interaction.editReply({ content: `❌ ID invalide : \`${targetId}\`. Un ID Discord est une suite de chiffres.` });
+      }
+
+      // Fetch direct : fonctionne même pour un membre en attente d'écran d'accueil.
+      const member =
+        interaction.options.getMember('membre') ||
+        (await interaction.guild.members.fetch(targetId).catch(() => null));
+
+      if (!member) {
+        return interaction.editReply({ content: `❌ Aucun membre \`${targetId}\` trouvé sur le serveur (a-t-il quitté ?).` });
+      }
+
+      // On laisse remonter les vraies erreurs Discord (permissions, rôle, etc.)
+      // pour les afficher à l'admin au lieu d'un message générique.
+      const res = await forceVerify(member, interaction.user);
+
+      const messages = {
+        'no-config': "❌ La vérification n'est pas configurée sur ce serveur (`/configverif`).",
+        bot: '❌ Impossible : ce membre est un bot.',
+        already: `ℹ️ ${member} est déjà vérifié.`,
+      };
+
+      if (!res.ok) {
+        return interaction.editReply({ content: messages[res.reason] ?? '❌ Impossible de valider ce membre.' });
+      }
+
+      return interaction.editReply({ content: `✅ ${member} a été vérifié manuellement.` });
+    } catch (err) {
+      console.error('[passer-verif] échec :', err);
+      const reason = err?.message || String(err);
+      return interaction
+        .editReply({ content: `❌ Erreur : ${reason}\n(Vérifie que mon rôle est **au-dessus** du rôle de vérif et que j'ai la permission **Gérer les rôles**.)` })
+        .catch(() => {});
     }
-
-    if (!/^\d{17,20}$/.test(targetId)) {
-      await interaction.reply({ content: `❌ ID invalide : \`${targetId}\`. Un ID Discord est une suite de chiffres.`, ephemeral: true });
-      return;
-    }
-
-    // Fetch direct : fonctionne même pour un membre en attente d'écran d'accueil.
-    const member =
-      interaction.options.getMember('membre') ||
-      (await interaction.guild.members.fetch(targetId).catch(() => null));
-
-    if (!member) {
-      await interaction.reply({ content: `❌ Aucun membre \`${targetId}\` trouvé sur le serveur (a-t-il quitté ?).`, ephemeral: true });
-      return;
-    }
-
-    const res = await forceVerify(member, interaction.user).catch(() => ({ ok: false, reason: 'error' }));
-
-    const messages = {
-      'no-config': "❌ La vérification n'est pas configurée sur ce serveur (`/configverif`).",
-      bot: '❌ Impossible : ce membre est un bot.',
-      already: `ℹ️ ${member} est déjà vérifié.`,
-      error: '❌ Erreur : impossible d’ajouter le rôle (vérifie mes permissions).',
-    };
-
-    if (!res.ok) {
-      await interaction.reply({ content: messages[res.reason] ?? messages.error, ephemeral: true });
-      return;
-    }
-
-    await interaction.reply({ content: `✅ ${member} a été vérifié manuellement.`, ephemeral: true });
   },
 };
