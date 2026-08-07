@@ -31,6 +31,31 @@ export default {
       }
     }
 
+    // --- Changement de pseudo (surnom sur le serveur) ---
+    if (oldMember.nickname !== newMember.nickname) {
+      const executor = await findExecutor(guild, AuditLogEvent.MemberUpdate, newMember.id);
+      const oldNick = oldMember.nickname ?? `${newMember.user.username} (aucun)`;
+      const newNick = newMember.nickname ?? `${newMember.user.username} (aucun)`;
+
+      let title = '✏️ Pseudo modifié';
+      if (!oldMember.nickname) title = '✏️ Pseudo ajouté';
+      else if (!newMember.nickname) title = '✏️ Pseudo retiré';
+
+      await sendLog(
+        guild,
+        new EmbedBuilder()
+          .setColor(Colors.channel)
+          .setAuthor({ name: title })
+          .setDescription(`Membre : ${newMember} (${newMember.user.tag})`)
+          .addFields(
+            { name: 'Avant', value: `\`${oldNick}\``, inline: true },
+            { name: 'Après', value: `\`${newNick}\``, inline: true },
+            ...(executor && executor.id !== newMember.id ? [{ name: 'Par', value: `${executor}`, inline: true }] : []),
+          )
+          .setTimestamp(),
+      );
+    }
+
     const oldRoles = oldMember.roles.cache;
     const newRoles = newMember.roles.cache;
     const added = newRoles.filter((r) => !oldRoles.has(r.id));
