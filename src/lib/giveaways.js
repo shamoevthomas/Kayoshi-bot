@@ -7,7 +7,7 @@ import {
   getAllGiveaways,
 } from './store.js';
 
-const GW_COLOR = 0xf47fff; // rose festif
+const GW_COLOR = 0x131313; // noir
 const MAX_DELAY = 2_147_483_647; // limite de setTimeout (~24,8 j)
 const timers = new Map(); // messageId -> timeout
 
