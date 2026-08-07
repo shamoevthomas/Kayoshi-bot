@@ -18,7 +18,7 @@ function clearTimer(messageId) {
 }
 
 // --- Rendu ---
-export function buildJoinRow(disabled = false) {
+export function buildJoinRow(count = 0, disabled = false) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('gw_join')
@@ -26,7 +26,20 @@ export function buildJoinRow(disabled = false) {
       .setLabel('Participer')
       .setStyle(ButtonStyle.Success)
       .setDisabled(disabled),
+    new ButtonBuilder()
+      .setCustomId('gw_list')
+      .setEmoji('👥')
+      .setLabel(`${count} participant${count > 1 ? 's' : ''}`)
+      .setStyle(ButtonStyle.Secondary),
   );
+}
+
+// Met à jour le compteur du bouton participants sur le message du giveaway.
+async function refreshParticipantCount(channel, guildId, messageId) {
+  const gw = getGiveaway(guildId, messageId);
+  if (!gw || gw.ended || !channel?.isTextBased?.()) return;
+  const msg = await channel.messages.fetch(messageId).catch(() => null);
+  if (msg) await msg.edit({ components: [buildJoinRow(gw.participants?.length ?? 0)] }).catch(() => {});
 }
 
 export function buildGiveawayEmbed(gw, ended = false) {
@@ -115,7 +128,10 @@ export async function endGiveawayNow(client, guildId, messageId) {
     const msg = await channel.messages.fetch(messageId).catch(() => null);
     if (msg) {
       await msg
-        .edit({ embeds: [buildGiveawayEmbed({ ...gw, winnerIds: winners }, true)], components: [buildJoinRow(true)] })
+        .edit({
+          embeds: [buildGiveawayEmbed({ ...gw, winnerIds: winners }, true)],
+          components: [buildJoinRow(gw.participants?.length ?? 0, true)],
+        })
         .catch(() => {});
     }
     await announceWinners(channel, gw, winners);
@@ -194,12 +210,47 @@ export async function handleGiveawayInteraction(interaction) {
     if (res.already) {
       return interaction.reply({ content: `ℹ️ Tu participes déjà à ce giveaway.${extra}`, components: [leaveRow], ephemeral: true });
     }
-    return interaction.reply({ content: `🎉 Vous vous êtes bien inscrit au giveaway !${extra}`, components: [leaveRow], ephemeral: true });
+    await interaction.reply({ content: `🎉 Vous vous êtes bien inscrit au giveaway !${extra}`, components: [leaveRow], ephemeral: true });
+    await refreshParticipantCount(interaction.channel, guildId, messageId);
+    return;
+  }
+
+  if (cid === 'gw_list') {
+    const messageId = interaction.message.id;
+    const gw = getGiveaway(guildId, messageId);
+    if (!gw) return interaction.reply({ content: '❌ Giveaway introuvable.', ephemeral: true });
+    const ids = gw.participants ?? [];
+    if (!ids.length) return interaction.reply({ content: '👥 Aucun participant pour le moment.', ephemeral: true });
+
+    const lines = ids.map((id, i) => `**${i + 1}.** <@${id}>`);
+    let desc = lines.join('\n');
+    let footer = null;
+    if (desc.length > 4000) {
+      // Tronque proprement pour rester sous la limite d'un embed.
+      const kept = [];
+      let len = 0;
+      for (const line of lines) {
+        if (len + line.length + 1 > 3900) break;
+        kept.push(line);
+        len += line.length + 1;
+      }
+      desc = kept.join('\n');
+      footer = `… et ${ids.length - kept.length} autre(s)`;
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(GW_COLOR)
+      .setTitle(`👥 Participants — ${gw.prize}`)
+      .setDescription(desc)
+      .setFooter({ text: footer ?? `${ids.length} participant(s)` });
+    return interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
   if (cid.startsWith('gw_leave:')) {
     const messageId = cid.slice('gw_leave:'.length);
     removeGiveawayParticipant(guildId, messageId, interaction.user.id);
-    return interaction.update({ content: '✅ Tu t’es désinscrit du giveaway.', components: [] });
+    await interaction.update({ content: '✅ Tu t’es désinscrit du giveaway.', components: [] });
+    await refreshParticipantCount(interaction.channel, guildId, messageId);
+    return;
   }
 }

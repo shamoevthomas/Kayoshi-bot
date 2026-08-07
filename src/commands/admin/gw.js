@@ -103,7 +103,7 @@ export default {
     const msg = await interaction.channel.send({
       content: `${role}`,
       embeds: [buildGiveawayEmbed(gw)],
-      components: [buildJoinRow()],
+      components: [buildJoinRow(0)],
       allowedMentions: { roles: [role.id] },
     });
 
