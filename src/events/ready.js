@@ -3,6 +3,8 @@ import { ensureTracking, getDueTempBans, removeTempBan } from '../lib/store.js';
 import { reconcileVerification } from '../lib/verification.js';
 import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
+import { getStatusRoleConfig } from '../lib/store.js';
+import { sweepAllStatusRoles } from '../lib/statusrole.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -34,5 +36,9 @@ export default {
     reconcileVerification(client);
     // Nettoie les vocaux temporaires vides.
     reconcileTempVoice(client);
+    // Rôle selon le statut : balayage initial + toutes les 5 min
+    // (rattrape les membres déjà en ligne et retire le rôle si le texte a disparu).
+    setTimeout(() => sweepAllStatusRoles(client, getStatusRoleConfig).catch(() => {}), 10_000);
+    setInterval(() => sweepAllStatusRoles(client, getStatusRoleConfig).catch(() => {}), 300_000);
   },
 };

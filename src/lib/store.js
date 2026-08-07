@@ -346,6 +346,16 @@ export function setVerifConfig(guildId, verifConfig) {
   return setGuildConfig(guildId, { verifConfig });
 }
 
+// --- Rôle selon le statut personnalisé (ex: invite du serveur dans le statut) ---
+// Config : { text: string déclencheur, roleId: string }.
+export function getStatusRoleConfig(guildId) {
+  return getGuildConfig(guildId).statusRole ?? null;
+}
+
+export function setStatusRoleConfig(guildId, statusRole) {
+  return setGuildConfig(guildId, { statusRole });
+}
+
 // --- Filtre anti-liens ---
 export function getLinkConfig(guildId) {
   return getGuildConfig(guildId).linkConfig ?? null;
