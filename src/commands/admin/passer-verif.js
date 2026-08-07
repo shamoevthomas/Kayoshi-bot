@@ -8,21 +8,43 @@ export default {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
     .setDMPermission(false)
     .addUserOption((opt) =>
-      opt.setName('membre').setDescription('Le membre à faire passer la vérification').setRequired(true),
+      opt.setName('membre').setDescription('Le membre à faire passer la vérification').setRequired(false),
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName('id')
+        .setDescription("ID du membre (à utiliser s'il est bloqué à l'écran d'accueil → « Utilisateur invalide »)")
+        .setRequired(false),
     ),
 
   async execute(interaction) {
+    // Discord refuse de résoudre un membre encore en écran d'accueil (pending) via
+    // l'option Utilisateur (erreur « Utilisateur invalide »). D'où l'option `id` :
+    // le bot, lui, sait récupérer un membre pending par son ID côté serveur.
     const user = interaction.options.getUser('membre');
+    const rawId = interaction.options.getString('id')?.trim();
+    const targetId = rawId || user?.id;
 
-    // On récupère le membre directement (fetch) : un membre encore en attente de
-    // l'écran d'accueil (onboarding, `pending`) n'est pas toujours résolu par
-    // getMember() → on le force en le récupérant auprès du serveur.
-    let member = interaction.options.getMember('membre');
-    if (!member && user) {
-      member = await interaction.guild.members.fetch(user.id).catch(() => null);
+    if (!targetId) {
+      await interaction.reply({
+        content: '❌ Précise un **membre** ou un **id**. Astuce : si Discord affiche « Utilisateur invalide » en sélectionnant le membre, colle plutôt son ID dans l’option `id`.',
+        ephemeral: true,
+      });
+      return;
     }
+
+    if (!/^\d{17,20}$/.test(targetId)) {
+      await interaction.reply({ content: `❌ ID invalide : \`${targetId}\`. Un ID Discord est une suite de chiffres.`, ephemeral: true });
+      return;
+    }
+
+    // Fetch direct : fonctionne même pour un membre en attente d'écran d'accueil.
+    const member =
+      interaction.options.getMember('membre') ||
+      (await interaction.guild.members.fetch(targetId).catch(() => null));
+
     if (!member) {
-      await interaction.reply({ content: '❌ Ce membre est introuvable sur le serveur.', ephemeral: true });
+      await interaction.reply({ content: `❌ Aucun membre \`${targetId}\` trouvé sur le serveur (a-t-il quitté ?).`, ephemeral: true });
       return;
     }
 
