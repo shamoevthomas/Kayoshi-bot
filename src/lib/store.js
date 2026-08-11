@@ -424,6 +424,31 @@ export function setGreetConfig(guildId, type, cfg) {
   return cfg;
 }
 
+// --- Messages sauvegardés (slots /save 1..5) ---
+// Stockés sous data[guildId].savedMessages[slot] = { content, authorId, ts }.
+export function getSavedMessage(guildId, slot) {
+  return getGuildConfig(guildId).savedMessages?.[slot] ?? null;
+}
+
+export function setSavedMessage(guildId, slot, record) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.savedMessages = g.savedMessages ?? {};
+  g.savedMessages[slot] = record;
+  data[guildId] = g;
+  save(data);
+  return record;
+}
+
+export function deleteSavedMessage(guildId, slot) {
+  const data = load();
+  const g = data[guildId];
+  if (!g?.savedMessages?.[slot]) return false;
+  delete g.savedMessages[slot];
+  save(data);
+  return true;
+}
+
 // --- Giveaways ---
 // Stockés sous data[guildId].giveaways[messageId].
 export function createGiveaway(guildId, messageId, gw) {
