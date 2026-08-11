@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getWeekKey } from './week.js';
 
 // Stockage par serveur dans Supabase (table kayoshi_store) + cache en mémoire.
 // L'API publique reste SYNCHRONE : le cache est chargé au démarrage via initStore(),
@@ -422,6 +423,37 @@ export function setGreetConfig(guildId, type, cfg) {
   data[guildId] = g;
   save(data);
   return cfg;
+}
+
+// --- Classement d'activité hebdomadaire (/configstat) ---
+// Salon + message à mettre à jour : { channelId, messageId }.
+export function getStatConfig(guildId) {
+  return getGuildConfig(guildId).statConfig ?? null;
+}
+
+export function setStatConfig(guildId, statConfig) {
+  return setGuildConfig(guildId, { statConfig });
+}
+
+// Compte un message pour la semaine courante (réinitialise au changement de semaine).
+export function bumpActivity(guildId, userId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  const wk = getWeekKey();
+  if (!g.activity || g.activity.weekKey !== wk) g.activity = { weekKey: wk, counts: {} };
+  g.activity.counts[userId] = (g.activity.counts[userId] ?? 0) + 1;
+  data[guildId] = g;
+  save(data);
+}
+
+// Top membres de la semaine courante : [{ userId, count }]. Vide si nouvelle semaine.
+export function getActivityLeaderboard(guildId, limit = 10) {
+  const g = getGuildConfig(guildId);
+  if (!g.activity || g.activity.weekKey !== getWeekKey()) return [];
+  return Object.entries(g.activity.counts ?? {})
+    .map(([userId, count]) => ({ userId, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
 }
 
 // --- Messages sauvegardés (slots /save 1..5) ---
