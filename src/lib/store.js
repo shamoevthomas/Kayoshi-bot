@@ -435,6 +435,38 @@ export function setStatConfig(guildId, statConfig) {
   return setGuildConfig(guildId, { statConfig });
 }
 
+// Met à jour partiellement la config stats (sans écraser le reste).
+export function patchStatConfig(guildId, patch) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.statConfig = { ...(g.statConfig ?? {}), ...patch };
+  data[guildId] = g;
+  save(data);
+  return g.statConfig;
+}
+
+// Ajoute des secondes de présence vocale pour la semaine courante.
+export function bumpVoiceActivity(guildId, userId, seconds) {
+  if (!seconds || seconds <= 0) return;
+  const data = load();
+  const g = data[guildId] ?? {};
+  const wk = getWeekKey();
+  if (!g.voiceActivity || g.voiceActivity.weekKey !== wk) g.voiceActivity = { weekKey: wk, counts: {} };
+  g.voiceActivity.counts[userId] = (g.voiceActivity.counts[userId] ?? 0) + Math.round(seconds);
+  data[guildId] = g;
+  save(data);
+}
+
+// Top membres vocaux de la semaine courante : [{ userId, seconds }].
+export function getVoiceLeaderboard(guildId, limit = 10) {
+  const g = getGuildConfig(guildId);
+  if (!g.voiceActivity || g.voiceActivity.weekKey !== getWeekKey()) return [];
+  return Object.entries(g.voiceActivity.counts ?? {})
+    .map(([userId, seconds]) => ({ userId, seconds }))
+    .sort((a, b) => b.seconds - a.seconds)
+    .slice(0, limit);
+}
+
 // Compte un message pour la semaine courante (réinitialise au changement de semaine).
 export function bumpActivity(guildId, userId) {
   const data = load();
