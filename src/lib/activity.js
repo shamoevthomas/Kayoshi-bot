@@ -45,7 +45,7 @@ export function buildStatEmbed(guild, cfg = getStatConfig(guild.id)) {
       { name: '💬 Messages', value: textLines, inline: false },
       { name: '🔊 Vocal', value: voiceLines, inline: false },
     )
-    .setFooter({ text: `Semaine du ${start} au ${end} · actualisé toutes les 10 min` })
+    .setFooter({ text: `Semaine du ${start} au ${end} · actualisé toutes les 5 min` })
     .setTimestamp();
 
   const rewards = [];

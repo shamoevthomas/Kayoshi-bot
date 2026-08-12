@@ -22,7 +22,7 @@ export default {
     .addChannelOption((o) =>
       o
         .setName('salon')
-        .setDescription('Salon où afficher le classement (actualisé toutes les 10 min)')
+        .setDescription('Salon où afficher le classement (actualisé toutes les 5 min)')
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
         .setRequired(true),
     )
@@ -84,7 +84,7 @@ export default {
     return interaction.editReply({
       content:
         `✅ Classement des plus actifs configuré dans ${channel}.\n` +
-        `Il se met à jour **toutes les 10 minutes** et se réinitialise chaque **lundi**.` +
+        `Il se met à jour **toutes les 5 minutes** et se réinitialise chaque **lundi**.` +
         roleInfo,
     });
   },

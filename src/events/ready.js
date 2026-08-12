@@ -46,9 +46,9 @@ export default {
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
     // Classement des plus actifs : démarre le suivi vocal des membres déjà connectés,
-    // puis actualisation immédiate + toutes les 10 min.
+    // puis actualisation immédiate + toutes les 5 min.
     initVoiceSessions(client);
     setTimeout(() => refreshAllStats(client).catch(() => {}), 15_000);
-    setInterval(() => refreshAllStats(client).catch(() => {}), 600_000);
+    setInterval(() => refreshAllStats(client).catch(() => {}), 300_000);
   },
 };
