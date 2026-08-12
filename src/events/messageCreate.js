@@ -2,11 +2,17 @@ import { Events } from 'discord.js';
 import { handleVerifyMessage } from '../lib/verification.js';
 import { handleLinkFilter } from '../lib/linkfilter.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
-import { bumpGiveawayMessages, bumpActivity } from '../lib/store.js';
+import { bumpGiveawayMessages, bumpActivity, isOneMessageChannel } from '../lib/store.js';
 
 export default {
   name: Events.MessageCreate,
   async execute(message) {
+    // Salon "one-message" : tout nouveau message d'un membre est supprimé aussitôt.
+    if (message.guild && !message.author?.bot && isOneMessageChannel(message.guild.id, message.channelId)) {
+      await message.delete().catch(() => {});
+      return;
+    }
+
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));
     // Met en cache les photos/vidéos pour pouvoir les ré-afficher si le message est supprimé.

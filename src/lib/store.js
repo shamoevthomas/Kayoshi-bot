@@ -488,6 +488,35 @@ export function getActivityLeaderboard(guildId, limit = 10) {
     .slice(0, limit);
 }
 
+// --- Salons "one-message" (tout nouveau message y est supprimé aussitôt) ---
+export function getOneMessageChannels(guildId) {
+  return getGuildConfig(guildId).oneMessageChannels ?? [];
+}
+
+export function isOneMessageChannel(guildId, channelId) {
+  return (getGuildConfig(guildId).oneMessageChannels ?? []).includes(channelId);
+}
+
+export function addOneMessageChannel(guildId, channelId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.oneMessageChannels = g.oneMessageChannels ?? [];
+  if (g.oneMessageChannels.includes(channelId)) return false;
+  g.oneMessageChannels.push(channelId);
+  data[guildId] = g;
+  save(data);
+  return true;
+}
+
+export function removeOneMessageChannel(guildId, channelId) {
+  const data = load();
+  const g = data[guildId];
+  if (!g?.oneMessageChannels?.includes(channelId)) return false;
+  g.oneMessageChannels = g.oneMessageChannels.filter((id) => id !== channelId);
+  save(data);
+  return true;
+}
+
 // --- Messages sauvegardés (slots /save 1..5) ---
 // Stockés sous data[guildId].savedMessages[slot] = { content, authorId, ts }.
 export function getSavedMessage(guildId, slot) {
