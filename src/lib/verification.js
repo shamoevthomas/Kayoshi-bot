@@ -112,15 +112,20 @@ function scheduleKick(member, config) {
   kickTimers.set(member.id, timer);
 }
 
-// Au départ d'un membre : supprime son message de vérification et nettoie son état.
+// Au départ d'un membre (y compris expulsion) : supprime son message de
+// vérification et nettoie son état. On s'appuie sur l'état mémoire ET sur un
+// scan de repli, car le kick automatique efface l'état avant le départ et un
+// redémarrage perd la mémoire — sinon le captcha resterait affiché.
 export async function onMemberLeave(member) {
   const record = pending.get(member.id);
   clearKickTimer(member.id);
   pending.delete(member.id);
-  if (!record?.captchaMessageId) return;
+
   const config = getVerifConfig(member.guild.id);
-  const channel = config && member.guild.channels.cache.get(config.channelId);
-  if (channel?.isTextBased()) await channel.messages.delete(record.captchaMessageId).catch(() => {});
+  if (!config) return;
+  // Déjà vérifié → aucun captcha en attente, inutile de scanner.
+  if (member.roles?.cache?.has(config.roleId)) return;
+  await purgeMemberCaptcha(member.guild, config, member, record).catch(() => {});
 }
 
 // Force la validation d'un membre (comme s'il avait réussi le captcha) : ajoute le
