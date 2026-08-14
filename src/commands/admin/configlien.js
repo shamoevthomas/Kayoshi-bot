@@ -20,26 +20,44 @@ export default {
 
   async execute(interaction) {
     const filter = (i) => i.user.id === interaction.user.id;
+    const TIME = 600_000; // 10 min par étape
     const config = { allowedChannelIds: [], roleIds: [], allowedRoleIds: [], logChannelId: null };
 
-    const channelRow = new ActionRowBuilder().addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId('cfgl_chans')
-        .setPlaceholder('Salons où les liens sont autorisés')
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-        .setMinValues(1)
-        .setMaxValues(25),
+    // ===== Étape 0 — Activer / Désactiver =====
+    const enableRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('cfgl_on').setLabel("Activer l'anti-lien").setStyle(ButtonStyle.Success).setEmoji('🔗'),
+      new ButtonBuilder().setCustomId('cfgl_off').setLabel("Désactiver l'anti-lien").setStyle(ButtonStyle.Danger).setEmoji('🚫'),
     );
-
     const msg = await interaction.reply({
-      content: '**1/4 — Salons autorisés**\nDans quels salons les liens doivent-ils être autorisé ?',
-      components: [channelRow],
+      content: '**Anti-liens** — veux-tu **activer** ou **désactiver** le filtre ?',
+      components: [enableRow],
       ephemeral: true,
       fetchReply: true,
     });
 
     try {
-      const chanSel = await msg.awaitMessageComponent({ componentType: ComponentType.ChannelSelect, time: 300_000, filter });
+      const first = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: TIME, filter });
+      if (first.customId === 'cfgl_off') {
+        // roleIds vide => le filtre ne bloque plus rien.
+        setLinkConfig(interaction.guild.id, config);
+        return first.update({ content: '🚫 Anti-liens **désactivé**. Plus aucun lien ne sera filtré.', components: [] });
+      }
+
+      // ===== 1/4 — Salons autorisés =====
+      const channelRow = new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder()
+          .setCustomId('cfgl_chans')
+          .setPlaceholder('Salons où les liens sont autorisés')
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+          .setMinValues(1)
+          .setMaxValues(25),
+      );
+      await first.update({
+        content: '**1/4 — Salons autorisés**\nDans quels salons les liens doivent-ils être autorisés ?',
+        components: [channelRow],
+      });
+
+      const chanSel = await msg.awaitMessageComponent({ componentType: ComponentType.ChannelSelect, time: TIME, filter });
       config.allowedChannelIds = chanSel.values;
 
       const roleRow = new ActionRowBuilder().addComponents(
@@ -54,7 +72,7 @@ export default {
         components: [roleRow],
       });
 
-      const roleSel = await msg.awaitMessageComponent({ componentType: ComponentType.RoleSelect, time: 300_000, filter });
+      const roleSel = await msg.awaitMessageComponent({ componentType: ComponentType.RoleSelect, time: TIME, filter });
       config.roleIds = roleSel.values;
 
       // 3/3 — rôles autorisés (exceptions), facultatif
@@ -78,18 +96,6 @@ export default {
 
       await roleSel.update({ content: step3Text(), components: [allowRow, doneRow] });
 
-      // Boucle : on accepte les changements d'exceptions jusqu'au clic sur "Suivant".
-      for (;;) {
-        const sel = await msg.awaitMessageComponent({ time: 300_000, filter });
-        if (sel.customId === 'cfgl_allow') {
-          config.allowedRoleIds = sel.values;
-          await sel.update({ content: step3Text(), components: [allowRow, doneRow] });
-        } else {
-          break;
-        }
-      }
-
-      // ===== 4/4 — Salon des liens détectés =====
       const logRow = new ActionRowBuilder().addComponents(
         new ChannelSelectMenuBuilder()
           .setCustomId('cfgl_logchan')
@@ -98,14 +104,24 @@ export default {
           .setMinValues(1)
           .setMaxValues(1),
       );
-      await msg.edit({
-        content:
-          `✅ Exceptions : ${config.allowedRoleIds.length ? config.allowedRoleIds.map((r) => `<@&${r}>`).join(' ') : '_aucune_'}\n\n` +
-          `**4/4 — Salon des liens détectés**\nOù veux-tu que j’enregistre chaque lien bloqué ?`,
-        components: [logRow],
-      });
+      const step4Text =
+        `✅ Exceptions : ${config.allowedRoleIds.length ? config.allowedRoleIds.map((r) => `<@&${r}>`).join(' ') : '_aucune_'}\n\n` +
+        `**4/4 — Salon des liens détectés**\nOù veux-tu que j’enregistre chaque lien bloqué ?`;
 
-      const logSel = await msg.awaitMessageComponent({ componentType: ComponentType.ChannelSelect, time: 300_000, filter });
+      // Boucle : on accepte les changements d'exceptions jusqu'au clic sur "Suivant",
+      // qui accuse réception (sel.update) et affiche l'étape 4.
+      for (;;) {
+        const sel = await msg.awaitMessageComponent({ time: TIME, filter });
+        if (sel.customId === 'cfgl_allow') {
+          config.allowedRoleIds = sel.values;
+          await sel.update({ content: step3Text(), components: [allowRow, doneRow] });
+        } else {
+          await sel.update({ content: step4Text, components: [logRow] });
+          break;
+        }
+      }
+
+      const logSel = await msg.awaitMessageComponent({ componentType: ComponentType.ChannelSelect, time: TIME, filter });
       config.logChannelId = logSel.values[0];
 
       setLinkConfig(interaction.guild.id, config);
@@ -121,8 +137,10 @@ export default {
         components: [],
       });
     } catch (err) {
-      console.error(err);
-      return interaction.editReply({ content: '⏱️ Configuration annulée (délai dépassé). Relance `/configlien`.', components: [] }).catch(() => {});
+      console.error('[configlien] échec :', err);
+      return interaction
+        .editReply({ content: '⏱️ Configuration interrompue (10 min d’inactivité ou erreur). Relance `/configlien`.', components: [] })
+        .catch(() => {});
     }
   },
 };
