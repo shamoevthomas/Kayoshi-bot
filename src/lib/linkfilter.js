@@ -39,30 +39,37 @@ export async function handleLinkFilter(message) {
 
   const urls = message.content.match(URL_GLOBAL) || [];
   if (urls.length === 0) return;
-  // Autorisé si tous les liens sont des GIF/plateformes whitelistées ;
-  // bloqué dès qu'un lien non autorisé est présent.
+  // Liens autorisés (GIF + plateformes whitelistées) vs interdits.
   const forbidden = urls.filter((u) => !isAllowedLink(u));
-  if (forbidden.length === 0) return;
+  const allowed = urls.filter((u) => isAllowedLink(u));
 
-  await message.delete().catch(() => {});
-  const warn = await message.channel.send(`❌ ${message.author}, les liens ne sont pas autorisés ici.`).catch(() => null);
-  if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
+  // Le message est supprimé dès qu'un lien interdit est présent.
+  if (forbidden.length) {
+    await message.delete().catch(() => {});
+    const warn = await message.channel.send(`❌ ${message.author}, les liens ne sont pas autorisés ici.`).catch(() => null);
+    if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
+  }
+
+  // Rien à enregistrer si aucun salon dédié et aucun lien interdit à logger.
+  if (!config.logChannelId && !forbidden.length) return;
 
   const embed = new EmbedBuilder()
-    .setColor(Colors.delete)
-    .setAuthor({ name: '🔗 Lien bloqué' })
-    .setDescription(`Message de ${message.author} supprimé dans ${message.channel}`)
-    .addFields(
-      { name: 'Lien(s) détecté(s)', value: forbidden.join('\n').slice(0, 1000) },
-      { name: 'Contenu', value: message.content.slice(0, 1000) },
+    .setColor(forbidden.length ? Colors.delete : Colors.role)
+    .setAuthor({ name: forbidden.length ? '🔗 Lien bloqué' : '🔗 Lien autorisé' })
+    .setDescription(
+      `Message de ${message.author} dans ${message.channel}${forbidden.length ? ' — **supprimé**' : ''}`,
     )
     .setTimestamp();
+  if (forbidden.length) embed.addFields({ name: '⛔ Bloqué(s)', value: forbidden.join('\n').slice(0, 1000) });
+  if (allowed.length) embed.addFields({ name: '✅ Autorisé(s)', value: allowed.join('\n').slice(0, 1000) });
+  embed.addFields({ name: 'Contenu', value: message.content.slice(0, 1000) });
 
-  // Salon dédié aux liens détectés s'il est configuré, sinon le salon de logs habituel.
+  // Salon dédié aux liens détectés s'il est configuré ; sinon, pour un lien
+  // bloqué uniquement, on retombe sur le salon de logs habituel.
   const logChannel = config.logChannelId
     ? message.guild.channels.cache.get(config.logChannelId) ??
       (await message.guild.channels.fetch(config.logChannelId).catch(() => null))
     : null;
   if (logChannel?.isTextBased()) await logChannel.send({ embeds: [embed] }).catch(() => {});
-  else await sendLog(message.guild, embed);
+  else if (forbidden.length) await sendLog(message.guild, embed);
 }
