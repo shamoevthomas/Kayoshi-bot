@@ -42,7 +42,7 @@ export default {
     setCoiffeurEnabled(guildId, enabled);
     return choice.update({
       content: enabled
-        ? '✅ Mode coiffeur **activé** : je répondrai « feur » à ceux qui finissent par « quoi ». 💇'
+        ? '✅ Mode coiffeur **activé** : « quoi » → « feur », « pourquoi » → « pour feur ». 💇'
         : '🚫 Mode coiffeur **désactivé**.',
       components: [],
     });

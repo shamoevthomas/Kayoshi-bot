@@ -4,8 +4,9 @@ import { handleLinkFilter } from '../lib/linkfilter.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
 import { bumpGiveawayMessages, bumpActivity, isOneMessageChannel, getCoiffeurEnabled } from '../lib/store.js';
 
-// "quoi" en fin de phrase (mot entier, ponctuation finale tolérée) — pas "pourquoi".
+// "quoi" / "pourquoi" en fin de phrase (mot entier, ponctuation finale tolérée).
 const QUOI_RE = /(?:^|\s)quoi\s*[?!.…]*$/i;
+const POURQUOI_RE = /(?:^|\s)pourquoi\s*[?!.…]*$/i;
 
 export default {
   name: Events.MessageCreate,
@@ -25,9 +26,10 @@ export default {
       bumpGiveawayMessages(message.guild.id, message.author.id);
       // Comptage d'activité hebdomadaire (classement /configstat).
       bumpActivity(message.guild.id, message.author.id);
-      // Mode coiffeur : "quoi ?" → "feur".
-      if (getCoiffeurEnabled(message.guild.id) && QUOI_RE.test(message.content)) {
-        await message.reply({ content: 'feur', allowedMentions: { repliedUser: false } }).catch(() => {});
+      // Mode coiffeur : "quoi ?" → "feur", "pourquoi ?" → "pour feur".
+      if (getCoiffeurEnabled(message.guild.id)) {
+        const feur = POURQUOI_RE.test(message.content) ? 'pour feur' : QUOI_RE.test(message.content) ? 'feur' : null;
+        if (feur) await message.reply({ content: feur, allowedMentions: { repliedUser: false } }).catch(() => {});
       }
     }
   },
