@@ -39,9 +39,9 @@ export async function handleLinkFilter(message) {
 
   const urls = message.content.match(URL_GLOBAL) || [];
   if (urls.length === 0) return;
-  // Liens autorisés (GIF + plateformes whitelistées) vs interdits.
+  // Interdits vs autorisés. Les GIF restent autorisés mais ne sont PAS loggés.
   const forbidden = urls.filter((u) => !isAllowedLink(u));
-  const allowed = urls.filter((u) => isAllowedLink(u));
+  const allowed = urls.filter((u) => isAllowedLink(u) && !isGifLink(u));
 
   // Le message est supprimé dès qu'un lien interdit est présent.
   if (forbidden.length) {
@@ -50,8 +50,9 @@ export async function handleLinkFilter(message) {
     if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
   }
 
-  // Rien à enregistrer si aucun salon dédié et aucun lien interdit à logger.
-  if (!config.logChannelId && !forbidden.length) return;
+  // Rien à enregistrer : ni lien interdit, ni lien autorisé loggable (hors GIF)
+  // dans un salon dédié.
+  if (!forbidden.length && !(config.logChannelId && allowed.length)) return;
 
   const embed = new EmbedBuilder()
     .setColor(forbidden.length ? Colors.delete : Colors.role)
