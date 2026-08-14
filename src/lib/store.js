@@ -488,6 +488,15 @@ export function getActivityLeaderboard(guildId, limit = 10) {
     .slice(0, limit);
 }
 
+// --- Mode "coiffeur" (répond "feur" quand un message finit par "quoi") ---
+export function getCoiffeurEnabled(guildId) {
+  return getGuildConfig(guildId).coiffeur === true;
+}
+
+export function setCoiffeurEnabled(guildId, enabled) {
+  return setGuildConfig(guildId, { coiffeur: Boolean(enabled) });
+}
+
 // --- Salons "one-message" (tout nouveau message y est supprimé aussitôt) ---
 export function getOneMessageChannels(guildId) {
   return getGuildConfig(guildId).oneMessageChannels ?? [];

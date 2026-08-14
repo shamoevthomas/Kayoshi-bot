@@ -2,7 +2,10 @@ import { Events } from 'discord.js';
 import { handleVerifyMessage } from '../lib/verification.js';
 import { handleLinkFilter } from '../lib/linkfilter.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
-import { bumpGiveawayMessages, bumpActivity, isOneMessageChannel } from '../lib/store.js';
+import { bumpGiveawayMessages, bumpActivity, isOneMessageChannel, getCoiffeurEnabled } from '../lib/store.js';
+
+// "quoi" en fin de phrase (mot entier, ponctuation finale tolérée) — pas "pourquoi".
+const QUOI_RE = /(?:^|\s)quoi\s*[?!.…]*$/i;
 
 export default {
   name: Events.MessageCreate,
@@ -22,6 +25,10 @@ export default {
       bumpGiveawayMessages(message.guild.id, message.author.id);
       // Comptage d'activité hebdomadaire (classement /configstat).
       bumpActivity(message.guild.id, message.author.id);
+      // Mode coiffeur : "quoi ?" → "feur".
+      if (getCoiffeurEnabled(message.guild.id) && QUOI_RE.test(message.content)) {
+        await message.reply({ content: 'feur', allowedMentions: { repliedUser: false } }).catch(() => {});
+      }
     }
   },
 };
