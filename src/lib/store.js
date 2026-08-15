@@ -528,7 +528,7 @@ export function getAllCreators() {
   const data = load();
   const out = [];
   for (const [guildId, g] of Object.entries(data)) {
-    for (const platform of ['youtube', 'tiktok']) {
+    for (const platform of ['youtube', 'tiktok', 'twitch']) {
       for (const [key, sub] of Object.entries(g.creators?.[platform] ?? {})) {
         out.push({ guildId, platform, key, sub });
       }

@@ -108,6 +108,86 @@ async function fetchTikTokVideos(username) {
     .filter(Boolean);
 }
 
+// ---------- Twitch (API Helix) ----------
+export function twitchConfigured() {
+  return Boolean(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET);
+}
+
+let twitchToken = { value: null, exp: 0 };
+async function getTwitchToken() {
+  if (!twitchConfigured()) return null;
+  if (twitchToken.value && Date.now() < twitchToken.exp) return twitchToken.value;
+  try {
+    const r = await fetch(
+      `https://id.twitch.tv/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
+      { method: 'POST', signal: AbortSignal.timeout(10_000) },
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j.access_token) return null;
+    twitchToken = { value: j.access_token, exp: Date.now() + (j.expires_in - 60) * 1000 };
+    return twitchToken.value;
+  } catch {
+    return null;
+  }
+}
+
+async function twitchApi(path) {
+  const token = await getTwitchToken();
+  if (!token) return null;
+  try {
+    const r = await fetch(`https://api.twitch.tv/helix/${path}`, {
+      headers: { 'Client-ID': process.env.TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+// Résout un pseudo/URL Twitch en { username(login), title(display) } ; null si introuvable.
+export async function resolveTwitch(input) {
+  const login = input
+    .trim()
+    .replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '')
+    .replace(/^@/, '')
+    .split(/[/?]/)[0]
+    .toLowerCase();
+  if (!login) return null;
+  const data = await twitchApi(`users?login=${encodeURIComponent(login)}`);
+  const u = data?.data?.[0];
+  if (!u) return null;
+  return { username: u.login, title: u.display_name };
+}
+
+async function postLive(channel, sub, stream) {
+  const { text, allowed } = mentionOf(sub);
+  const url = `https://twitch.tv/${sub.channelId}`;
+  const game = stream.game_name ? ` · 🎮 ${stream.game_name}` : '';
+  const content =
+    `${text ? `${text} ` : ''}🔴 **Twitch** — **${sub.title}** est en **LIVE** !\n` +
+    `${stream.title ? `**${stream.title}**${game}\n` : ''}${url}`;
+  await channel.send({ content: content.slice(0, 2000), allowedMentions: allowed });
+}
+
+async function pollTwitch(client, guildId, key, sub) {
+  const data = await twitchApi(`streams?user_login=${encodeURIComponent(sub.channelId)}`);
+  if (!data) return; // identifiants manquants ou erreur → on ne touche à rien
+  const stream = data.data?.[0];
+  const liveId = stream?.id ?? null;
+  if (!liveId) return; // hors ligne
+  if (sub.lastStreamId === liveId) return; // ce live a déjà été annoncé
+
+  const guild = client.guilds.cache.get(guildId) ?? (await client.guilds.fetch(guildId).catch(() => null));
+  const channel = guild
+    ? guild.channels.cache.get(sub.postChannelId) ?? (await guild.channels.fetch(sub.postChannelId).catch(() => null))
+    : null;
+  if (channel?.isTextBased()) await postLive(channel, sub, stream).catch(() => {});
+  updateCreator(guildId, 'twitch', key, { lastStreamId: liveId });
+}
+
 // ---------- Publication ----------
 function mentionOf(sub) {
   if (sub.mentionType === 'everyone') return { text: '@everyone', allowed: { parse: ['everyone'] } };
@@ -125,6 +205,8 @@ async function postVideo(channel, platform, sub, v) {
 }
 
 async function pollOne(client, guildId, platform, key, sub) {
+  if (platform === 'twitch') return pollTwitch(client, guildId, key, sub);
+
   const videos = platform === 'youtube' ? await fetchYouTubeVideos(sub.channelId) : await fetchTikTokVideos(sub.channelId);
   if (!videos || !videos.length) return; // échec réseau ou aucune vidéo → on ne touche à rien
 
@@ -167,10 +249,19 @@ export async function pollAllCreators(client) {
 function normalizeKey(platform, input) {
   return input
     .trim()
-    .replace(/^https?:\/\/(www\.)?(youtube\.com|tiktok\.com)\//i, '')
+    .replace(/^https?:\/\/(www\.)?(youtube\.com|tiktok\.com|twitch\.tv)\//i, '')
     .replace(/^@/, '')
     .split(/[/?]/)[0]
     .toLowerCase();
+}
+
+const PLATFORM_NAMES = { youtube: 'YouTubeur', tiktok: 'TikTokeur', twitch: 'streameur Twitch' };
+const COMMAND_NAMES = { youtube: 'youtubeur', tiktok: 'tiktokeur', twitch: 'twitch' };
+
+async function resolveCreator(platform, input) {
+  if (platform === 'youtube') return resolveYouTube(input);
+  if (platform === 'tiktok') return resolveTikTok(input);
+  return resolveTwitch(input);
 }
 
 function mentionFromOptions(interaction) {
@@ -184,7 +275,8 @@ function mentionFromOptions(interaction) {
 export async function runCreatorCommand(interaction, platform) {
   const sub = interaction.options.getSubcommand();
   const guildId = interaction.guild.id;
-  const platformName = platform === 'youtube' ? 'YouTubeur' : 'TikTokeur';
+  const platformName = PLATFORM_NAMES[platform];
+  const commandName = COMMAND_NAMES[platform];
 
   if (sub === 'liste') {
     const list = getCreators(guildId, platform);
@@ -203,7 +295,7 @@ export async function runCreatorCommand(interaction, platform) {
     const key = normalizeKey(platform, interaction.options.getString('nom'));
     const ok = removeCreator(guildId, platform, key);
     return interaction.reply({
-      content: ok ? `✅ **${key}** n'est plus suivi.` : `❌ Aucun ${platformName} \`${key}\` dans la liste. (\`/${platform === 'youtube' ? 'youtubeur' : 'tiktokeur'} liste\`)`,
+      content: ok ? `✅ **${key}** n'est plus suivi.` : `❌ Aucun ${platformName} \`${key}\` dans la liste. (\`/${commandName} liste\`)`,
       ephemeral: true,
     });
   }
@@ -217,16 +309,25 @@ export async function runCreatorCommand(interaction, platform) {
     return interaction.reply({ content: `❌ Je ne peux pas envoyer de message dans ${channel}.`, ephemeral: true });
   }
 
+  // Twitch a besoin d'identifiants API.
+  if (platform === 'twitch' && !twitchConfigured()) {
+    return interaction.reply({
+      content:
+        '❌ Le suivi Twitch nécessite une clé API. Ajoute les variables d’environnement **`TWITCH_CLIENT_ID`** et **`TWITCH_CLIENT_SECRET`** (créées sur https://dev.twitch.tv/console) sur l’hébergeur, puis redémarre le bot.',
+      ephemeral: true,
+    });
+  }
+
   await interaction.deferReply({ ephemeral: true });
 
-  const resolved = platform === 'youtube' ? await resolveYouTube(nom) : await resolveTikTok(nom);
+  const resolved = await resolveCreator(platform, nom);
   if (!resolved) {
-    return interaction.editReply({
-      content:
-        platform === 'youtube'
-          ? `❌ Chaîne YouTube introuvable pour \`${nom}\`. Essaie le **@handle**, l'URL de la chaîne, ou l'ID \`UC...\`.`
-          : `❌ Compte TikTok invalide pour \`${nom}\`. Donne le **@pseudo** (ex: \`@charlidamelio\`).`,
-    });
+    const hint = {
+      youtube: `❌ Chaîne YouTube introuvable pour \`${nom}\`. Essaie le **@handle**, l'URL de la chaîne, ou l'ID \`UC...\`.`,
+      tiktok: `❌ Compte TikTok invalide pour \`${nom}\`. Donne le **@pseudo** (ex: \`@charlidamelio\`).`,
+      twitch: `❌ Chaîne Twitch introuvable pour \`${nom}\`. Donne le **pseudo** exact (ex: \`ninja\`).`,
+    };
+    return interaction.editReply({ content: hint[platform] });
   }
 
   const { mentionType, roleId } = mentionFromOptions(interaction);
@@ -240,15 +341,17 @@ export async function runCreatorCommand(interaction, platform) {
     postChannelId: channel.id,
     mentionType,
     roleId,
-    lastVideoId: null, // baseline posée à la 1re veille (pas de spam des anciennes vidéos)
+    lastVideoId: null, // YouTube/TikTok : baseline posée à la 1re veille (pas de spam)
+    lastStreamId: null, // Twitch : dernier live annoncé
   });
 
   const mLabel = mentionType === 'everyone' ? '@everyone' : mentionType === 'here' ? '@here' : mentionType === 'role' ? `<@&${roleId}>` : 'aucune';
+  const what = platform === 'twitch' ? 'Un message sera posté **quand la chaîne passe en live**' : 'Les **nouvelles vidéos** publiées à partir de maintenant y seront postées';
   return interaction.editReply({
     content:
       `✅ ${existing ? 'Mis à jour' : 'Suivi ajouté'} : **${resolved.title}**\n` +
-      `• Vidéos envoyées dans ${channel}\n` +
+      `• Salon : ${channel}\n` +
       `• Mention : ${mLabel}\n` +
-      `Les **nouvelles** vidéos publiées à partir de maintenant y seront postées (vérification toutes les 10 min).`,
+      `${what} (vérification toutes les 10 min).`,
   });
 }
