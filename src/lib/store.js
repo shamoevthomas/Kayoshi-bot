@@ -488,6 +488,55 @@ export function getActivityLeaderboard(guildId, limit = 10) {
     .slice(0, limit);
 }
 
+// --- Créateurs suivis (YouTube / TikTok) ---
+// data[guildId].creators = { youtube: { key: sub }, tiktok: { key: sub } }
+// sub = { username, channelId, title, postChannelId, mentionType, roleId, lastVideoId }
+export function getCreators(guildId, platform) {
+  return getGuildConfig(guildId).creators?.[platform] ?? {};
+}
+
+export function addCreator(guildId, platform, key, sub) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.creators = g.creators ?? {};
+  g.creators[platform] = g.creators[platform] ?? {};
+  g.creators[platform][key] = sub;
+  data[guildId] = g;
+  save(data);
+  return sub;
+}
+
+export function removeCreator(guildId, platform, key) {
+  const data = load();
+  const p = data[guildId]?.creators?.[platform];
+  if (!p?.[key]) return false;
+  delete p[key];
+  save(data);
+  return true;
+}
+
+export function updateCreator(guildId, platform, key, patch) {
+  const data = load();
+  const p = data[guildId]?.creators?.[platform];
+  if (!p?.[key]) return;
+  p[key] = { ...p[key], ...patch };
+  save(data);
+}
+
+// Tous les créateurs suivis, tous serveurs confondus (pour la veille).
+export function getAllCreators() {
+  const data = load();
+  const out = [];
+  for (const [guildId, g] of Object.entries(data)) {
+    for (const platform of ['youtube', 'tiktok']) {
+      for (const [key, sub] of Object.entries(g.creators?.[platform] ?? {})) {
+        out.push({ guildId, platform, key, sub });
+      }
+    }
+  }
+  return out;
+}
+
 // --- Mode "coiffeur" (répond "feur" quand un message finit par "quoi") ---
 export function getCoiffeurEnabled(guildId) {
   return getGuildConfig(guildId).coiffeur === true;

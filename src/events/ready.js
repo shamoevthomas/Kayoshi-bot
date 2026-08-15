@@ -8,6 +8,7 @@ import { sweepAllStatusRoles } from '../lib/statusrole.js';
 import { reconcileGiveaways } from '../lib/giveaways.js';
 import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
+import { pollAllCreators } from '../lib/creators.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -45,6 +46,9 @@ export default {
     setInterval(() => sweepAllStatusRoles(client, getStatusRoleConfig).catch(() => {}), 300_000);
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
+    // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.
+    setTimeout(() => pollAllCreators(client).catch(() => {}), 30_000);
+    setInterval(() => pollAllCreators(client).catch(() => {}), 600_000);
     // Classement des plus actifs : démarre le suivi vocal des membres déjà connectés,
     // puis actualisation immédiate + toutes les 5 min.
     initVoiceSessions(client);
