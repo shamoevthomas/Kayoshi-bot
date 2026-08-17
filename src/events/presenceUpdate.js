@@ -1,9 +1,9 @@
 import { Events } from 'discord.js';
-import { getStatusRoleConfig } from '../lib/store.js';
-import { applyStatusRole } from '../lib/statusrole.js';
+import { getStatusRoleConfig, getStatutRules } from '../lib/store.js';
+import { applyStatusRole, applyStatutRules } from '../lib/statusrole.js';
 
-// À chaque changement de présence : (re)vérifie si le membre a le texte
-// déclencheur (ex: l'invite du serveur) dans son statut pour ajouter/retirer le rôle.
+// À chaque changement de présence : (re)vérifie les mots-clés du statut pour
+// ajouter/retirer les rôles correspondants.
 export default {
   name: Events.PresenceUpdate,
   async execute(oldPresence, newPresence) {
@@ -12,8 +12,9 @@ export default {
     if (!guild || !member || member.user?.bot) return;
 
     const config = getStatusRoleConfig(guild.id);
-    if (!config?.text || !config.roleId) return;
+    if (config?.text && config.roleId) await applyStatusRole(member, config).catch(() => {});
 
-    await applyStatusRole(member, config).catch(() => {});
+    const rules = getStatutRules(guild.id);
+    if (rules.length) await applyStatutRules(member, rules).catch(() => {});
   },
 };

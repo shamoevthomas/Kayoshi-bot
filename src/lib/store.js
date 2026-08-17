@@ -357,6 +357,36 @@ export function setStatusRoleConfig(guildId, statusRole) {
   return setGuildConfig(guildId, { statusRole });
 }
 
+// --- Rôles selon le statut : plusieurs mots-clés (/statut) ---
+// statutRules = [{ keyword, roleId }]
+export function getStatutRules(guildId) {
+  return getGuildConfig(guildId).statutRules ?? [];
+}
+
+export function addStatutRule(guildId, keyword, roleId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.statutRules = g.statutRules ?? [];
+  const kw = keyword.toLowerCase();
+  if (g.statutRules.some((r) => r.keyword === kw && r.roleId === roleId)) return false;
+  g.statutRules.push({ keyword: kw, roleId });
+  data[guildId] = g;
+  save(data);
+  return true;
+}
+
+export function removeStatutRule(guildId, keyword, roleId = null) {
+  const data = load();
+  const g = data[guildId];
+  if (!g?.statutRules?.length) return 0;
+  const kw = keyword.toLowerCase();
+  const before = g.statutRules.length;
+  g.statutRules = g.statutRules.filter((r) => !(r.keyword === kw && (roleId ? r.roleId === roleId : true)));
+  const removed = before - g.statutRules.length;
+  if (removed) save(data);
+  return removed;
+}
+
 // --- Filtre anti-liens ---
 export function getLinkConfig(guildId) {
   return getGuildConfig(guildId).linkConfig ?? null;

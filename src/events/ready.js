@@ -3,8 +3,8 @@ import { ensureTracking, getDueTempBans, removeTempBan } from '../lib/store.js';
 import { reconcileVerification } from '../lib/verification.js';
 import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
-import { getStatusRoleConfig } from '../lib/store.js';
-import { sweepAllStatusRoles } from '../lib/statusrole.js';
+import { getStatusRoleConfig, getStatutRules } from '../lib/store.js';
+import { sweepAllStatusRoles, sweepAllStatutRules } from '../lib/statusrole.js';
 import { reconcileGiveaways } from '../lib/giveaways.js';
 import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
@@ -44,6 +44,9 @@ export default {
     // (rattrape les membres déjà en ligne et retire le rôle si le texte a disparu).
     setTimeout(() => sweepAllStatusRoles(client, getStatusRoleConfig).catch(() => {}), 10_000);
     setInterval(() => sweepAllStatusRoles(client, getStatusRoleConfig).catch(() => {}), 300_000);
+    // Idem pour les règles multi-mots-clés (/statut).
+    setTimeout(() => sweepAllStatutRules(client, getStatutRules).catch(() => {}), 12_000);
+    setInterval(() => sweepAllStatutRules(client, getStatutRules).catch(() => {}), 300_000);
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
     // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.

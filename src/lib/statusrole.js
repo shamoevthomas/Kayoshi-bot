@@ -54,3 +54,41 @@ export async function sweepAllStatusRoles(client, getConfig) {
     if (config?.text && config.roleId) await sweepStatusRoles(guild, config).catch(() => {});
   }
 }
+
+// --- Multi-règles (/statut) : plusieurs mots-clés → rôles ---
+// Applique toutes les règles d'un coup pour un membre. Un rôle est retiré
+// seulement si AUCUNE règle qui l'accorde ne correspond au statut.
+export async function applyStatutRules(member, rules) {
+  if (!member || member.user.bot || !rules?.length) return 0;
+  const text = presenceText(member.presence);
+  const desired = new Set();
+  const managed = new Set();
+  for (const r of rules) {
+    if (!r.keyword || !r.roleId) continue;
+    managed.add(r.roleId);
+    if (text.includes(r.keyword.toLowerCase())) desired.add(r.roleId);
+  }
+  let changed = 0;
+  for (const roleId of managed) {
+    const has = member.roles.cache.has(roleId);
+    if (desired.has(roleId) && !has) {
+      await member.roles.add(roleId).catch(() => {});
+      changed += 1;
+    } else if (!desired.has(roleId) && has) {
+      await member.roles.remove(roleId).catch(() => {});
+      changed += 1;
+    }
+  }
+  return changed;
+}
+
+export async function sweepStatutRules(guild, rules) {
+  for (const [, member] of guild.members.cache) await applyStatutRules(member, rules).catch(() => {});
+}
+
+export async function sweepAllStatutRules(client, getRules) {
+  for (const [, guild] of client.guilds.cache) {
+    const rules = getRules(guild.id);
+    if (rules?.length) await sweepStatutRules(guild, rules).catch(() => {});
+  }
+}
