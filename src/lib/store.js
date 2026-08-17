@@ -537,6 +537,78 @@ export function getAllCreators() {
   return out;
 }
 
+// --- Blacklist de serveurs (quarantaine à l'arrivée) ---
+// data[guildId].serverBlacklist = { serverIds:[], quarantineRoleId, whitelist:[] }
+export function getServerBlacklist(guildId) {
+  const b = getGuildConfig(guildId).serverBlacklist;
+  return { serverIds: [], quarantineRoleId: null, whitelist: [], ...(b ?? {}) };
+}
+
+function saveServerBlacklist(guildId, mutate) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  const b = { serverIds: [], quarantineRoleId: null, whitelist: [], ...(g.serverBlacklist ?? {}) };
+  mutate(b);
+  g.serverBlacklist = b;
+  data[guildId] = g;
+  save(data);
+  return b;
+}
+
+export function addBlacklistedServer(guildId, serverId) {
+  let added = false;
+  saveServerBlacklist(guildId, (b) => {
+    if (!b.serverIds.includes(serverId)) {
+      b.serverIds.push(serverId);
+      added = true;
+    }
+  });
+  return added;
+}
+
+export function removeBlacklistedServer(guildId, serverId) {
+  let removed = false;
+  saveServerBlacklist(guildId, (b) => {
+    if (b.serverIds.includes(serverId)) {
+      b.serverIds = b.serverIds.filter((id) => id !== serverId);
+      removed = true;
+    }
+  });
+  return removed;
+}
+
+export function setQuarantineRole(guildId, roleId) {
+  saveServerBlacklist(guildId, (b) => {
+    b.quarantineRoleId = roleId;
+  });
+}
+
+export function isWhitelisted(guildId, userId) {
+  return getServerBlacklist(guildId).whitelist.includes(userId);
+}
+
+export function addWhitelist(guildId, userId) {
+  let added = false;
+  saveServerBlacklist(guildId, (b) => {
+    if (!b.whitelist.includes(userId)) {
+      b.whitelist.push(userId);
+      added = true;
+    }
+  });
+  return added;
+}
+
+export function removeWhitelist(guildId, userId) {
+  let removed = false;
+  saveServerBlacklist(guildId, (b) => {
+    if (b.whitelist.includes(userId)) {
+      b.whitelist = b.whitelist.filter((id) => id !== userId);
+      removed = true;
+    }
+  });
+  return removed;
+}
+
 // --- Mode "coiffeur" (répond "feur" quand un message finit par "quoi") ---
 export function getCoiffeurEnabled(guildId) {
   return getGuildConfig(guildId).coiffeur === true;

@@ -5,6 +5,7 @@ import { onMemberJoin } from '../lib/verification.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { detectUsedInvite } from '../lib/invites.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
+import { handleBlacklistJoin } from '../lib/blacklist.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -19,6 +20,8 @@ export default {
     // countJoins inclut l'arrivée qu'on vient d'enregistrer → on retire 1.
     const previousJoins = Math.max(0, countJoins(member.guild.id, member.id) - 1);
 
+    // Quarantaine si le membre vient d'un serveur blacklisté (si configuré)
+    await handleBlacklistJoin(member).catch((err) => console.error(err));
     // Vérification anti-bot (si configurée)
     await onMemberJoin(member).catch((err) => console.error(err));
     // Message de bienvenue (si configuré)
