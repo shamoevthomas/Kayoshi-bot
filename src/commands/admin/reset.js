@@ -5,7 +5,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js';
-import { isOneMessageChannel, addOneMessageChannel, removeOneMessageChannel } from '../../lib/store.js';
+import {
+  isOneMessageChannel,
+  getOneMessageConfig,
+  removeOneMessageChannel,
+  setOneMessageTargets,
+} from '../../lib/store.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -54,6 +59,7 @@ export default {
     try {
       const position = channel.rawPosition;
       const wasOneMessage = isOneMessageChannel(interaction.guild.id, channel.id);
+      const oneMessageTargets = wasOneMessage ? getOneMessageConfig(interaction.guild.id)[channel.id] : null;
 
       // clone() recrée un salon identique : nom, permissions, catégorie, sujet,
       // NSFW, mode lent, etc.
@@ -61,10 +67,10 @@ export default {
       await clone.setPosition(position).catch(() => {});
       await channel.delete(`reset par ${interaction.user.tag}`);
 
-      // Reporte la config "one-message" sur le nouveau salon si besoin.
+      // Reporte la config "one-message" (et ses cibles) sur le nouveau salon.
       if (wasOneMessage) {
         removeOneMessageChannel(interaction.guild.id, channel.id);
-        addOneMessageChannel(interaction.guild.id, clone.id);
+        setOneMessageTargets(interaction.guild.id, clone.id, oneMessageTargets ?? []);
       }
 
       if (clone.isTextBased()) {

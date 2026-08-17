@@ -547,32 +547,107 @@ export function setCoiffeurEnabled(guildId, enabled) {
 }
 
 // --- Salons "one-message" (tout nouveau message y est supprimé aussitôt) ---
-export function getOneMessageChannels(guildId) {
-  return getGuildConfig(guildId).oneMessageChannels ?? [];
+// Stocké sous data[guildId].oneMessage = { [channelId]: [memberId, ...] }.
+// Liste vide = tous les membres ; liste non vide = seulement ces membres.
+function readOneMessage(g) {
+  if (g.oneMessage) return g.oneMessage;
+  // Migration depuis l'ancien format (tableau de salons = tous les membres).
+  if (Array.isArray(g.oneMessageChannels)) {
+    const map = {};
+    for (const id of g.oneMessageChannels) map[id] = [];
+    return map;
+  }
+  return {};
+}
+
+export function getOneMessageConfig(guildId) {
+  return readOneMessage(getGuildConfig(guildId));
 }
 
 export function isOneMessageChannel(guildId, channelId) {
-  return (getGuildConfig(guildId).oneMessageChannels ?? []).includes(channelId);
+  return channelId in getOneMessageConfig(guildId);
 }
 
-export function addOneMessageChannel(guildId, channelId) {
+// Faut-il supprimer le message de ce membre dans ce salon ?
+export function shouldDeleteOneMessage(guildId, channelId, userId) {
+  const targets = getOneMessageConfig(guildId)[channelId];
+  if (!targets) return false; // salon non configuré
+  if (targets.length === 0) return true; // tous les membres
+  return targets.includes(userId); // seulement les membres ciblés
+}
+
+// Active le mode. Sans membre : tout le salon (liste vide = tous).
+// Avec membre : cible ce membre (ajouté à la liste ; remplace le mode "tous").
+export function enableOneMessage(guildId, channelId, memberId = null) {
   const data = load();
   const g = data[guildId] ?? {};
-  g.oneMessageChannels = g.oneMessageChannels ?? [];
-  if (g.oneMessageChannels.includes(channelId)) return false;
-  g.oneMessageChannels.push(channelId);
+  const map = readOneMessage(g);
+  if (!memberId) {
+    map[channelId] = [];
+  } else {
+    const cur = map[channelId];
+    if (!cur || cur.length === 0) map[channelId] = [memberId];
+    else if (!cur.includes(memberId)) cur.push(memberId);
+  }
+  g.oneMessage = map;
+  delete g.oneMessageChannels;
   data[guildId] = g;
   save(data);
-  return true;
+  return map[channelId];
 }
 
-export function removeOneMessageChannel(guildId, channelId) {
+// Désactive. Sans membre : tout le salon. Avec membre : retire ce membre.
+// Renvoie { status } : 'not-active' | 'channel-removed' | 'member-removed' |
+// 'was-all' | 'not-targeted'.
+export function disableOneMessage(guildId, channelId, memberId = null) {
   const data = load();
-  const g = data[guildId];
-  if (!g?.oneMessageChannels?.includes(channelId)) return false;
-  g.oneMessageChannels = g.oneMessageChannels.filter((id) => id !== channelId);
+  const g = data[guildId] ?? {};
+  const map = readOneMessage(g);
+  if (!(channelId in map)) return { status: 'not-active' };
+
+  let status;
+  if (!memberId) {
+    delete map[channelId];
+    status = 'channel-removed';
+  } else {
+    const cur = map[channelId];
+    if (cur.length === 0) {
+      status = 'was-all';
+    } else if (!cur.includes(memberId)) {
+      status = 'not-targeted';
+    } else {
+      const next = cur.filter((id) => id !== memberId);
+      if (next.length === 0) {
+        delete map[channelId];
+        status = 'channel-removed';
+      } else {
+        map[channelId] = next;
+        status = 'member-removed';
+      }
+    }
+  }
+  g.oneMessage = map;
+  delete g.oneMessageChannels;
+  data[guildId] = g;
   save(data);
-  return true;
+  return { status };
+}
+
+// Recopie la config one-message d'un salon vers un autre (utilisé par /reset).
+export function setOneMessageTargets(guildId, channelId, targets) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  const map = readOneMessage(g);
+  map[channelId] = Array.isArray(targets) ? [...targets] : [];
+  g.oneMessage = map;
+  delete g.oneMessageChannels;
+  data[guildId] = g;
+  save(data);
+}
+
+// Retire complètement un salon (compat /reset).
+export function removeOneMessageChannel(guildId, channelId) {
+  return disableOneMessage(guildId, channelId).status === 'channel-removed';
 }
 
 // --- Messages sauvegardés (slots /save 1..5) ---

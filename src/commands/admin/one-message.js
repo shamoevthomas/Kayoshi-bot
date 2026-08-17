@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.js';
 import {
-  addOneMessageChannel,
-  removeOneMessageChannel,
-  getOneMessageChannels,
+  enableOneMessage,
+  disableOneMessage,
+  getOneMessageConfig,
 } from '../../lib/store.js';
 
 const TEXT_TYPES = [ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildVoice];
@@ -10,23 +10,29 @@ const TEXT_TYPES = [ChannelType.GuildText, ChannelType.GuildAnnouncement, Channe
 export default {
   data: new SlashCommandBuilder()
     .setName('one-message')
-    .setDescription('Salon où tout nouveau message est supprimé automatiquement.')
+    .setDescription('Salon où les nouveaux messages sont supprimés automatiquement.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .setDMPermission(false)
     .addSubcommand((sub) =>
       sub
         .setName('activer')
-        .setDescription('Activer la suppression auto des messages dans un salon.')
+        .setDescription('Activer la suppression auto (salon actuel par défaut, ou pour un membre précis).')
         .addChannelOption((o) =>
-          o.setName('salon').setDescription('Le salon à verrouiller').addChannelTypes(...TEXT_TYPES).setRequired(true),
+          o.setName('salon').setDescription('Le salon (par défaut : le salon actuel)').addChannelTypes(...TEXT_TYPES),
+        )
+        .addUserOption((o) =>
+          o.setName('membre').setDescription('(Facultatif) ne supprimer que les messages de ce membre'),
         ),
     )
     .addSubcommand((sub) =>
       sub
         .setName('desactiver')
-        .setDescription('Désactiver la suppression auto dans un salon.')
+        .setDescription('Désactiver la suppression auto (salon actuel par défaut, ou pour un membre précis).')
         .addChannelOption((o) =>
-          o.setName('salon').setDescription('Le salon à déverrouiller').addChannelTypes(...TEXT_TYPES).setRequired(true),
+          o.setName('salon').setDescription('Le salon (par défaut : le salon actuel)').addChannelTypes(...TEXT_TYPES),
+        )
+        .addUserOption((o) =>
+          o.setName('membre').setDescription('(Facultatif) ne retirer que ce membre de la liste ciblée'),
         ),
     )
     .addSubcommand((sub) => sub.setName('liste').setDescription('Voir les salons concernés.')),
@@ -36,17 +42,21 @@ export default {
     const guildId = interaction.guild.id;
 
     if (sub === 'liste') {
-      const ids = getOneMessageChannels(guildId);
+      const cfg = getOneMessageConfig(guildId);
+      const ids = Object.keys(cfg);
       if (!ids.length) {
         return interaction.reply({ content: 'Aucun salon en mode « one-message ».', ephemeral: true });
       }
-      return interaction.reply({
-        content: `🔒 Salons en mode « one-message » :\n${ids.map((id) => `• <#${id}>`).join('\n')}`,
-        ephemeral: true,
+      const lines = ids.map((id) => {
+        const targets = cfg[id];
+        const who = targets.length ? targets.map((m) => `<@${m}>`).join(', ') : 'tout le monde';
+        return `• <#${id}> → ${who}`;
       });
+      return interaction.reply({ content: `🔒 Salons en mode « one-message » :\n${lines.join('\n')}`, ephemeral: true });
     }
 
-    const channel = interaction.options.getChannel('salon');
+    const channel = interaction.options.getChannel('salon') ?? interaction.channel;
+    const member = interaction.options.getUser('membre');
 
     if (sub === 'activer') {
       const perms = channel.permissionsFor(interaction.guild.members.me);
@@ -56,22 +66,23 @@ export default {
           ephemeral: true,
         });
       }
-      const added = addOneMessageChannel(guildId, channel.id);
+      const targets = enableOneMessage(guildId, channel.id, member?.id ?? null);
+      const scope = targets.length ? `les messages de ${targets.map((m) => `<@${m}>`).join(', ')}` : 'tous les nouveaux messages';
       return interaction.reply({
-        content: added
-          ? `✅ ${channel} est maintenant en mode « one-message » : tout nouveau message y sera supprimé aussitôt. (Les anciens messages restent.)`
-          : `ℹ️ ${channel} est déjà en mode « one-message ».`,
+        content: `✅ Mode « one-message » actif dans ${channel} : **${scope}** seront supprimés aussitôt. (Les anciens messages restent.)`,
         ephemeral: true,
       });
     }
 
     // desactiver
-    const removed = removeOneMessageChannel(guildId, channel.id);
-    return interaction.reply({
-      content: removed
-        ? `✅ ${channel} n'est plus en mode « one-message ». Les membres peuvent de nouveau écrire.`
-        : `ℹ️ ${channel} n'était pas en mode « one-message ».`,
-      ephemeral: true,
-    });
+    const { status } = disableOneMessage(guildId, channel.id, member?.id ?? null);
+    const messages = {
+      'not-active': `ℹ️ ${channel} n'était pas en mode « one-message ».`,
+      'channel-removed': `✅ ${channel} n'est plus en mode « one-message ». Les membres peuvent de nouveau écrire.`,
+      'member-removed': `✅ ${member} n'est plus ciblé dans ${channel} (les autres membres ciblés le restent).`,
+      'was-all': `ℹ️ ${channel} supprime les messages de **tout le monde**. Pour tout désactiver, relance sans préciser de membre.`,
+      'not-targeted': `ℹ️ ${member} n'était pas ciblé dans ${channel}.`,
+    };
+    return interaction.reply({ content: messages[status], ephemeral: true });
   },
 };

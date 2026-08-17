@@ -2,7 +2,7 @@ import { Events } from 'discord.js';
 import { handleVerifyMessage } from '../lib/verification.js';
 import { handleLinkFilter } from '../lib/linkfilter.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
-import { bumpGiveawayMessages, bumpActivity, isOneMessageChannel, getCoiffeurEnabled } from '../lib/store.js';
+import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
 // "quoi" / "pourquoi" en fin de phrase (mot entier, ponctuation finale tolérée).
 const QUOI_RE = /(?:^|\s)quoi\s*[?!.…]*$/i;
@@ -11,8 +11,13 @@ const POURQUOI_RE = /(?:^|\s)pourquoi\s*[?!.…]*$/i;
 export default {
   name: Events.MessageCreate,
   async execute(message) {
-    // Salon "one-message" : tout nouveau message d'un membre est supprimé aussitôt.
-    if (message.guild && !message.author?.bot && isOneMessageChannel(message.guild.id, message.channelId)) {
+    // Salon "one-message" : le message est supprimé aussitôt (pour tous, ou
+    // seulement pour les membres ciblés).
+    if (
+      message.guild &&
+      !message.author?.bot &&
+      shouldDeleteOneMessage(message.guild.id, message.channelId, message.author.id)
+    ) {
       await message.delete().catch(() => {});
       return;
     }
