@@ -2,6 +2,7 @@ import { Events } from 'discord.js';
 import { handleVerifyMessage } from '../lib/verification.js';
 import { handleLinkFilter } from '../lib/linkfilter.js';
 import { handleAntiSpam } from '../lib/antispam.js';
+import { handleProtectedChannelMention } from '../lib/channelmention.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
@@ -25,6 +26,9 @@ export default {
 
     // Anti-spam : si le message est du spam, il est géré (supprimé) ici.
     if (await handleAntiSpam(message).catch(() => false)) return;
+
+    // Mention d'un salon protégé → message supprimé.
+    if (await handleProtectedChannelMention(message).catch(() => false)) return;
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));

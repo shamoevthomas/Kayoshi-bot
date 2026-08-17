@@ -567,6 +567,31 @@ export function getAllCreators() {
   return out;
 }
 
+// --- Salons dont la mention est interdite (message supprimé) ---
+export function getNoMentionChannels(guildId) {
+  return getGuildConfig(guildId).noMentionChannels ?? [];
+}
+
+export function addNoMentionChannel(guildId, channelId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.noMentionChannels = g.noMentionChannels ?? [];
+  if (g.noMentionChannels.includes(channelId)) return false;
+  g.noMentionChannels.push(channelId);
+  data[guildId] = g;
+  save(data);
+  return true;
+}
+
+export function removeNoMentionChannel(guildId, channelId) {
+  const data = load();
+  const g = data[guildId];
+  if (!g?.noMentionChannels?.includes(channelId)) return false;
+  g.noMentionChannels = g.noMentionChannels.filter((id) => id !== channelId);
+  save(data);
+  return true;
+}
+
 // --- Anti-spam ---
 // antispam = { enabled, maxMessages, intervalMs, timeoutMs, exemptRoleIds:[] }
 export function getAntiSpamConfig(guildId) {
