@@ -567,6 +567,16 @@ export function getAllCreators() {
   return out;
 }
 
+// --- Anti-spam ---
+// antispam = { enabled, maxMessages, intervalMs, timeoutMs, exemptRoleIds:[] }
+export function getAntiSpamConfig(guildId) {
+  return getGuildConfig(guildId).antispam ?? null;
+}
+
+export function setAntiSpamConfig(guildId, antispam) {
+  return setGuildConfig(guildId, { antispam });
+}
+
 // --- Blacklist de serveurs (quarantaine à l'arrivée) ---
 // data[guildId].serverBlacklist = { serverIds:[], quarantineRoleId, whitelist:[] }
 export function getServerBlacklist(guildId) {
