@@ -60,9 +60,14 @@ export default {
 
     if (sub === 'activer') {
       const perms = channel.permissionsFor(interaction.guild.members.me);
-      if (!perms?.has(PermissionFlagsBits.ManageMessages)) {
+      // Sans "Voir le salon", Discord ne m'envoie aucun message de ce salon :
+      // impossible d'y supprimer quoi que ce soit.
+      const missing = [];
+      if (!perms?.has(PermissionFlagsBits.ViewChannel)) missing.push('**Voir le salon**');
+      if (!perms?.has(PermissionFlagsBits.ManageMessages)) missing.push('**Gérer les messages**');
+      if (missing.length) {
         return interaction.reply({
-          content: `❌ Il me faut la permission **Gérer les messages** dans ${channel} pour supprimer les messages.`,
+          content: `❌ Il me manque ${missing.join(' et ')} dans ${channel}. Sans ça je ne peux pas y supprimer les messages.`,
           ephemeral: true,
         });
       }
