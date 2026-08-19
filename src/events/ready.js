@@ -1,6 +1,6 @@
 import { Events, ActivityType } from 'discord.js';
 import { ensureTracking, getDueTempBans, removeTempBan } from '../lib/store.js';
-import { reconcileVerification } from '../lib/verification.js';
+import { reconcileVerification, maybeRemindUnverified } from '../lib/verification.js';
 import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
 import { getStatusRoleConfig, getStatutRules } from '../lib/store.js';
@@ -38,6 +38,8 @@ export default {
     setInterval(() => processTempBans(client), 60_000);
     // Reprogramme les kicks des membres non vérifiés.
     reconcileVerification(client);
+    // Rappel des membres non vérifiés toutes les 5 h (ticker de contrôle : 30 min).
+    setInterval(() => maybeRemindUnverified(client).catch(() => {}), 30 * 60_000);
     // Nettoie les vocaux temporaires vides.
     reconcileTempVoice(client);
     // Rôle selon le statut : balayage initial + toutes les 5 min

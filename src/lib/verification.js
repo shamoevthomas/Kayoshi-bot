@@ -1,7 +1,19 @@
 import { EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { generateCaptcha } from './captcha.js';
-import { getVerifConfig } from './store.js';
+import { getVerifConfig, getGuildConfig, setGuildConfig } from './store.js';
 import { sendLog, Colors } from './logger.js';
+
+const FIVE_HOURS = 5 * 60 * 60 * 1000;
+
+// Mentionne un utilisateur dans un salon puis supprime aussitôt le message
+// (ping fantôme : il reçoit la notification, rien ne reste affiché).
+async function ghostMention(guild, channelId, userId) {
+  if (!channelId) return;
+  const channel = guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null));
+  if (!channel?.isTextBased()) return;
+  const m = await channel.send({ content: `<@${userId}>`, allowedMentions: { users: [userId] } }).catch(() => null);
+  if (m) await m.delete().catch(() => {});
+}
 
 // État en mémoire (perdu au redémarrage, reconstruit à la volée quand un membre écrit).
 const pending = new Map(); // userId -> { answer, attempts, captchaMessageId }
@@ -144,6 +156,7 @@ export async function forceVerify(member, executor = null) {
   await purgeMemberCaptcha(member.guild, config, member, record).catch(() => {});
 
   await member.roles.add(config.roleId);
+  await ghostMention(member.guild, config.successMentionChannelId, member.id).catch(() => {});
   await sendLog(
     member.guild,
     new EmbedBuilder()
@@ -247,6 +260,7 @@ export async function handleVerifyMessage(message) {
     clearKickTimer(message.author.id);
     await deleteCaptchaMessage(message.channel, record);
     await member.roles.add(config.roleId).catch(() => {});
+    await ghostMention(message.guild, config.successMentionChannelId, member.id).catch(() => {});
     const ok = await message.channel.send(`✅ ${member}, vérification réussie ! Bienvenue 🎉`);
     setTimeout(() => ok.delete().catch(() => {}), 6000);
     await sendLog(
@@ -283,6 +297,43 @@ export async function handleVerifyMessage(message) {
   const notice = await message.channel.send(`❌ ${member}, mauvaise réponse. Il te reste **${left}** essai(s).`);
   setTimeout(() => notice.delete().catch(() => {}), 5000);
   await postCaptcha(message.channel, member, config, attempts).catch(() => {});
+}
+
+// Toutes les 5 h : mentionne (ping fantôme) les membres non vérifiés dans le
+// salon de vérification. Appelé régulièrement (ticker) ; ne fait rien tant que
+// 5 h ne se sont pas écoulées depuis le dernier rappel du serveur.
+export async function maybeRemindUnverified(client) {
+  for (const [, guild] of client.guilds.cache) {
+    const config = getVerifConfig(guild.id);
+    if (!config?.channelId || !config.roleId) continue;
+
+    const last = getGuildConfig(guild.id).lastUnverifiedPing ?? 0;
+    // Premier passage : on pose le repère sans pinguer (évite un ping au boot).
+    if (!last) {
+      setGuildConfig(guild.id, { lastUnverifiedPing: Date.now() });
+      continue;
+    }
+    if (Date.now() - last < FIVE_HOURS) continue;
+
+    const channel = guild.channels.cache.get(config.channelId) ?? (await guild.channels.fetch(config.channelId).catch(() => null));
+    if (!channel?.isTextBased()) continue;
+    const members = await guild.members.fetch().catch(() => null);
+    if (!members) continue;
+
+    const unverified = [...members.values()].filter((m) => !m.user.bot && !m.roles.cache.has(config.roleId));
+    setGuildConfig(guild.id, { lastUnverifiedPing: Date.now() });
+    if (!unverified.length) continue;
+
+    // Ping fantôme par groupes de 30 mentions.
+    for (let i = 0; i < unverified.length; i += 30) {
+      const chunk = unverified.slice(i, i + 30);
+      const content = `⏳ ${chunk.map((m) => `<@${m.id}>`).join(' ')}\nPense à passer la **vérification** pour accéder au serveur !`;
+      const msg = await channel
+        .send({ content: content.slice(0, 2000), allowedMentions: { users: chunk.map((m) => m.id) } })
+        .catch(() => null);
+      if (msg) setTimeout(() => msg.delete().catch(() => {}), 15_000);
+    }
+  }
 }
 
 // Au démarrage : reprogramme les kicks des membres encore non vérifiés.

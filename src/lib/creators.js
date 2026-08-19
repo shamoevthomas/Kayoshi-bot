@@ -94,6 +94,31 @@ export async function resolveTikTok(input) {
 }
 
 async function fetchTikTokVideos(username) {
+  // 1) tikwm (API JSON gratuite) — plus récent en premier.
+  try {
+    const r = await fetch(`https://www.tikwm.com/api/user/posts?unique_id=${encodeURIComponent(username)}&count=10`, {
+      headers: { 'user-agent': UA, accept: 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (r.ok && (r.headers.get('content-type') || '').includes('json')) {
+      const j = await r.json().catch(() => null);
+      const vids = j?.data?.videos;
+      if (Array.isArray(vids) && vids.length) {
+        return vids
+          .map((v) => {
+            const id = String(v.video_id ?? v.id ?? '');
+            return id
+              ? { id, title: decodeEntities(v.title || 'Vidéo TikTok'), url: `https://www.tiktok.com/@${username}/video/${id}` }
+              : null;
+          })
+          .filter(Boolean);
+      }
+    }
+  } catch {
+    // on tente le repli RSSHub
+  }
+
+  // 2) Repli : RSSHub (instance configurable).
   const xml = await getText(`${RSSHUB}/tiktok/user/@${username}`);
   if (!xml) return null;
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];

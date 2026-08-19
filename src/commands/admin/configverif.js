@@ -48,9 +48,9 @@ export default {
   async execute(interaction) {
     const guild = interaction.guild;
     const filter = (i) => i.user.id === interaction.user.id;
-    const config = { channelId: null, roleId: null, maxAttempts: 3, kickAfterMs: null };
+    const config = { channelId: null, roleId: null, maxAttempts: 3, kickAfterMs: null, successMentionChannelId: null };
 
-    const rolePrompt = '\n\n**2/4 — Rôle après validation**\nQuel rôle donner au membre une fois le captcha réussi ?';
+    const rolePrompt = '\n\n**2/5 — Rôle après validation**\nQuel rôle donner au membre une fois le captcha réussi ?';
     const roleRow = new ActionRowBuilder().addComponents(
       new RoleSelectMenuBuilder().setCustomId('cfgv_role').setPlaceholder('Choisis le rôle de membre vérifié').setMinValues(1).setMaxValues(1),
     );
@@ -60,7 +60,7 @@ export default {
       new ButtonBuilder().setCustomId('cfgv_existing').setLabel('Salon existant').setStyle(ButtonStyle.Primary).setEmoji('📁'),
     );
     const msg = await interaction.reply({
-      content: '**1/4 — Salon de vérification**\nOù les membres passeront-ils le captcha ?',
+      content: '**1/5 — Salon de vérification**\nOù les membres passeront-ils le captcha ?',
       components: [step1],
       ephemeral: true,
       fetchReply: true,
@@ -91,21 +91,43 @@ export default {
       const roleSel = await msg.awaitMessageComponent({ componentType: ComponentType.RoleSelect, time: 300_000, filter });
       config.roleId = roleSel.values[0];
       await roleSel.update({
-        content: `✅ Rôle : <@&${config.roleId}>\n\n**3/4 — Nombre d’essais maximum**`,
+        content: `✅ Rôle : <@&${config.roleId}>\n\n**3/5 — Nombre d’essais maximum**`,
         components: [selectRow('cfgv_attempts', 'Combien d’essais autorisés ?', ATTEMPT_OPTIONS)],
       });
 
-      // ===== 3/4 — Essais max =====
+      // ===== 3/5 — Essais max =====
       const attSel = await msg.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 300_000, filter });
       config.maxAttempts = Number(attSel.values[0]);
       await attSel.update({
-        content: `✅ ${config.maxAttempts} essai(s) max\n\n**4/4 — Kick des non-vérifiés**\nAu bout de combien de temps expulser un membre qui n’a pas validé ?`,
+        content: `✅ ${config.maxAttempts} essai(s) max\n\n**4/5 — Kick des non-vérifiés**\nAu bout de combien de temps expulser un membre qui n’a pas validé ?`,
         components: [selectRow('cfgv_kick', 'Délai avant kick', KICK_OPTIONS)],
       });
 
-      // ===== 4/4 — Délai de kick =====
+      // ===== 4/5 — Délai de kick =====
       const kickSel = await msg.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 300_000, filter });
       config.kickAfterMs = kickSel.values[0] === 'none' ? null : Number(kickSel.values[0]);
+
+      // ===== 5/5 — Salon de mention après réussite =====
+      const mentionRow = new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder()
+          .setCustomId('cfgv_mention')
+          .setPlaceholder('Salon où mentionner le membre vérifié')
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+          .setMinValues(1)
+          .setMaxValues(1),
+      );
+      const noneRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('cfgv_nomention').setLabel('Aucun').setStyle(ButtonStyle.Secondary),
+      );
+      await kickSel.update({
+        content:
+          '**5/5 — Mention après réussite**\nDans quel salon veux-tu que le nouveau membre soit mentionné après avoir réussi la vérification ?\n_(le message de mention sera supprimé aussitôt — ping fantôme)_',
+        components: [mentionRow, noneRow],
+      });
+
+      const finalSel = await msg.awaitMessageComponent({ time: 300_000, filter });
+      config.successMentionChannelId =
+        finalSel.componentType === ComponentType.ChannelSelect ? finalSel.values[0] : null;
 
       // Sauvegarde + message d'info dans le salon
       setVerifConfig(guild.id, config);
@@ -130,13 +152,14 @@ export default {
           ? 'aucun kick'
           : `kick après ${KICK_OPTIONS.find((o) => o.value === String(config.kickAfterMs))?.label.replace('Après ', '')}`;
 
-      await kickSel.update({
+      await finalSel.update({
         content:
           `✅ **Vérification configurée !**\n` +
           `• Salon : <#${config.channelId}>\n` +
           `• Rôle après validation : <@&${config.roleId}>\n` +
           `• Essais max : ${config.maxAttempts}\n` +
-          `• Délai : ${kickText}`,
+          `• Délai : ${kickText}\n` +
+          `• Mention après réussite : ${config.successMentionChannelId ? `<#${config.successMentionChannelId}>` : 'aucune'}`,
         components: [],
         embeds: [],
       });
