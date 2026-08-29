@@ -27,15 +27,21 @@ function load() {
   return cache;
 }
 
-function save(data) {
+// N'écrit en base QUE le(s) serveur(s) modifié(s). Si guildId est fourni, seul
+// ce serveur est marqué « à sauvegarder » — évite de ré-uploader toute la base
+// à chaque écriture (grosse économie de bande passante sortante).
+function save(data, guildId) {
   cache = data;
-  for (const gid of Object.keys(cache)) dirty.add(gid);
+  if (guildId) dirty.add(guildId);
+  else for (const gid of Object.keys(cache)) dirty.add(gid);
   scheduleFlush();
 }
 
+// Délai d'écriture allongé : les rafales d'écritures (ex. beaucoup de messages)
+// sont regroupées en une seule sauvegarde. flushStore() garantit l'écriture à l'arrêt.
 function scheduleFlush() {
   if (!supabase || flushTimer) return;
-  flushTimer = setTimeout(() => flush().catch((e) => console.error(e)), 400);
+  flushTimer = setTimeout(() => flush().catch((e) => console.error(e)), 15_000);
 }
 
 async function flush() {
@@ -66,7 +72,7 @@ export function getGuildConfig(guildId) {
 export function setGuildConfig(guildId, patch) {
   const data = load();
   data[guildId] = { ...(data[guildId] ?? {}), ...patch };
-  save(data);
+  save(data, guildId);
   return data[guildId];
 }
 
@@ -87,9 +93,12 @@ export function addMemberEvent(guildId, type, userId) {
   const g = data[guildId] ?? {};
   g.memberEvents = g.memberEvents ?? [];
   g.memberEvents.push({ t: type, u: userId, ts: Date.now() });
+  // Borne la taille : on garde les 5000 derniers événements (évite que le blob
+  // sauvegardé grossisse indéfiniment → moins de bande passante).
+  if (g.memberEvents.length > 5000) g.memberEvents = g.memberEvents.slice(-5000);
   if (!g.trackingSince) g.trackingSince = Date.now();
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
 }
 
 // --- Suivi des invitations ---
@@ -136,7 +145,7 @@ export function recordInviteJoin(guildId, inviterId, joinerId, code = null) {
   g.invitedBy = g.invitedBy ?? {};
   g.invitedBy[joinerId] = { inviterId, code };
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return s.real + s.bonus;
 }
 
@@ -155,7 +164,7 @@ export function recordInviteLeave(guildId, leaverId) {
   if (s.real > 0) s.real -= 1;
   s.left += 1;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return { inviterId, code, total: s.real + s.bonus };
 }
 
@@ -504,7 +513,7 @@ export function bumpVoiceActivity(guildId, userId, seconds) {
   if (!g.voiceActivity || g.voiceActivity.weekKey !== wk) g.voiceActivity = { weekKey: wk, counts: {} };
   g.voiceActivity.counts[userId] = (g.voiceActivity.counts[userId] ?? 0) + Math.round(seconds);
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
 }
 
 // Top membres vocaux de la semaine courante : [{ userId, seconds }].
@@ -525,7 +534,7 @@ export function bumpActivity(guildId, userId) {
   if (!g.activity || g.activity.weekKey !== wk) g.activity = { weekKey: wk, counts: {} };
   g.activity.counts[userId] = (g.activity.counts[userId] ?? 0) + 1;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
 }
 
 // Top membres de la semaine courante : [{ userId, count }]. Vide si nouvelle semaine.
@@ -912,7 +921,7 @@ export function bumpGiveawayMessages(guildId, userId) {
     gw.messageCounts[userId] = (gw.messageCounts[userId] ?? 0) + 1;
     changed = true;
   }
-  if (changed) save(data);
+  if (changed) save(data, guildId);
 }
 
 // Tous les giveaways de tous les serveurs (reconcile au démarrage).
