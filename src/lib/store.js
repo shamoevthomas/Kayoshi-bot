@@ -367,6 +367,16 @@ export function setStatusRoleConfig(guildId, statusRole) {
   return setGuildConfig(guildId, { statusRole });
 }
 
+// --- Rôle selon le tag du serveur (/tagrole) ---
+// tagRole = { roleId }
+export function getTagRoleConfig(guildId) {
+  return getGuildConfig(guildId).tagRole ?? null;
+}
+
+export function setTagRoleConfig(guildId, tagRole) {
+  return setGuildConfig(guildId, { tagRole });
+}
+
 // --- Rôles selon le statut : plusieurs mots-clés (/statut) ---
 // statutRules = [{ keyword, roleId }]
 export function getStatutRules(guildId) {

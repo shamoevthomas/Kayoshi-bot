@@ -6,6 +6,8 @@ import { sendGreeting } from '../lib/greetings.js';
 import { detectUsedInvite } from '../lib/invites.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
 import { handleBlacklistJoin } from '../lib/blacklist.js';
+import { applyTagRole } from '../lib/tagrole.js';
+import { getTagRoleConfig } from '../lib/store.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -22,6 +24,9 @@ export default {
 
     // Quarantaine si le membre vient d'un serveur blacklisté (si configuré)
     await handleBlacklistJoin(member).catch((err) => console.error(err));
+    // Rôle de tag si le membre porte déjà le tag du serveur.
+    const tagConfig = getTagRoleConfig(member.guild.id);
+    if (tagConfig?.roleId) await applyTagRole(member, tagConfig).catch(() => {});
     // Vérification anti-bot (si configurée)
     await onMemberJoin(member).catch((err) => console.error(err));
     // Message de bienvenue (si configuré)
