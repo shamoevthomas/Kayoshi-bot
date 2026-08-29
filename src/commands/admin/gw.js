@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { parseDuration } from '../../lib/time.js';
-import { getGiveaway, getGuildGiveaways, createGiveaway } from '../../lib/store.js';
+import { getGiveaway, getGuildGiveaways, createGiveaway, snapshotInviteTotals } from '../../lib/store.js';
 import {
   buildGiveawayEmbed,
   buildJoinRow,
@@ -39,6 +39,15 @@ export default {
             .setName('messages_requis')
             .setDescription('(Facultatif) messages requis depuis le début du giveaway')
             .setMinValue(1),
+        )
+        .addIntegerOption((o) =>
+          o
+            .setName('invites_requis')
+            .setDescription('(Facultatif) invitations requises depuis le début du giveaway')
+            .setMinValue(1),
+        )
+        .addStringOption((o) =>
+          o.setName('statut_requis').setDescription('(Facultatif) texte requis dans le statut (ex: /ximi)'),
         ),
     )
     .addSubcommand((sub) =>
@@ -70,6 +79,8 @@ export default {
     const winners = interaction.options.getInteger('gagnants');
     const host = interaction.options.getUser('organisateur');
     const requiredMessages = interaction.options.getInteger('messages_requis') ?? null;
+    const requiredInvites = interaction.options.getInteger('invites_requis') ?? null;
+    const requiredStatus = interaction.options.getString('statut_requis')?.trim() || null;
 
     const parsed = parseDuration(dureeStr);
     if (!parsed || parsed.permanent || !parsed.ms) {
@@ -93,6 +104,10 @@ export default {
       hostId: host.id,
       roleId: role.id,
       requiredMessages,
+      requiredInvites,
+      requiredStatus,
+      // Base d'invitations figée au lancement (pour compter « depuis le début »).
+      inviteBaseline: requiredInvites ? snapshotInviteTotals(guildId) : null,
       participants: [],
       messageCounts: {},
       ended: false,

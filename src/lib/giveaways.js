@@ -5,7 +5,25 @@ import {
   addGiveawayParticipant,
   removeGiveawayParticipant,
   getAllGiveaways,
+  getInviteTotal,
 } from './store.js';
+
+// Texte visible de la présence (statut perso + activités), en minuscules.
+function statusText(member) {
+  const parts = [];
+  for (const a of member?.presence?.activities ?? []) {
+    if (a.state) parts.push(a.state);
+    if (a.name) parts.push(a.name);
+    if (a.details) parts.push(a.details);
+  }
+  return parts.join(' ').toLowerCase();
+}
+
+// Invitations gagnées depuis le lancement du giveaway.
+function invitesGained(gw, guildId, userId) {
+  const base = gw.inviteBaseline?.[userId] ?? 0;
+  return Math.max(0, getInviteTotal(guildId, userId) - base);
+}
 
 const GW_COLOR = 0x131313; // noir
 const MAX_DELAY = 2_147_483_647; // limite de setTimeout (~24,8 j)
@@ -61,12 +79,12 @@ export function buildGiveawayEmbed(gw, ended = false) {
     )
     .setTimestamp();
 
-  if (gw.requiredMessages) {
-    embed.addFields({
-      name: '✉️ Condition',
-      value: `Avoir envoyé **${gw.requiredMessages}** message(s) depuis le début du giveaway pour être éligible.`,
-      inline: false,
-    });
+  const conditions = [];
+  if (gw.requiredMessages) conditions.push(`✉️ **${gw.requiredMessages}** message(s) depuis le début`);
+  if (gw.requiredInvites) conditions.push(`📨 **${gw.requiredInvites}** invitation(s) depuis le début`);
+  if (gw.requiredStatus) conditions.push(`📝 avoir \`${gw.requiredStatus}\` dans son statut`);
+  if (conditions.length) {
+    embed.addFields({ name: '📋 Conditions pour participer', value: conditions.join('\n'), inline: false });
   }
   return embed;
 }
@@ -193,18 +211,38 @@ export async function handleGiveawayInteraction(interaction) {
       return interaction.reply({ content: '❌ Ce giveaway est terminé.', ephemeral: true });
     }
 
+    // Conditions d'inscription (statut / invitations).
+    if (gw.requiredStatus && !statusText(interaction.member).includes(gw.requiredStatus.toLowerCase())) {
+      return interaction.reply({
+        content: `❌ Pour participer, tu dois avoir **\`${gw.requiredStatus}\`** dans ton statut, puis re-cliquer sur **Participer**.`,
+        ephemeral: true,
+      });
+    }
+    if (gw.requiredInvites) {
+      const gained = invitesGained(gw, guildId, interaction.user.id);
+      if (gained < gw.requiredInvites) {
+        return interaction.reply({
+          content: `❌ Il te faut **${gw.requiredInvites}** invitation(s) depuis le début du giveaway. Tu en as **${gained}**.`,
+          ephemeral: true,
+        });
+      }
+    }
+
     const leaveRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`gw_leave:${messageId}`).setLabel('Se désinscrire').setStyle(ButtonStyle.Danger),
     );
 
     const res = addGiveawayParticipant(guildId, messageId, interaction.user.id);
 
-    // Info éligibilité (si condition de messages).
+    // Info éligibilité.
     let extra = '';
     if (gw.requiredMessages) {
       const c = gw.messageCounts?.[interaction.user.id] ?? 0;
       const ok = c >= gw.requiredMessages;
-      extra = `\n✉️ Messages : **${c}/${gw.requiredMessages}** ${ok ? '✅ éligible' : '— continue à écrire pour être éligible'}`;
+      extra += `\n✉️ Messages : **${c}/${gw.requiredMessages}** ${ok ? '✅ éligible' : '— continue à écrire pour être éligible'}`;
+    }
+    if (gw.requiredInvites) {
+      extra += `\n📨 Invitations : **${invitesGained(gw, guildId, interaction.user.id)}/${gw.requiredInvites}** ✅`;
     }
 
     if (res.already) {

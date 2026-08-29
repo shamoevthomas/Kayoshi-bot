@@ -185,6 +185,16 @@ export function getInviteLeaderboard(guildId) {
   return rows.sort((a, b) => b.total - a.total || b.real - a.real);
 }
 
+// Instantané des totaux d'invitations de tous les parrains (base pour les
+// giveaways à condition d'invitations « depuis le début »).
+export function snapshotInviteTotals(guildId) {
+  const g = getGuildConfig(guildId);
+  const ids = new Set([...Object.keys(g.inviteStats ?? {}), ...Object.keys(g.inviteCounts ?? {})]);
+  const out = {};
+  for (const id of ids) out[id] = getInviteTotal(guildId, id);
+  return out;
+}
+
 // Salon dédié au suivi des invitations (configuré via /inviteconfig).
 export function getInviteLogChannel(guildId) {
   return getGuildConfig(guildId).inviteLogChannelId ?? null;
