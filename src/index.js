@@ -7,6 +7,15 @@ import { loadCommands } from './lib/commands.js';
 import { initStore, flushStore } from './lib/store.js';
 import { startKeepAlive } from './keepalive.js';
 
+// Garde-fous : une erreur asynchrone non gérée ne doit JAMAIS tuer le process
+// (sinon le bot tombe et Render peut ne pas le relancer).
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ unhandledRejection :', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ uncaughtException :', err);
+});
+
 // Serveur HTTP keep-alive (Render + cron-job.org)
 startKeepAlive();
 
