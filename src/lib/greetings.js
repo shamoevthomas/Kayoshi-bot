@@ -14,17 +14,28 @@ import {
 import { getGreetConfig, setGreetConfig } from './store.js';
 
 export const TEMPLATE_HELP =
-  'Templates : `[@]` (mention/pseudo) · `[user]` (pseudo) · `[tag]` (identifiant complet) · `[server]` (nom du serveur) · `[count]` (nombre de membres) · `[date]`';
+  'Templates : `[@]` (mention/pseudo) · `[user]` (pseudo) · `[tag]` (identifiant complet) · `[server]` (nom du serveur) · `[count]` (nombre de membres, bots exclus) · `[date]`';
 
-// Remplace les templates dans le texte.
-function applyTemplates(text, { mention, username, tag, guild }) {
+// Remplace les templates dans le texte. `count` = nombre de membres humains.
+function applyTemplates(text, { mention, username, tag, guild, count }) {
   return text
     .replace(/\[@\]/gi, mention)
     .replace(/\[user\]/gi, username)
     .replace(/\[tag\]/gi, tag)
     .replace(/\[server\]/gi, guild.name)
-    .replace(/\[count\]/gi, String(guild.memberCount))
+    .replace(/\[count\]/gi, String(count ?? guild.memberCount))
     .replace(/\[date\]/gi, new Date().toLocaleDateString('fr-FR'));
+}
+
+// Nombre de membres humains (bots exclus). Utilise le cache s'il est complet,
+// sinon récupère la liste ; repli sur memberCount en cas d'échec.
+async function humanCount(guild) {
+  try {
+    const members = guild.members.cache.size >= guild.memberCount ? guild.members.cache : await guild.members.fetch();
+    return members.filter((m) => !m.user.bot).size;
+  } catch {
+    return guild.memberCount;
+  }
 }
 
 // Envoie le message de bienvenue ('welcome') ou de départ ('leave').
@@ -37,7 +48,8 @@ export async function sendGreeting(guild, type, member) {
   const user = member.user;
   const isWelcome = type === 'welcome';
   const mention = isWelcome ? `<@${user.id}>` : `**${user.tag}**`; // un membre parti ne peut plus être ping
-  const body = applyTemplates(cfg.message, { mention, username: user.username, tag: user.tag, guild });
+  const count = await humanCount(guild);
+  const body = applyTemplates(cfg.message, { mention, username: user.username, tag: user.tag, guild, count });
   const rolePing = cfg.pingRoleId ? `<@&${cfg.pingRoleId}> ` : '';
 
   const payload = {
