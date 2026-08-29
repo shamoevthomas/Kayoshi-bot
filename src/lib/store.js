@@ -822,6 +822,16 @@ export function deleteSavedMessage(guildId, slot) {
   return true;
 }
 
+// --- Message de boost (/configboost) ---
+// boostConfig = { channelId, message, mentionType, roleId }
+export function getBoostConfig(guildId) {
+  return getGuildConfig(guildId).boostConfig ?? null;
+}
+
+export function setBoostConfig(guildId, boostConfig) {
+  return setGuildConfig(guildId, { boostConfig });
+}
+
 // --- Giveaways ---
 // Stockés sous data[guildId].giveaways[messageId].
 export function createGiveaway(guildId, messageId, gw) {

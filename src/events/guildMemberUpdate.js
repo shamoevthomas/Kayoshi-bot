@@ -1,10 +1,14 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor, findAuditEntry } from '../lib/logger.js';
+import { handleBoost } from '../lib/boost.js';
 
 export default {
   name: Events.GuildMemberUpdate,
   async execute(oldMember, newMember) {
     const guild = newMember.guild;
+
+    // Message de boost (si le membre vient de booster le serveur).
+    await handleBoost(oldMember, newMember).catch((err) => console.error(err));
 
     // --- Mute / Unmute (timeout) ---
     const oldTo = oldMember.communicationDisabledUntilTimestamp ?? null;
