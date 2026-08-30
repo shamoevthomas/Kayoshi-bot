@@ -1,12 +1,19 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { parseDuration } from '../../lib/time.js';
-import { getGiveaway, getGuildGiveaways, createGiveaway, snapshotInviteTotals } from '../../lib/store.js';
+import {
+  getGiveaway,
+  getGuildGiveaways,
+  createGiveaway,
+  snapshotInviteTotals,
+  removeGiveawayParticipant,
+} from '../../lib/store.js';
 import {
   buildGiveawayEmbed,
   buildJoinRow,
   scheduleGiveaway,
   endGiveawayNow,
   rerollGiveaway,
+  refreshGiveawayCount,
 } from '../../lib/giveaways.js';
 
 // Renvoie l'ID du dernier giveaway correspondant au filtre (par ordre de création).
@@ -61,6 +68,13 @@ export default {
         .setName('reroll')
         .setDescription('Retirer un nouveau gagnant.')
         .addStringOption((o) => o.setName('message_id').setDescription('ID du message du giveaway (sinon le dernier terminé)')),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('retirer-participant')
+        .setDescription('Retirer un membre de la liste des participants d’un giveaway.')
+        .addUserOption((o) => o.setName('membre').setDescription('Le membre à retirer').setRequired(true))
+        .addStringOption((o) => o.setName('message_id').setDescription('ID du message du giveaway (sinon le dernier actif)')),
     ),
 
   async execute(interaction) {
@@ -70,6 +84,7 @@ export default {
     if (sub === 'start') return this.start(interaction, guildId);
     if (sub === 'end') return this.end(interaction, guildId);
     if (sub === 'reroll') return this.reroll(interaction, guildId);
+    if (sub === 'retirer-participant') return this.removeParticipant(interaction, guildId);
   },
 
   async start(interaction, guildId) {
@@ -164,5 +179,22 @@ export default {
       return interaction.editReply({ content: messages[res.reason] ?? '❌ Échec du reroll.' });
     }
     return interaction.editReply({ content: `✅ Nouveau gagnant tiré (${res.winners.length}).` });
+  },
+
+  async removeParticipant(interaction, guildId) {
+    const user = interaction.options.getUser('membre');
+    const messageId = interaction.options.getString('message_id') ?? latestGiveaway(guildId, (gw) => !gw.ended);
+    if (!messageId) {
+      return interaction.reply({ content: '❌ Aucun giveaway actif trouvé.', ephemeral: true });
+    }
+    const gw = getGiveaway(guildId, messageId);
+    if (!gw) return interaction.reply({ content: `❌ Giveaway \`${messageId}\` introuvable.`, ephemeral: true });
+    if (!(gw.participants ?? []).includes(user.id)) {
+      return interaction.reply({ content: `ℹ️ ${user} ne participe pas à ce giveaway.`, ephemeral: true });
+    }
+
+    removeGiveawayParticipant(guildId, messageId, user.id);
+    await refreshGiveawayCount(interaction.client, guildId, messageId).catch(() => {});
+    return interaction.reply({ content: `✅ ${user} a été retiré des participants du giveaway.`, ephemeral: true });
   },
 };

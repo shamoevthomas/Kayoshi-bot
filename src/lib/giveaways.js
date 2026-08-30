@@ -60,6 +60,17 @@ async function refreshParticipantCount(channel, guildId, messageId) {
   if (msg) await msg.edit({ components: [buildJoinRow(gw.participants?.length ?? 0)] }).catch(() => {});
 }
 
+// Rafraîchit le compteur de participants sur le message d'un giveaway
+// (utilisé après un retrait manuel via /gw retirer-participant).
+export async function refreshGiveawayCount(client, guildId, messageId) {
+  const gw = getGiveaway(guildId, messageId);
+  if (!gw) return;
+  const guild = client.guilds.cache.get(guildId) ?? (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return;
+  const channel = guild.channels.cache.get(gw.channelId) ?? (await guild.channels.fetch(gw.channelId).catch(() => null));
+  if (channel?.isTextBased()) await refreshParticipantCount(channel, guildId, messageId);
+}
+
 export function buildGiveawayEmbed(gw, ended = false) {
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x2b2d31 : GW_COLOR)
