@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { getStatutRules, addStatutRule, removeStatutRule } from '../../lib/store.js';
-import { sweepStatutRules } from '../../lib/statusrole.js';
+import { sweepAutoRolesGuild } from '../../lib/autoroles.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -73,7 +73,7 @@ export default {
 
     await interaction.deferReply({ ephemeral: true });
     // Applique tout de suite aux membres en ligne connus.
-    await sweepStatutRules(interaction.guild, getStatutRules(guildId)).catch(() => {});
+    await sweepAutoRolesGuild(interaction.guild).catch(() => {});
     return interaction.editReply({
       content:
         `✅ Ajouté : les membres avec **\`${keyword.toLowerCase()}\`** dans leur statut reçoivent ${role}.\n` +

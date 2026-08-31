@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { getTagRoleConfig, setTagRoleConfig } from '../../lib/store.js';
-import { sweepTagRoles } from '../../lib/tagrole.js';
+import { sweepAutoRolesGuild } from '../../lib/autoroles.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -53,14 +53,12 @@ export default {
     setTagRoleConfig(guildId, { roleId: role.id });
     await interaction.deferReply({ ephemeral: true });
 
-    // Applique tout de suite aux membres connus.
+    // Applique tout de suite aux membres connus (réconciliation unifiée).
     await interaction.guild.members.fetch().catch(() => null);
-    const { added } = await sweepTagRoles(interaction.guild, { roleId: role.id }).catch(() => ({ added: 0 }));
+    await sweepAutoRolesGuild(interaction.guild).catch(() => {});
 
     return interaction.editReply({
-      content:
-        `✅ Les membres qui portent le **tag du serveur** reçoivent ${role} (retiré dès qu’ils l’enlèvent).\n` +
-        `${added} membre(s) déjà concerné(s).`,
+      content: `✅ Les membres qui portent le **tag du serveur** reçoivent ${role} (retiré seulement si aucune autre condition ne le donne).`,
     });
   },
 };

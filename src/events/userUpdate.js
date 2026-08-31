@@ -1,17 +1,15 @@
 import { Events } from 'discord.js';
-import { getTagRoleConfig } from '../lib/store.js';
-import { applyTagRole } from '../lib/tagrole.js';
+import { hasAutoRoles, reconcileAutoRoles } from '../lib/autoroles.js';
 
-// Quand un utilisateur change de tag de serveur (primaryGuild), on réévalue le
-// rôle de tag dans chaque serveur où il est membre.
+// Quand un utilisateur change (tag de serveur, etc.), on réconcilie ses rôles
+// automatiques dans chaque serveur où il est membre.
 export default {
   name: Events.UserUpdate,
   async execute(oldUser, newUser) {
     for (const [, guild] of newUser.client.guilds.cache) {
-      const config = getTagRoleConfig(guild.id);
-      if (!config?.roleId) continue;
+      if (!hasAutoRoles(guild.id)) continue;
       const member = guild.members.cache.get(newUser.id);
-      if (member) await applyTagRole(member, config).catch(() => {});
+      if (member) await reconcileAutoRoles(member).catch(() => {});
     }
   },
 };

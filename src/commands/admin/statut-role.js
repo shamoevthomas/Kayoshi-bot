@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getStatusRoleConfig, setStatusRoleConfig } from '../../lib/store.js';
-import { sweepStatusRoles } from '../../lib/statusrole.js';
+import { sweepAutoRolesGuild } from '../../lib/autoroles.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -73,10 +73,10 @@ export default {
       ephemeral: true,
     });
 
-    // Applique immédiatement aux membres déjà en ligne (présences en cache).
-    const { added } = await sweepStatusRoles(interaction.guild, { text: texte, roleId: role.id }).catch(() => ({ added: 0 }));
+    // Applique immédiatement aux membres déjà en ligne (réconciliation unifiée).
+    await sweepAutoRolesGuild(interaction.guild).catch(() => {});
     await interaction.editReply({
-      content: `✅ C'est configuré : tout membre avec \`${texte}\` dans son statut recevra ${role}.\n🎯 ${added} membre(s) déjà en ligne ont reçu le rôle.`,
+      content: `✅ C'est configuré : tout membre avec \`${texte}\` dans son statut recevra ${role}.`,
     }).catch(() => {});
   },
 };

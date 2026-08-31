@@ -3,9 +3,7 @@ import { ensureTracking, getDueTempBans, removeTempBan } from '../lib/store.js';
 import { reconcileVerification, maybeRemindUnverified } from '../lib/verification.js';
 import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
-import { getStatusRoleConfig, getStatutRules } from '../lib/store.js';
-import { sweepAllStatusRoles, sweepAllStatutRules } from '../lib/statusrole.js';
-import { sweepAllTagRoles } from '../lib/tagrole.js';
+import { sweepAutoRoles } from '../lib/autoroles.js';
 import { reconcileGiveaways } from '../lib/giveaways.js';
 import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
@@ -43,16 +41,11 @@ export default {
     setInterval(() => maybeRemindUnverified(client).catch(() => {}), 30 * 60_000);
     // Nettoie les vocaux temporaires vides.
     reconcileTempVoice(client);
-    // Rôle selon le statut : balayage initial + toutes les 5 min
-    // (rattrape les membres déjà en ligne et retire le rôle si le texte a disparu).
-    setTimeout(() => sweepAllStatusRoles(client, getStatusRoleConfig).catch(() => {}), 10_000);
-    setInterval(() => sweepAllStatusRoles(client, getStatusRoleConfig).catch(() => {}), 300_000);
-    // Idem pour les règles multi-mots-clés (/statut).
-    setTimeout(() => sweepAllStatutRules(client, getStatutRules).catch(() => {}), 12_000);
-    setInterval(() => sweepAllStatutRules(client, getStatutRules).catch(() => {}), 300_000);
-    // Rôle selon le tag du serveur.
-    setTimeout(() => sweepAllTagRoles(client).catch(() => {}), 14_000);
-    setInterval(() => sweepAllTagRoles(client).catch(() => {}), 300_000);
+    // Rôles automatiques unifiés (statut mots-clés + statut-role + tag) :
+    // balayage initial + toutes les 5 min. Un rôle n'est retiré que si AUCUNE
+    // source (statut/tag) ne le réclame → plus de conflit entre systèmes.
+    setTimeout(() => sweepAutoRoles(client).catch(() => {}), 12_000);
+    setInterval(() => sweepAutoRoles(client).catch(() => {}), 300_000);
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
     // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.
