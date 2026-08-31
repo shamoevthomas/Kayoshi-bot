@@ -7,17 +7,21 @@ export default {
     .setName('kick')
     .setDescription('Expulser un membre du serveur.')
     .addUserOption((o) => o.setName('membre').setDescription('Le membre à expulser').setRequired(true))
-    .addStringOption((o) => o.setName('raison').setDescription('Raison de l’expulsion'))
-    .addBooleanOption((o) =>
-      o.setName('afficher_moderateur').setDescription('Afficher ton pseudo au membre dans le MP'),
+    .addStringOption((o) => o.setName('raison').setDescription('Raison de l’expulsion').setRequired(true))
+    .addStringOption((o) =>
+      o
+        .setName('afficher_moderateur')
+        .setDescription('Afficher ton pseudo au membre dans le MP ?')
+        .setRequired(true)
+        .addChoices({ name: 'Montrer', value: 'montrer' }, { name: 'Ne pas montrer', value: 'ne pas montrer' }),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
     .setDMPermission(false),
 
   async execute(interaction) {
     const target = interaction.options.getUser('membre');
-    const reason = interaction.options.getString('raison') ?? 'Aucune raison précisée';
-    const showMod = interaction.options.getBoolean('afficher_moderateur') ?? false;
+    const reason = interaction.options.getString('raison');
+    const showMod = interaction.options.getString('afficher_moderateur') === 'montrer';
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
     if (!member) return interaction.reply({ content: '❌ Membre introuvable.', ephemeral: true });

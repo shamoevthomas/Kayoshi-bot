@@ -10,8 +10,12 @@ export default {
     .setDescription('Donner un avertissement à un membre.')
     .addUserOption((o) => o.setName('membre').setDescription('Le membre à avertir').setRequired(true))
     .addStringOption((o) => o.setName('raison').setDescription('Raison de l’avertissement').setRequired(true))
-    .addBooleanOption((o) =>
-      o.setName('afficher_moderateur').setDescription('Afficher ton pseudo au membre dans le MP'),
+    .addStringOption((o) =>
+      o
+        .setName('afficher_moderateur')
+        .setDescription('Afficher ton pseudo au membre dans le MP ?')
+        .setRequired(true)
+        .addChoices({ name: 'Montrer', value: 'montrer' }, { name: 'Ne pas montrer', value: 'ne pas montrer' }),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
     .setDMPermission(false),
@@ -19,7 +23,7 @@ export default {
   async execute(interaction) {
     const target = interaction.options.getUser('membre');
     const reason = interaction.options.getString('raison');
-    const showMod = interaction.options.getBoolean('afficher_moderateur') ?? false;
+    const showMod = interaction.options.getString('afficher_moderateur') === 'montrer';
 
     if (target.bot) {
       return interaction.reply({ content: '❌ On ne peut pas avertir un bot.', ephemeral: true });

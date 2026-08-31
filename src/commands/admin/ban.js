@@ -9,23 +9,27 @@ export default {
     .setName('ban')
     .setDescription('Bannir un membre.')
     .addUserOption((o) => o.setName('membre').setDescription('Le membre à bannir').setRequired(true))
-    .addStringOption((o) => o.setName('raison').setDescription('Raison du bannissement'))
+    .addStringOption((o) => o.setName('raison').setDescription('Raison du bannissement').setRequired(true))
+    .addStringOption((o) =>
+      o
+        .setName('afficher_moderateur')
+        .setDescription('Afficher ton pseudo au membre dans le MP ?')
+        .setRequired(true)
+        .addChoices({ name: 'Montrer', value: 'montrer' }, { name: 'Ne pas montrer', value: 'ne pas montrer' }),
+    )
     .addStringOption((o) => o.setName('duree').setDescription('Durée (ex: 7d, 12h) — vide = permanent'))
     .addBooleanOption((o) =>
       o.setName('definitif').setDescription('Supprimer ses messages des 7 derniers jours (ex-"ban IP")'),
-    )
-    .addBooleanOption((o) =>
-      o.setName('afficher_moderateur').setDescription('Afficher ton pseudo au membre dans le MP'),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
     .setDMPermission(false),
 
   async execute(interaction) {
     const target = interaction.options.getUser('membre');
-    const reason = interaction.options.getString('raison') ?? 'Aucune raison précisée';
+    const reason = interaction.options.getString('raison');
     const durInput = interaction.options.getString('duree');
     const definitif = interaction.options.getBoolean('definitif') ?? false;
-    const showMod = interaction.options.getBoolean('afficher_moderateur') ?? false;
+    const showMod = interaction.options.getString('afficher_moderateur') === 'montrer';
 
     const dur = durInput ? parseDuration(durInput) : { permanent: true, ms: null };
     if (dur === null) {

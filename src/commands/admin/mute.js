@@ -11,17 +11,21 @@ export default {
     .setDescription('Rendre un membre muet (timeout) pour une durée.')
     .addUserOption((o) => o.setName('membre').setDescription('Le membre à rendre muet').setRequired(true))
     .addStringOption((o) => o.setName('duree').setDescription('Durée (ex: 10m, 1h, 1d — max 28d)').setRequired(true))
-    .addStringOption((o) => o.setName('raison').setDescription('Raison du mute'))
-    .addBooleanOption((o) =>
-      o.setName('afficher_moderateur').setDescription('Afficher ton pseudo au membre dans le MP'),
+    .addStringOption((o) => o.setName('raison').setDescription('Raison du mute').setRequired(true))
+    .addStringOption((o) =>
+      o
+        .setName('afficher_moderateur')
+        .setDescription('Afficher ton pseudo au membre dans le MP ?')
+        .setRequired(true)
+        .addChoices({ name: 'Montrer', value: 'montrer' }, { name: 'Ne pas montrer', value: 'ne pas montrer' }),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
     .setDMPermission(false),
 
   async execute(interaction) {
     const target = interaction.options.getUser('membre');
-    const reason = interaction.options.getString('raison') ?? 'Aucune raison précisée';
-    const showMod = interaction.options.getBoolean('afficher_moderateur') ?? false;
+    const reason = interaction.options.getString('raison');
+    const showMod = interaction.options.getString('afficher_moderateur') === 'montrer';
     const dur = parseDuration(interaction.options.getString('duree'));
 
     if (dur === null || dur.permanent) {
