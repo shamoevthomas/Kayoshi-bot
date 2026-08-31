@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { sendLog, Colors } from '../../lib/logger.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
+import { dmSanction, dmNote } from '../../lib/sanctions.js';
 
 const MAX_TIMEOUT = 28 * 86_400_000; // Discord : max 28 jours
 
@@ -11,12 +12,16 @@ export default {
     .addUserOption((o) => o.setName('membre').setDescription('Le membre à rendre muet').setRequired(true))
     .addStringOption((o) => o.setName('duree').setDescription('Durée (ex: 10m, 1h, 1d — max 28d)').setRequired(true))
     .addStringOption((o) => o.setName('raison').setDescription('Raison du mute'))
+    .addBooleanOption((o) =>
+      o.setName('afficher_moderateur').setDescription('Afficher ton pseudo au membre dans le MP'),
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
     .setDMPermission(false),
 
   async execute(interaction) {
     const target = interaction.options.getUser('membre');
     const reason = interaction.options.getString('raison') ?? 'Aucune raison précisée';
+    const showMod = interaction.options.getBoolean('afficher_moderateur') ?? false;
     const dur = parseDuration(interaction.options.getString('duree'));
 
     if (dur === null || dur.permanent) {
@@ -31,6 +36,7 @@ export default {
     if (!member.moderatable) return interaction.reply({ content: '❌ Je ne peux pas rendre ce membre muet (rôle trop haut).', ephemeral: true });
 
     await member.timeout(dur.ms, `${reason} — par ${interaction.user.tag}`);
+    const dmSent = await dmSanction(target, interaction.guild, 'rendu muet', reason, interaction.user, showMod);
 
     await sendLog(
       interaction.guild,
@@ -46,6 +52,6 @@ export default {
         .setTimestamp(),
     );
 
-    await interaction.reply({ content: `✅ **${target.tag}** est muet pour **${formatDuration(dur.ms)}**.\nRaison : ${reason}`, ephemeral: true });
+    await interaction.reply({ content: `✅ **${target.tag}** est muet pour **${formatDuration(dur.ms)}**.\nRaison : ${reason}${dmNote(dmSent)}`, ephemeral: true });
   },
 };

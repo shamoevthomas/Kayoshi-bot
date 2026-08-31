@@ -2,6 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.
 import { addTempBan } from '../../lib/store.js';
 import { sendLog, Colors } from '../../lib/logger.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
+import { dmSanction, dmNote } from '../../lib/sanctions.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -13,6 +14,9 @@ export default {
     .addBooleanOption((o) =>
       o.setName('definitif').setDescription('Supprimer ses messages des 7 derniers jours (ex-"ban IP")'),
     )
+    .addBooleanOption((o) =>
+      o.setName('afficher_moderateur').setDescription('Afficher ton pseudo au membre dans le MP'),
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
     .setDMPermission(false),
 
@@ -21,6 +25,7 @@ export default {
     const reason = interaction.options.getString('raison') ?? 'Aucune raison précisée';
     const durInput = interaction.options.getString('duree');
     const definitif = interaction.options.getBoolean('definitif') ?? false;
+    const showMod = interaction.options.getBoolean('afficher_moderateur') ?? false;
 
     const dur = durInput ? parseDuration(durInput) : { permanent: true, ms: null };
     if (dur === null) {
@@ -31,6 +36,9 @@ export default {
     if (member && !member.bannable) {
       return interaction.reply({ content: '❌ Je ne peux pas bannir ce membre (rôle trop haut).', ephemeral: true });
     }
+
+    // MP AVANT le ban (impossible de le joindre une fois banni).
+    const dmSent = await dmSanction(target, interaction.guild, 'banni', reason, interaction.user, showMod);
 
     await interaction.guild.bans.create(target.id, {
       reason: `${reason} — par ${interaction.user.tag}`,
@@ -58,6 +66,6 @@ export default {
         .setTimestamp(),
     );
 
-    await interaction.reply({ content: `✅ **${target.tag}** banni. ${note}\nRaison : ${reason}`, ephemeral: true });
+    await interaction.reply({ content: `✅ **${target.tag}** banni. ${note}\nRaison : ${reason}${dmNote(dmSent)}`, ephemeral: true });
   },
 };
