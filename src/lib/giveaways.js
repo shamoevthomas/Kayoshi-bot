@@ -131,13 +131,13 @@ async function announceWinners(channel, gw, winners, reroll = false) {
   }
   const mentions = winners.map((id) => `<@${id}>`).join(' ');
   const plural = winners.length > 1;
-  const gagner = plural ? 'Vous venez de gagner' : 'Tu viens de gagner';
+  const gagne = plural ? 'vous avez gagné' : 'tu as gagné';
   const votre = plural ? 'votre' : 'ton';
   const prefix = reroll ? '🔁 **Nouveau tirage !** ' : '';
   await channel
     .send({
-      content: `${prefix}🎉 Bien joué ${mentions} ! ${gagner} **${gw.prize}**, crée un ticket pour recevoir ${votre} prix !`,
-      allowedMentions: { users: winners },
+      content: `${prefix}🎉 Bien joué ${mentions}, ${gagne} **${gw.prize}** ! Va MP <@${gw.hostId}> pour recevoir ${votre} prix.`,
+      allowedMentions: { users: [...new Set([...winners, gw.hostId])] },
     })
     .catch(() => {});
 }
