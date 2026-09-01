@@ -3,6 +3,7 @@ import { handleVerifyMessage } from '../lib/verification.js';
 import { handleLinkFilter } from '../lib/linkfilter.js';
 import { handleAntiSpam } from '../lib/antispam.js';
 import { handleProtectedChannelMention } from '../lib/channelmention.js';
+import { handleGifPermHint } from '../lib/gifhint.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
@@ -32,6 +33,8 @@ export default {
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));
+    // GIF posté sans la permission d'intégrer les liens → explique comment débloquer.
+    await handleGifPermHint(message).catch((err) => console.error(err));
     // Met en cache les photos/vidéos pour pouvoir les ré-afficher si le message est supprimé.
     await cacheAttachments(message).catch((err) => console.error(err));
     // Comptage des messages pour les giveaways avec condition de participation.
