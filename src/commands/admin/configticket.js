@@ -162,6 +162,7 @@ export default {
         return inter.update({ content: `**Texte d'accueil — catégorie ${idx + 1}/${config.motifs.length} : ${m.label}**\nClique pour le saisir.`, components: [openBtn], embeds: [] });
       };
 
+      let lastInteraction = sub;
       if (config.welcomeMode === 'per') {
         await promptCategory(sub, 0);
         for (let i = 0; i < config.motifs.length; i++) {
@@ -174,10 +175,37 @@ export default {
           const ws = await wb.awaitModalSubmit({ time: 600_000, filter: (x) => x.customId === 'cfg_wtmodal' && x.user.id === interaction.user.id });
           config.motifs[i].welcome = ws.fields.getTextInputValue('wt');
           if (i < config.motifs.length - 1) await promptCategory(ws, i + 1);
-          else await ws.update({ content: '⏳ Finalisation…', components: [], embeds: [] });
+          else lastInteraction = ws;
         }
-      } else {
-        await sub.update({ content: '⏳ Finalisation…', components: [], embeds: [] });
+      }
+
+      // ===== Rôles d'accès par catégorie =====
+      const catRoleRows = (i) => [
+        new ActionRowBuilder().addComponents(
+          new RoleSelectMenuBuilder()
+            .setCustomId(`cfg_catrole_${i}`)
+            .setPlaceholder(`Rôles qui voient « ${config.motifs[i].label} »`.slice(0, 100))
+            .setMinValues(0)
+            .setMaxValues(10),
+        ),
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('cfg_catrole_skip').setLabel('Staff global (aucun rôle spécifique)').setStyle(ButtonStyle.Secondary),
+        ),
+      ];
+      const catRolePrompt = (i) =>
+        `**Rôles d'accès — catégorie ${i + 1}/${config.motifs.length} : ${config.motifs[i].label}**\n` +
+        `Quel(s) rôle(s) peuvent **voir et gérer** les tickets de cette catégorie ?\n` +
+        `_(ne rien choisir + « Staff global » = utiliser le staff configuré à l'étape 2)_`;
+
+      await lastInteraction.update({ content: catRolePrompt(0), components: catRoleRows(0), embeds: [] });
+      for (let i = 0; i < config.motifs.length; i++) {
+        const sel = await msg.awaitMessageComponent({
+          time: 300_000,
+          filter: (x) => (x.customId === `cfg_catrole_${i}` || x.customId === 'cfg_catrole_skip') && x.user.id === interaction.user.id,
+        });
+        config.motifs[i].roleIds = sel.customId === 'cfg_catrole_skip' ? [] : sel.values ?? [];
+        if (i < config.motifs.length - 1) await sel.update({ content: catRolePrompt(i + 1), components: catRoleRows(i + 1), embeds: [] });
+        else await sel.update({ content: '⏳ Finalisation…', components: [], embeds: [] });
       }
 
       // ===== Finalisation : catégories + sauvegarde + panneau =====
@@ -191,8 +219,10 @@ export default {
           `✅ **Système de tickets configuré !**\n` +
           `• Panneau publié dans <#${config.panelChannelId}>\n` +
           `• Archives : <#${config.transcriptChannelId}>\n` +
-          `• Staff : ${config.staffRoleIds.map((r) => `<@&${r}>`).join(' ')}\n` +
-          `• Motifs (${config.motifs.length}) : ${config.motifs.map((m) => m.label).join(', ')}`,
+          `• Staff global : ${config.staffRoleIds.map((r) => `<@&${r}>`).join(' ')}\n` +
+          `• Catégories :\n${config.motifs
+            .map((m) => `   - **${m.label}** → ${m.roleIds?.length ? m.roleIds.map((r) => `<@&${r}>`).join(' ') : 'staff global'}`)
+            .join('\n')}`,
         components: [],
         embeds: [],
       });
