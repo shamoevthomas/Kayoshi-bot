@@ -13,7 +13,7 @@ function slug(s) {
 }
 
 function ticketRef(review, number) {
-  return `${slug(review?.motifLabel)}-${String(number).padStart(4, '0')}`;
+  return `${slug(review?.motifLabel)}-${String(review?.num ?? number).padStart(4, '0')}`;
 }
 
 function starsText(rating) {

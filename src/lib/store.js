@@ -304,56 +304,57 @@ export function getDueTempBans() {
 }
 
 // --- Système de tickets ---
-export function getTicketConfig(guildId) {
-  return getGuildConfig(guildId).ticketConfig ?? null;
+// `key` permet plusieurs systèmes indépendants (ticketConfig, ticketConfig2…).
+export function getTicketConfig(guildId, key = 'ticketConfig') {
+  return getGuildConfig(guildId)[key] ?? null;
 }
 
-export function setTicketConfig(guildId, ticketConfig) {
-  return setGuildConfig(guildId, { ticketConfig });
+export function setTicketConfig(guildId, ticketConfig, key = 'ticketConfig') {
+  return setGuildConfig(guildId, { [key]: ticketConfig });
 }
 
 // Réserve et renvoie le prochain numéro de ticket (incrémental).
-export function reserveTicketNumber(guildId) {
+export function reserveTicketNumber(guildId, key = 'ticketConfig') {
   const data = load();
-  const tc = data[guildId]?.ticketConfig;
+  const tc = data[guildId]?.[key];
   if (!tc) return null;
   tc.counter = (tc.counter ?? 0) + 1;
-  save(data);
+  save(data, guildId);
   return tc.counter;
 }
 
-export function saveTicketRecord(guildId, channelId, record) {
+export function saveTicketRecord(guildId, channelId, record, key = 'ticketConfig') {
   const data = load();
-  const tc = data[guildId]?.ticketConfig;
+  const tc = data[guildId]?.[key];
   if (!tc) return;
   tc.tickets = tc.tickets ?? {};
   tc.tickets[channelId] = record;
-  save(data);
+  save(data, guildId);
 }
 
-export function getTicketRecord(guildId, channelId) {
-  return getGuildConfig(guildId).ticketConfig?.tickets?.[channelId] ?? null;
+export function getTicketRecord(guildId, channelId, key = 'ticketConfig') {
+  return getGuildConfig(guildId)[key]?.tickets?.[channelId] ?? null;
 }
 
-export function updateTicketRecord(guildId, channelId, patch) {
+export function updateTicketRecord(guildId, channelId, patch, key = 'ticketConfig') {
   const data = load();
-  const tc = data[guildId]?.ticketConfig;
+  const tc = data[guildId]?.[key];
   if (!tc?.tickets?.[channelId]) return null;
   tc.tickets[channelId] = { ...tc.tickets[channelId], ...patch };
-  save(data);
+  save(data, guildId);
   return tc.tickets[channelId];
 }
 
-export function deleteTicketRecord(guildId, channelId) {
+export function deleteTicketRecord(guildId, channelId, key = 'ticketConfig') {
   const data = load();
-  const tc = data[guildId]?.ticketConfig;
+  const tc = data[guildId]?.[key];
   if (!tc?.tickets?.[channelId]) return;
   delete tc.tickets[channelId];
-  save(data);
+  save(data, guildId);
 }
 
-export function countOpenTicketsByUser(guildId, userId) {
-  const tickets = getGuildConfig(guildId).ticketConfig?.tickets ?? {};
+export function countOpenTicketsByUser(guildId, userId, key = 'ticketConfig') {
+  const tickets = getGuildConfig(guildId)[key]?.tickets ?? {};
   return Object.values(tickets).filter((t) => t.userId === userId);
 }
 
