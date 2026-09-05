@@ -357,6 +357,30 @@ export function countOpenTicketsByUser(guildId, userId) {
   return Object.values(tickets).filter((t) => t.userId === userId);
 }
 
+// --- Avis sur les tickets (/avisticket) ---
+export function getAvisConfig(guildId) {
+  return getGuildConfig(guildId).avisConfig ?? null;
+}
+
+export function setAvisConfig(guildId, avisConfig) {
+  return setGuildConfig(guildId, { avisConfig });
+}
+
+// Avis indexés par numéro de ticket : { userId, motifLabel, rating, comment, messageId }.
+export function getAvisReview(guildId, number) {
+  return getGuildConfig(guildId).avisReviews?.[number] ?? null;
+}
+
+export function saveAvisReview(guildId, number, patch) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.avisReviews = g.avisReviews ?? {};
+  g.avisReviews[number] = { ...(g.avisReviews[number] ?? {}), ...patch };
+  data[guildId] = g;
+  save(data, guildId);
+  return g.avisReviews[number];
+}
+
 // --- Vérification anti-bot (captcha) ---
 export function getVerifConfig(guildId) {
   return getGuildConfig(guildId).verifConfig ?? null;

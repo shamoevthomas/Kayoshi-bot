@@ -3,6 +3,7 @@ import { handleModerationInteraction } from '../lib/moderation.js';
 import { handleTicketInteraction } from '../lib/tickets.js';
 import { handleTempVoiceInteraction } from '../lib/tempvoice.js';
 import { handleGiveawayInteraction } from '../lib/giveaways.js';
+import { handleAvisInteraction } from '../lib/avis.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -15,6 +16,7 @@ export default {
         if (cid.startsWith('ticket_')) return void (await handleTicketInteraction(interaction));
         if (cid.startsWith('tv_')) return void (await handleTempVoiceInteraction(interaction));
         if (cid.startsWith('gw_')) return void (await handleGiveawayInteraction(interaction));
+        if (cid.startsWith('avis_')) return void (await handleAvisInteraction(interaction));
       } catch (err) {
         console.error(err);
         if (!interaction.replied && !interaction.deferred) {
