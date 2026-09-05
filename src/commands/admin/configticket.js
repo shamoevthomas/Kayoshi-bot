@@ -33,6 +33,17 @@ function channelSelectRow(customId) {
   );
 }
 
+// Champ de formulaire facultatif (le lien de l'image du panneau).
+function optionalInput(id, label, placeholder, style, max) {
+  return new TextInputBuilder()
+    .setCustomId(id)
+    .setLabel(label.slice(0, 45))
+    .setPlaceholder(placeholder)
+    .setStyle(style)
+    .setRequired(false)
+    .setMaxLength(max);
+}
+
 // Assistant partagé par /configticket (slot 1) et /configticket2 (slot 2).
 export async function runTicketWizard(interaction, slot = 1) {
   const key = slot === 2 ? 'ticketConfig2' : 'ticketConfig';
@@ -47,6 +58,7 @@ export async function runTicketWizard(interaction, slot = 1) {
     transcriptChannelId: null,
     panelTitle: '',
     panelDescription: '',
+    panelImage: null,
     welcomeMode: 'same',
     commonWelcome: '',
     motifs: [],
@@ -136,6 +148,7 @@ export async function runTicketWizard(interaction, slot = 1) {
     if (config.welcomeMode === 'same') {
       inputs.push(textInput('welcome', "Texte d'accueil dans le ticket", 'Un membre du staff va te répondre au plus vite.', TextInputStyle.Paragraph, 1000));
     }
+    inputs.push(optionalInput('image', 'Lien image du panneau (facultatif)', 'https://…​.png / .jpg / .gif — laisser vide si aucune', TextInputStyle.Short, 500));
     modal.addComponents(...inputs.map((i) => new ActionRowBuilder().addComponents(i)));
     await modeBtn.showModal(modal);
 
@@ -144,6 +157,8 @@ export async function runTicketWizard(interaction, slot = 1) {
     config.panelDescription = sub.fields.getTextInputValue('desc');
     config.motifs = parseMotifs(sub.fields.getTextInputValue('motifs'));
     if (config.welcomeMode === 'same') config.commonWelcome = sub.fields.getTextInputValue('welcome');
+    const img = sub.fields.getTextInputValue('image')?.trim();
+    config.panelImage = img && /^https?:\/\/\S+$/i.test(img) ? img : null;
 
     if (config.motifs.length === 0) {
       return sub.update({ content: `❌ Aucun motif valide détecté. Relance \`/${cmdName}\` (format : \`Nom | emoji | description\`).`, components: [], embeds: [] });
@@ -216,6 +231,7 @@ export async function runTicketWizard(interaction, slot = 1) {
         `• Panneau publié dans <#${config.panelChannelId}>\n` +
         `• Archives : <#${config.transcriptChannelId}>\n` +
         `• Staff global : ${config.staffRoleIds.map((r) => `<@&${r}>`).join(' ')}\n` +
+        `• Image : ${config.panelImage ? '✅ ajoutée' : 'aucune'}\n` +
         `• Catégories :\n${config.motifs
           .map((m) => `   - **${m.label}** → ${m.roleIds?.length ? m.roleIds.map((r) => `<@&${r}>`).join(' ') : 'staff global'}`)
           .join('\n')}`,
