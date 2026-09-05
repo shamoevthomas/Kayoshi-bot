@@ -3,6 +3,7 @@ import { sendLog, sendInviteLog, Colors, findAuditEntry } from '../lib/logger.js
 import { addMemberEvent, recordInviteLeave } from '../lib/store.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { onMemberLeave } from '../lib/verification.js';
+import { rememberQuarantineOnLeave } from '../lib/blacklist.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
 
 export default {
@@ -12,6 +13,9 @@ export default {
 
     // Supprime le captcha de vérification en attente pour ce membre
     await onMemberLeave(member).catch((err) => console.error(err));
+
+    // Mémorise le rôle de quarantaine pour le remettre s'il revient.
+    rememberQuarantineOnLeave(member);
 
     addMemberEvent(member.guild.id, 'leave', member.id);
 

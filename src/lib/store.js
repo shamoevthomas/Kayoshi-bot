@@ -656,76 +656,39 @@ export function setAntiSpamConfig(guildId, antispam) {
   return setGuildConfig(guildId, { antispam });
 }
 
-// --- Blacklist de serveurs (quarantaine à l'arrivée) ---
-// data[guildId].serverBlacklist = { serverIds:[], quarantineRoleId, whitelist:[] }
+// --- Rôle de quarantaine persistant (ex-blacklist) ---
+// data[guildId].serverBlacklist = { quarantineRoleId, sticky:[userIds] }
+// Le rôle est conservé : si un membre l'a en partant, il le retrouve au retour.
 export function getServerBlacklist(guildId) {
   const b = getGuildConfig(guildId).serverBlacklist;
-  return { serverIds: [], quarantineRoleId: null, whitelist: [], ...(b ?? {}) };
+  return { quarantineRoleId: null, sticky: [], ...(b ?? {}) };
 }
 
 function saveServerBlacklist(guildId, mutate) {
   const data = load();
   const g = data[guildId] ?? {};
-  const b = { serverIds: [], quarantineRoleId: null, whitelist: [], ...(g.serverBlacklist ?? {}) };
+  const b = { quarantineRoleId: null, sticky: [], ...(g.serverBlacklist ?? {}) };
   mutate(b);
   g.serverBlacklist = b;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return b;
 }
 
-export function addBlacklistedServer(guildId, serverId) {
-  let added = false;
-  saveServerBlacklist(guildId, (b) => {
-    if (!b.serverIds.includes(serverId)) {
-      b.serverIds.push(serverId);
-      added = true;
-    }
-  });
-  return added;
+export function isBlacklistSticky(guildId, userId) {
+  return getServerBlacklist(guildId).sticky.includes(userId);
 }
 
-export function removeBlacklistedServer(guildId, serverId) {
-  let removed = false;
+export function addBlacklistSticky(guildId, userId) {
   saveServerBlacklist(guildId, (b) => {
-    if (b.serverIds.includes(serverId)) {
-      b.serverIds = b.serverIds.filter((id) => id !== serverId);
-      removed = true;
-    }
-  });
-  return removed;
-}
-
-export function setQuarantineRole(guildId, roleId) {
-  saveServerBlacklist(guildId, (b) => {
-    b.quarantineRoleId = roleId;
+    if (!b.sticky.includes(userId)) b.sticky.push(userId);
   });
 }
 
-export function isWhitelisted(guildId, userId) {
-  return getServerBlacklist(guildId).whitelist.includes(userId);
-}
-
-export function addWhitelist(guildId, userId) {
-  let added = false;
+export function removeBlacklistSticky(guildId, userId) {
   saveServerBlacklist(guildId, (b) => {
-    if (!b.whitelist.includes(userId)) {
-      b.whitelist.push(userId);
-      added = true;
-    }
+    b.sticky = b.sticky.filter((id) => id !== userId);
   });
-  return added;
-}
-
-export function removeWhitelist(guildId, userId) {
-  let removed = false;
-  saveServerBlacklist(guildId, (b) => {
-    if (b.whitelist.includes(userId)) {
-      b.whitelist = b.whitelist.filter((id) => id !== userId);
-      removed = true;
-    }
-  });
-  return removed;
 }
 
 // --- Mode "coiffeur" (répond "feur" quand un message finit par "quoi") ---

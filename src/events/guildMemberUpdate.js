@@ -1,6 +1,7 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor, findAuditEntry } from '../lib/logger.js';
 import { handleBoost } from '../lib/boost.js';
+import { syncQuarantineRole } from '../lib/blacklist.js';
 
 export default {
   name: Events.GuildMemberUpdate,
@@ -9,6 +10,8 @@ export default {
 
     // Message de boost (si le membre vient de booster le serveur).
     await handleBoost(oldMember, newMember).catch((err) => console.error(err));
+    // Mémorise l'ajout/retrait manuel du rôle de quarantaine (persistance).
+    syncQuarantineRole(oldMember, newMember);
 
     // --- Mute / Unmute (timeout) ---
     const oldTo = oldMember.communicationDisabledUntilTimestamp ?? null;
