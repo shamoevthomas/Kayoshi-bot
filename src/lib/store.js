@@ -355,7 +355,7 @@ export function deleteTicketRecord(guildId, channelId, key = 'ticketConfig') {
 
 export function countOpenTicketsByUser(guildId, userId, key = 'ticketConfig') {
   const tickets = getGuildConfig(guildId)[key]?.tickets ?? {};
-  return Object.values(tickets).filter((t) => t.userId === userId);
+  return Object.values(tickets).filter((t) => t.userId === userId && !t.closed);
 }
 
 // --- Avis sur les tickets (/avisticket) ---
