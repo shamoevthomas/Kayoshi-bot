@@ -29,6 +29,10 @@ export async function handleLinkFilter(message) {
   // Les liens sont autorisés dans ces salons (whitelist) : on ne filtre pas.
   if (config.allowedChannelIds?.includes(message.channel.id)) return;
 
+  // Catégorie « Partenariat » (tickets partenariat) : liens autorisés.
+  const parentName = message.channel.parent?.name?.toLowerCase() ?? '';
+  if (parentName.includes('partenariat')) return;
+
   // Un rôle autorisé (exception) l'emporte : le membre peut poster des liens partout.
   const exempt = message.member.roles.cache.some((r) => config.allowedRoleIds?.includes(r.id));
   if (exempt) return;
