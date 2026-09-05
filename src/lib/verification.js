@@ -324,7 +324,7 @@ export async function maybeRemindUnverified(client) {
     setGuildConfig(guild.id, { lastUnverifiedPing: Date.now() });
     if (!unverified.length) continue;
 
-    // Ping fantôme par groupes de 30 mentions.
+    // Ping fantôme par groupes de 30 mentions dans le salon de vérif.
     for (let i = 0; i < unverified.length; i += 30) {
       const chunk = unverified.slice(i, i + 30);
       const content = `⏳ ${chunk.map((m) => `<@${m.id}>`).join(' ')}\nPense à passer la **vérification** pour accéder au serveur !`;
@@ -332,6 +332,19 @@ export async function maybeRemindUnverified(client) {
         .send({ content: content.slice(0, 2000), allowedMentions: { users: chunk.map((m) => m.id) } })
         .catch(() => null);
       if (msg) setTimeout(() => msg.delete().catch(() => {}), 15_000);
+    }
+
+    // Rappel aussi en MP à chaque membre non vérifié.
+    const dmEmbed = new EmbedBuilder()
+      .setColor(Colors.role)
+      .setTitle('⏳ Vérification en attente')
+      .setDescription(
+        `Tu n'as pas encore passé la **vérification** sur **${guild.name}**.\n` +
+          `Rends-toi dans <#${config.channelId}> pour accéder au serveur !`,
+      )
+      .setTimestamp();
+    for (const m of unverified) {
+      await m.send({ embeds: [dmEmbed] }).catch(() => {});
     }
   }
 }
