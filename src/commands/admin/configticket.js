@@ -33,6 +33,13 @@ function channelSelectRow(customId) {
   );
 }
 
+// Convertit un hex ("#131313", "131313", "fff") en entier, ou null si invalide.
+function parseHex(input) {
+  let h = (input || '').trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{3}$/.test(h)) h = h.split('').map((c) => c + c).join('');
+  return /^[0-9a-fA-F]{6}$/.test(h) ? parseInt(h, 16) : null;
+}
+
 // Champ de formulaire facultatif (le lien de l'image du panneau).
 function optionalInput(id, label, placeholder, style, max) {
   return new TextInputBuilder()
@@ -59,6 +66,7 @@ export async function runTicketWizard(interaction, slot = 1) {
     panelTitle: '',
     panelDescription: '',
     panelImage: null,
+    panelColor: null,
     welcomeMode: 'same',
     commonWelcome: '',
     motifs: [],
@@ -164,6 +172,45 @@ export async function runTicketWizard(interaction, slot = 1) {
       return sub.update({ content: `❌ Aucun motif valide détecté. Relance \`/${cmdName}\` (format : \`Nom | emoji | description\`).`, components: [], embeds: [] });
     }
 
+    // ===== Couleur du panneau (bordure gauche de l'embed) =====
+    const colorRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('cfg_color').setLabel('Choisir la couleur (hex)').setStyle(ButtonStyle.Primary).setEmoji('🎨'),
+      new ButtonBuilder().setCustomId('cfg_colordefault').setLabel('Couleur par défaut').setStyle(ButtonStyle.Secondary),
+    );
+    await sub.update({
+      content: "**Couleur du panneau** 🎨\nQuelle sera la couleur du hex (la bordure à gauche de l'embed) ?",
+      components: [colorRow],
+      embeds: [],
+    });
+    const cb = await msg.awaitMessageComponent({
+      componentType: ComponentType.Button,
+      time: 300_000,
+      filter: (x) => (x.customId === 'cfg_color' || x.customId === 'cfg_colordefault') && x.user.id === interaction.user.id,
+    });
+    let colorInteraction = cb;
+    if (cb.customId === 'cfg_color') {
+      const cModal = new ModalBuilder()
+        .setCustomId('cfg_colormodal')
+        .setTitle('Couleur du panneau')
+        .addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId('hex')
+              .setLabel('Couleur hex (avec ou sans #)')
+              .setPlaceholder('#131313')
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+              .setMaxLength(7),
+          ),
+        );
+      await cb.showModal(cModal);
+      const cs = await cb.awaitModalSubmit({ time: 600_000, filter: (x) => x.customId === 'cfg_colormodal' && x.user.id === interaction.user.id });
+      config.panelColor = parseHex(cs.fields.getTextInputValue('hex'));
+      colorInteraction = cs;
+    } else {
+      config.panelColor = null;
+    }
+
     // ===== Texte par catégorie (si personnalisé) =====
     const promptCategory = (inter, idx) => {
       const m = config.motifs[idx];
@@ -173,9 +220,9 @@ export async function runTicketWizard(interaction, slot = 1) {
       return inter.update({ content: `**Texte d'accueil — catégorie ${idx + 1}/${config.motifs.length} : ${m.label}**\nClique pour le saisir.`, components: [openBtn], embeds: [] });
     };
 
-    let lastInteraction = sub;
+    let lastInteraction = colorInteraction;
     if (config.welcomeMode === 'per') {
-      await promptCategory(sub, 0);
+      await promptCategory(colorInteraction, 0);
       for (let i = 0; i < config.motifs.length; i++) {
         const wb = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter: (x) => x.customId === 'cfg_wt' && x.user.id === interaction.user.id });
         const wModal = new ModalBuilder()
@@ -232,6 +279,7 @@ export async function runTicketWizard(interaction, slot = 1) {
         `• Archives : <#${config.transcriptChannelId}>\n` +
         `• Staff global : ${config.staffRoleIds.map((r) => `<@&${r}>`).join(' ')}\n` +
         `• Image : ${config.panelImage ? '✅ ajoutée' : 'aucune'}\n` +
+        `• Couleur : ${config.panelColor != null ? `#${config.panelColor.toString(16).padStart(6, '0')}` : 'par défaut'}\n` +
         `• Catégories :\n${config.motifs
           .map((m) => `   - **${m.label}** → ${m.roleIds?.length ? m.roleIds.map((r) => `<@&${r}>`).join(' ') : 'staff global'}`)
           .join('\n')}`,
