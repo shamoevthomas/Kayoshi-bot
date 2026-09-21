@@ -61,6 +61,7 @@ const CATEGORIES = [
       ['/niveau', 'Voir ton niveau, ton XP et ta progression (ou celui d’un membre)'],
       ['/niveaux', 'Classement des membres par niveau / XP'],
       ['/xp', '`ajouter` `retirer` `definir` `recompense` — gérer XP, niveaux & rôles-récompenses (admin)'],
+      ['/configniveau', 'Personnaliser le message de level-up et son salon (admin)'],
     ],
   },
   {

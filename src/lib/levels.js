@@ -2,7 +2,19 @@
 // - Gain automatique à chaque message, selon la longueur du message.
 // - Courbe : niveau 1 = 100 XP, puis +40 XP par niveau (nv2 = +140, nv3 = +180…).
 //   => XP cumulée pour ATTEINDRE le niveau n : 20n² + 80n.
-import { addXp, levelUpChannelId, getLevelRewards } from './store.js';
+import { addXp, levelUpChannelId, getLevelRewards, getLevelUpMessage } from './store.js';
+
+// Message de level-up par défaut (si aucun n'est configuré via /configniveau).
+const DEFAULT_LEVELUP = '🎉 {user}, tu passes **niveau {level}** !';
+
+// Remplace les variables d'un modèle de message de level-up.
+export function formatLevelUp(template, { user, level, guild }) {
+  return String(template)
+    .replaceAll('{user}', `<@${user.id}>`)
+    .replaceAll('{username}', user.username)
+    .replaceAll('{level}', String(level))
+    .replaceAll('{server}', guild?.name ?? '');
+}
 
 // Anti-farm : un membre ne gagne de l'XP qu'une fois toutes les 5 secondes.
 // État en mémoire (le cooldown est trop court pour justifier une persistance).
@@ -98,8 +110,7 @@ async function announceLevelUp(message, level) {
       (await message.guild.channels.fetch(dedicatedId).catch(() => null));
     if (!channel?.isTextBased()) return;
   }
-  await channel.send({
-    content: `🎉 ${message.author}, tu passes **niveau ${level}** !`,
-    allowedMentions: { users: [message.author.id] },
-  });
+  const template = getLevelUpMessage(message.guild.id) ?? DEFAULT_LEVELUP;
+  const content = formatLevelUp(template, { user: message.author, level, guild: message.guild });
+  await channel.send({ content, allowedMentions: { users: [message.author.id] } });
 }

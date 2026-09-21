@@ -710,6 +710,17 @@ export function levelUpChannelId(guildId) {
   return getGuildConfig(guildId).levelUpChannelId ?? null;
 }
 
+// Message de passage de niveau personnalisé (null = message par défaut).
+export function getLevelUpMessage(guildId) {
+  return getGuildConfig(guildId).levelUpMessage ?? null;
+}
+
+// Enregistre le message de level-up + son salon (channelId null = salon où le
+// membre monte de niveau).
+export function setLevelUpConfig(guildId, { message, channelId }) {
+  return setGuildConfig(guildId, { levelUpMessage: message, levelUpChannelId: channelId });
+}
+
 // Rôles-récompenses : data[guildId].levelRewards = { [niveau]: roleId }
 export function getLevelRewards(guildId) {
   return getGuildConfig(guildId).levelRewards ?? {};
