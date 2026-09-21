@@ -56,6 +56,14 @@ const CATEGORIES = [
     ],
   },
   {
+    title: '🎚️ Niveaux (XP)',
+    lines: [
+      ['/niveau', 'Voir ton niveau, ton XP et ta progression (ou celui d’un membre)'],
+      ['/niveaux', 'Classement des membres par niveau / XP'],
+      ['/xp', '`ajouter` `retirer` `definir` — gérer l’XP ou les niveaux (admin)'],
+    ],
+  },
+  {
     title: '🎭 Rôles automatiques',
     lines: [
       ['/statut', '`ajouter` `liste` `retirer` — rôle selon un mot-clé du statut'],

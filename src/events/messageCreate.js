@@ -6,6 +6,7 @@ import { handleProtectedChannelMention } from '../lib/channelmention.js';
 import { handleGifPermHint } from '../lib/gifhint.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
+import { grantMessageXp } from '../lib/levels.js';
 
 // "quoi" / "pourquoi" en fin de phrase (mot entier, ponctuation finale tolérée).
 const QUOI_RE = /(?:^|\s)quoi\s*[?!.…]*$/i;
@@ -42,6 +43,8 @@ export default {
       bumpGiveawayMessages(message.guild.id, message.author.id);
       // Comptage d'activité hebdomadaire (classement /configstat).
       bumpActivity(message.guild.id, message.author.id);
+      // Gain d'XP (système de niveaux) + annonce de level-up éventuelle.
+      await grantMessageXp(message).catch((err) => console.error(err));
       // Mode coiffeur : "quoi ?" → "feur", "pourquoi ?" → "pour feur".
       if (getCoiffeurEnabled(message.guild.id)) {
         const feur = POURQUOI_RE.test(message.content) ? 'pour feur' : QUOI_RE.test(message.content) ? 'feur' : null;
