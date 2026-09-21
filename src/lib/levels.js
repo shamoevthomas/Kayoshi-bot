@@ -2,7 +2,12 @@
 // - Gain automatique à chaque message, selon la longueur du message.
 // - Courbe : niveau 1 = 100 XP, puis +40 XP par niveau (nv2 = +140, nv3 = +180…).
 //   => XP cumulée pour ATTEINDRE le niveau n : 20n² + 80n.
-import { addXp, levelUpChannelId } from './store.js';
+import { addXp, levelUpChannelId, getLevelRewards } from './store.js';
+
+// Anti-farm : un membre ne gagne de l'XP qu'une fois toutes les 5 secondes.
+// État en mémoire (le cooldown est trop court pour justifier une persistance).
+const XP_COOLDOWN_MS = 5000;
+const lastGain = new Map(); // `${guildId}:${userId}` -> timestamp du dernier gain
 
 // XP gagnée pour un message selon sa longueur (caractères, espaces de bord retirés).
 export function xpForMessage(len) {
@@ -53,10 +58,33 @@ export async function grantMessageXp(message) {
   const gain = xpForMessage((message.content ?? '').trim().length);
   if (!gain) return;
 
+  // Anti-farm : ignore si le dernier gain remonte à moins de 5 secondes.
+  const key = `${message.guild.id}:${message.author.id}`;
+  const now = Date.now();
+  if (now - (lastGain.get(key) ?? 0) < XP_COOLDOWN_MS) return;
+  lastGain.set(key, now);
+
   const { before, after } = addXp(message.guild.id, message.author.id, gain);
   const oldLevel = levelFromXp(before);
   const newLevel = levelFromXp(after);
+  if (newLevel !== oldLevel) {
+    const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
+    if (member) await syncLevelRoles(member, newLevel).catch(() => {});
+  }
   if (newLevel > oldLevel) await announceLevelUp(message, newLevel).catch(() => {});
+}
+
+// Aligne les rôles-récompenses d'un membre sur son niveau : il porte tous les
+// rôles des paliers qu'il a atteints (cumulatif), et perd ceux d'un palier
+// au-dessus de son niveau (utile après un retrait d'XP/niveaux).
+export async function syncLevelRoles(member, level = levelFromXp(0)) {
+  const rewards = getLevelRewards(member.guild.id); // { niveau: roleId }
+  for (const [lvlStr, roleId] of Object.entries(rewards)) {
+    const lvl = Number(lvlStr);
+    const has = member.roles.cache.has(roleId);
+    if (level >= lvl && !has) await member.roles.add(roleId, `Récompense de niveau ${lvl}`).catch(() => {});
+    else if (level < lvl && has) await member.roles.remove(roleId, `Niveau ${lvl} non atteint`).catch(() => {});
+  }
 }
 
 // Annonce de passage de niveau : dans le salon dédié si configuré, sinon dans

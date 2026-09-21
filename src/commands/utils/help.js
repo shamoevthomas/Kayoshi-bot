@@ -60,7 +60,7 @@ const CATEGORIES = [
     lines: [
       ['/niveau', 'Voir ton niveau, ton XP et ta progression (ou celui d’un membre)'],
       ['/niveaux', 'Classement des membres par niveau / XP'],
-      ['/xp', '`ajouter` `retirer` `definir` — gérer l’XP ou les niveaux (admin)'],
+      ['/xp', '`ajouter` `retirer` `definir` `recompense` — gérer XP, niveaux & rôles-récompenses (admin)'],
     ],
   },
   {

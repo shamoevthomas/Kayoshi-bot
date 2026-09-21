@@ -710,6 +710,31 @@ export function levelUpChannelId(guildId) {
   return getGuildConfig(guildId).levelUpChannelId ?? null;
 }
 
+// Rôles-récompenses : data[guildId].levelRewards = { [niveau]: roleId }
+export function getLevelRewards(guildId) {
+  return getGuildConfig(guildId).levelRewards ?? {};
+}
+
+export function setLevelReward(guildId, level, roleId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.levelRewards = g.levelRewards ?? {};
+  g.levelRewards[level] = roleId;
+  data[guildId] = g;
+  save(data, guildId);
+}
+
+// Retire la récompense d'un niveau. Renvoie true si elle existait.
+export function removeLevelReward(guildId, level) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  if (!g.levelRewards || !(level in g.levelRewards)) return false;
+  delete g.levelRewards[level];
+  data[guildId] = g;
+  save(data, guildId);
+  return true;
+}
+
 // --- Rôle de quarantaine persistant (ex-blacklist) ---
 // data[guildId].serverBlacklist = { quarantineRoleId, sticky:[userIds] }
 // Le rôle est conservé : si un membre l'a en partant, il le retrouve au retour.
