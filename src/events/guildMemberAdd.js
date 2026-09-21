@@ -5,7 +5,7 @@ import { onMemberJoin } from '../lib/verification.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { detectUsedInvite } from '../lib/invites.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
-import { restoreQuarantineOnJoin } from '../lib/blacklist.js';
+import { applyQuarantineOnJoin } from '../lib/blacklist.js';
 import { reconcileAutoRoles } from '../lib/autoroles.js';
 
 export default {
@@ -21,8 +21,9 @@ export default {
     // countJoins inclut l'arrivée qu'on vient d'enregistrer → on retire 1.
     const previousJoins = Math.max(0, countJoins(member.guild.id, member.id) - 1);
 
-    // Rend le rôle de quarantaine s'il l'avait avant de partir (persistance).
-    await restoreQuarantineOnJoin(member).catch((err) => console.error(err));
+    // Quarantaine à l'arrivée : mode blacklist (tout le monde) ou persistance
+    // pour un membre déjà prisonnier avant son départ.
+    await applyQuarantineOnJoin(member).catch((err) => console.error(err));
     // Rôles automatiques (tag / statut) si le membre y est déjà éligible.
     await reconcileAutoRoles(member).catch(() => {});
     // Vérification anti-bot (si configurée)
