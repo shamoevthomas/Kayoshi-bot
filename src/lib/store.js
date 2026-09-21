@@ -657,36 +657,22 @@ export function setAntiSpamConfig(guildId, antispam) {
 }
 
 // --- Rôle de quarantaine persistant (ex-blacklist) ---
-// data[guildId].serverBlacklist = { quarantineRoleId, memberRoleId, enabled, sticky:[userIds] }
-// - quarantineRoleId : rôle « prisonnier » ajouté à l'arrivée.
-// - memberRoleId     : rôle « membre » retiré à l'arrivée (optionnel).
-// - enabled          : mode blacklist du serveur — TOUT nouvel arrivant est mis en quarantaine.
-// - sticky           : membres à re-quarantiner au retour même mode désactivé.
+// data[guildId].serverBlacklist = { quarantineRoleId, sticky:[userIds] }
 // Le rôle est conservé : si un membre l'a en partant, il le retrouve au retour.
 export function getServerBlacklist(guildId) {
   const b = getGuildConfig(guildId).serverBlacklist;
-  return { quarantineRoleId: null, memberRoleId: null, enabled: false, sticky: [], ...(b ?? {}) };
+  return { quarantineRoleId: null, sticky: [], ...(b ?? {}) };
 }
 
 function saveServerBlacklist(guildId, mutate) {
   const data = load();
   const g = data[guildId] ?? {};
-  const b = { quarantineRoleId: null, memberRoleId: null, enabled: false, sticky: [], ...(g.serverBlacklist ?? {}) };
+  const b = { quarantineRoleId: null, sticky: [], ...(g.serverBlacklist ?? {}) };
   mutate(b);
   g.serverBlacklist = b;
   data[guildId] = g;
   save(data, guildId);
   return b;
-}
-
-// Définit le rôle prisonnier / le rôle membre / l'état du mode blacklist.
-// Seuls les champs présents dans `patch` sont écrits (le reste est préservé).
-export function setServerBlacklistConfig(guildId, patch) {
-  return saveServerBlacklist(guildId, (b) => {
-    if ('quarantineRoleId' in patch) b.quarantineRoleId = patch.quarantineRoleId;
-    if ('memberRoleId' in patch) b.memberRoleId = patch.memberRoleId;
-    if ('enabled' in patch) b.enabled = Boolean(patch.enabled);
-  });
 }
 
 export function isBlacklistSticky(guildId, userId) {

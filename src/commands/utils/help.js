@@ -27,12 +27,11 @@ const CATEGORIES = [
     ],
   },
   {
-    title: '🛡️ Arrivées, vérification & quarantaine',
+    title: '🛡️ Arrivées & vérification',
     lines: [
       ['/configverif', 'Configurer la vérification anti-bot (captcha)'],
       ['/passer-verif', 'Valider manuellement la vérification d’un membre'],
       ['/verif-all', 'Valider la vérification de tous les non-vérifiés'],
-      ['/quarantaine', '`config` `on` `off` `statut` — quarantaine à l’arrivée (rôle prisonnier)'],
       ['/bienvenue', 'Configurer le message de bienvenue (arrivées)'],
       ['/quitte', 'Configurer le message de départ'],
       ['/bilan', 'Bilan des arrivées et départs sur une période'],
