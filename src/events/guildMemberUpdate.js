@@ -3,6 +3,7 @@ import { sendLog, sendSanctionLog, Colors, findExecutor, findAuditEntry } from '
 import { handleBoost } from '../lib/boost.js';
 import { syncQuarantineRole } from '../lib/blacklist.js';
 import { enforceAntiRoles } from '../lib/antirole.js';
+import { dmSanction } from '../lib/sanctions.js';
 
 export default {
   name: Events.GuildMemberUpdate,
@@ -25,6 +26,8 @@ export default {
       // Pas d'exécuteur = fin de timeout automatique → on ne loggue pas.
       if (entry?.executor && entry.executor.id !== guild.client.user.id) {
         const muted = newTo && newTo > Date.now();
+        // Même MP que /mute (sans afficher le modérateur, faute d'option ici).
+        if (muted) await dmSanction(newMember.user, guild, 'rendu muet', entry.reason, entry.executor, false);
         await sendSanctionLog(
           guild,
           new EmbedBuilder()
