@@ -5,6 +5,7 @@ import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
 import { sweepAutoRoles } from '../lib/autoroles.js';
 import { sweepAntiRoles } from '../lib/antirole.js';
+import { rejoinVoiceChannels } from '../lib/voicestay.js';
 import { reconcileGiveaways } from '../lib/giveaways.js';
 import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
@@ -49,6 +50,10 @@ export default {
     setInterval(() => sweepAutoRoles(client).catch(() => {}), 300_000);
     // Rôles incompatibles (/antirole) : rattrapage des changements faits hors ligne.
     setTimeout(() => sweepAntiRoles(client).catch(() => {}), 20_000);
+    // Salon vocal de /join : rejoint au démarrage, puis après chaque reconnexion
+    // avec nouvelle session (l'état vocal est alors perdu ; pas sur une simple reprise).
+    rejoinVoiceChannels(client);
+    client.on(Events.ShardReady, () => rejoinVoiceChannels(client));
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
     // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.

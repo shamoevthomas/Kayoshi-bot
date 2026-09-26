@@ -2,6 +2,7 @@ import { Events, EmbedBuilder } from 'discord.js';
 import { sendLog, Colors } from '../lib/logger.js';
 import { handleVoiceState } from '../lib/tempvoice.js';
 import { startVoiceSession, endVoiceSession } from '../lib/voiceactivity.js';
+import { onBotVoiceStateUpdate } from '../lib/voicestay.js';
 
 // Un salon compte pour l'activité vocale s'il existe et n'est pas le salon AFK.
 function counts(state) {
@@ -13,6 +14,8 @@ export default {
   async execute(oldState, newState) {
     const guild = newState.guild;
     const member = newState.member;
+    // Le bot lui-même (/join) : déconnecté ou déplacé par quelqu'un → on s'aligne.
+    if (newState.id === newState.client.user.id) return onBotVoiceStateUpdate(oldState, newState);
     if (member?.user?.bot) return;
 
     // Vocaux temporaires (création/suppression auto)

@@ -77,6 +77,7 @@ const CATEGORIES = [
     title: '⚙️ Salons & systèmes',
     lines: [
       ['/configvocal', 'Salons vocaux temporaires (Join to Create)'],
+      ['/join', 'Faire rejoindre un salon vocal au bot (il y reste, même vide)'],
       ['/configstat', 'Salon du classement des membres les plus actifs'],
       ['/configlien', 'Blocage des liens (par salon et par rôle)'],
       ['/anti-mention', '`ajouter` `liste` `retirer` — interdire la mention de salons'],
