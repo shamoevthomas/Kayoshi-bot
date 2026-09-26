@@ -11,7 +11,7 @@ import {
   TextInputStyle,
   EmbedBuilder,
 } from 'discord.js';
-import { getGreetConfig, setGreetConfig } from './store.js';
+import { getGreetConfig, setGreetConfig, getGreetEmbed } from './store.js';
 
 export const TEMPLATE_HELP =
   'Templates : `[@]` (mention/pseudo) · `[user]` (pseudo) · `[tag]` (identifiant complet) · `[server]` (nom du serveur) · `[count]` (nombre de membres, bots exclus) · `[date]`';
@@ -27,17 +27,35 @@ function applyTemplates(text, { mention, username, tag, guild, count }) {
     .replace(/\[date\]/gi, new Date().toLocaleDateString('fr-FR'));
 }
 
-// Applique les templates aux textes d'un embed stocké (titre, description,
-// auteur, pied de page, champs), en respectant les limites de Discord.
+// Applique les templates aux textes d'un embed stocké, en respectant les
+// limites de Discord. Les mentions ne s'affichent que dans la description et
+// les valeurs de champs : ailleurs (titre, auteur, pied de page), [@] devient le pseudo.
 function templateEmbed(data, vars) {
-  const t = (s, max) => (s ? applyTemplates(s, vars).slice(0, max) : s);
+  const plain = { ...vars, mention: vars.username };
+  const t = (s, max, v = vars) => (s ? applyTemplates(s, v).slice(0, max) : s);
   const e = structuredClone(data);
-  e.title = t(e.title, 256);
+  e.title = t(e.title, 256, plain);
   e.description = t(e.description, 4096);
-  if (e.author) e.author.name = t(e.author.name, 256);
-  if (e.footer) e.footer.text = t(e.footer.text, 2048);
-  if (e.fields) for (const f of e.fields) Object.assign(f, { name: t(f.name, 256), value: t(f.value, 1024) });
+  if (e.author) e.author.name = t(e.author.name, 256, plain);
+  if (e.footer) e.footer.text = t(e.footer.text, 2048, plain);
+  if (e.fields) for (const f of e.fields) Object.assign(f, { name: t(f.name, 256, plain), value: t(f.value, 1024) });
   return e;
+}
+
+// Variables des templates pour un membre.
+async function templateVars(guild, user, isWelcome) {
+  return {
+    mention: isWelcome ? `<@${user.id}>` : `**${user.tag}**`, // un membre parti ne peut plus être ping
+    username: user.username,
+    tag: user.tag,
+    guild,
+    count: await humanCount(guild),
+  };
+}
+
+// Embed de /embed envoyé à la main : variables remplacées avec la personne qui l'envoie.
+export async function renderEmbedFor(guild, user, data) {
+  return templateEmbed(data, await templateVars(guild, user, true));
 }
 
 // Nombre de membres humains (bots exclus). Utilise le cache s'il est complet,
@@ -51,47 +69,54 @@ async function humanCount(guild) {
   }
 }
 
-// Envoie le message de bienvenue ('welcome') ou de départ ('leave').
+async function textChannel(guild, channelId) {
+  if (!channelId) return null;
+  const channel = guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null));
+  return channel?.isTextBased() ? channel : null;
+}
+
+// Envoie le message de bienvenue ('welcome') ou de départ ('leave') : le
+// message texte (/bienvenue, /quitte) et l'embed (/embed) sont indépendants,
+// chacun envoyé dans son propre salon s'il est configuré.
 export async function sendGreeting(guild, type, member) {
   const cfg = getGreetConfig(guild.id, type);
-  if (!cfg?.channelId || (!cfg.message && !cfg.embed)) return;
-  const channel = guild.channels.cache.get(cfg.channelId) ?? (await guild.channels.fetch(cfg.channelId).catch(() => null));
-  if (!channel?.isTextBased()) return;
+  const embedCfg = getGreetEmbed(guild.id, type);
+  const channel = cfg?.message ? await textChannel(guild, cfg.channelId) : null;
+  const embedChannel = embedCfg?.embed ? await textChannel(guild, embedCfg.channelId) : null;
+  if (!channel && !embedChannel) return;
 
   const user = member.user;
   const isWelcome = type === 'welcome';
-  const mention = isWelcome ? `<@${user.id}>` : `**${user.tag}**`; // un membre parti ne peut plus être ping
-  const count = await humanCount(guild);
-  const vars = { mention, username: user.username, tag: user.tag, guild, count };
-  const rolePing = cfg.pingRoleId ? `<@&${cfg.pingRoleId}> ` : '';
+  const vars = await templateVars(guild, user, isWelcome);
 
-  // Embed créé avec /embed. Une mention dans un embed ne notifie pas : si [@]
-  // est utilisé, le membre est aussi mentionné au-dessus de l'embed.
-  if (cfg.embed) {
-    const pingUser = isWelcome && JSON.stringify(cfg.embed).includes('[@]') ? `<@${user.id}>` : '';
-    const content = `${rolePing}${pingUser}`.trim();
-    await channel
+  if (channel) {
+    const rolePing = cfg.pingRoleId ? `<@&${cfg.pingRoleId}> ` : '';
+    const body = applyTemplates(cfg.message, vars);
+    const payload = {
+      content: `${rolePing}${body}`.slice(0, 2000),
+      allowedMentions: {
+        users: isWelcome ? [user.id] : [],
+        roles: cfg.pingRoleId ? [cfg.pingRoleId] : [],
+      },
+    };
+    if (cfg.gifUrl) {
+      payload.embeds = [new EmbedBuilder().setColor(isWelcome ? 0x57f287 : 0xed4245).setImage(cfg.gifUrl)];
+    }
+    await channel.send(payload).catch(() => {});
+  }
+
+  // Une mention dans un embed ne notifie pas : si [@] est utilisé, le membre
+  // est aussi mentionné au-dessus de l'embed.
+  if (embedChannel) {
+    const pingUser = isWelcome && JSON.stringify(embedCfg.embed).includes('[@]');
+    await embedChannel
       .send({
-        ...(content ? { content } : {}),
-        embeds: [templateEmbed(cfg.embed, vars)],
-        allowedMentions: { users: pingUser ? [user.id] : [], roles: cfg.pingRoleId ? [cfg.pingRoleId] : [] },
+        ...(pingUser ? { content: `<@${user.id}>` } : {}),
+        embeds: [templateEmbed(embedCfg.embed, vars)],
+        allowedMentions: { users: pingUser ? [user.id] : [], roles: [] },
       })
       .catch(() => {});
-    return;
   }
-
-  const body = applyTemplates(cfg.message, vars);
-  const payload = {
-    content: `${rolePing}${body}`.slice(0, 2000),
-    allowedMentions: {
-      users: isWelcome ? [user.id] : [],
-      roles: cfg.pingRoleId ? [cfg.pingRoleId] : [],
-    },
-  };
-  if (cfg.gifUrl) {
-    payload.embeds = [new EmbedBuilder().setColor(isWelcome ? 0x57f287 : 0xed4245).setImage(cfg.gifUrl)];
-  }
-  await channel.send(payload).catch(() => {});
 }
 
 // Assistant de configuration commun à /bienvenue et /quitte.

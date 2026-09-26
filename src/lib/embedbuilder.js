@@ -10,17 +10,18 @@ import {
   TextInputStyle,
   PermissionFlagsBits,
 } from 'discord.js';
-import { getGreetConfig, setGreetConfig } from './store.js';
-import { TEMPLATE_HELP } from './greetings.js';
+import { getGreetEmbed, setGreetEmbed } from './store.js';
+import { TEMPLATE_HELP, renderEmbedFor } from './greetings.js';
 
 // Créateur d'embed (/embed) : aperçu éphémère + boutons d'édition.
 // Sans état : l'embed en cours est relu à chaque clic depuis le message d'aperçu.
 
 const INTRO =
   '🛠️ **Créateur d’embed** — modifie l’aperçu avec les boutons, puis envoie-le ou utilise-le comme message de bienvenue / départ.\n' +
-  `-# ${TEMPLATE_HELP} (bienvenue / départ uniquement)`;
+  `-# ${TEMPLATE_HELP} — affichés tels quels dans l’aperçu, remplacés à l’envoi.`;
 
 const GREET_LABEL = { welcome: 'bienvenue', leave: 'départ' };
+const GREET_CMD = { welcome: '/bienvenue', leave: '/quitte' };
 
 export function defaultEmbed() {
   return new EmbedBuilder().setTitle('titre').setDescription('description').setColor(0x5865f2);
@@ -161,11 +162,10 @@ function applyModal(section, e, get) {
   return cleaned;
 }
 
+// L'embed est stocké à part : le message texte de /bienvenue ou /quitte n'est pas touché.
 function saveGreeting(guildId, type, channelId, embed) {
-  const prev = getGreetConfig(guildId, type);
-  // L'embed remplace le message texte / GIF ; le ping de rôle éventuel est conservé.
-  setGreetConfig(guildId, type, { channelId, message: null, gifUrl: null, pingRoleId: prev?.pingRoleId ?? null, embed });
-  return `✅ Cet embed est maintenant le **message de ${GREET_LABEL[type]}**, envoyé dans <#${channelId}>.`;
+  setGreetEmbed(guildId, type, { channelId, embed });
+  return `✅ Cet embed est maintenant l’**embed de ${GREET_LABEL[type]}**, envoyé dans <#${channelId}>.\n-# Le message texte de ${GREET_CMD[type]} reste inchangé et est envoyé à part.`;
 }
 
 const errorReply = (interaction, text) => interaction.reply({ content: `❌ ${text}`, ephemeral: true }).catch(() => {});
@@ -193,7 +193,8 @@ export async function handleEmbedBuilderInteraction(interaction) {
   // --- Envoyer l'embed dans le salon ---
   if (interaction.isButton() && action === 'emb_send') {
     const embed = currentEmbed(interaction);
-    const sent = await interaction.channel.send({ embeds: [embed] }).then(() => true).catch(() => false);
+    const rendered = await renderEmbedFor(interaction.guild, interaction.user, embed);
+    const sent = await interaction.channel.send({ embeds: [rendered] }).then(() => true).catch(() => false);
     if (!sent) return errorReply(interaction, 'Impossible d’envoyer l’embed ici (permissions ?).');
     return interaction.update(builderPayload(embed, '✅ Embed envoyé dans ce salon.'));
   }
@@ -224,42 +225,65 @@ export async function handleEmbedBuilderInteraction(interaction) {
     if (!channel?.permissionsFor(interaction.member)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
       return errorReply(interaction, 'Tu ne peux pas écrire dans ce salon.');
     }
-    const sent = await channel.send({ embeds: [embed] }).then(() => true).catch(() => false);
+    const rendered = await renderEmbedFor(interaction.guild, interaction.user, embed);
+    const sent = await channel.send({ embeds: [rendered] }).then(() => true).catch(() => false);
     if (!sent) return errorReply(interaction, `Impossible d’envoyer l’embed dans ${channel} (permissions ?).`);
     return interaction.update(builderPayload(embed, `✅ Embed envoyé dans ${channel}.`));
   }
 
-  // --- Utiliser comme message de bienvenue / départ ---
-  if (interaction.isButton() && action === 'emb_greet' && GREET_LABEL[arg]) {
+  // --- Embed de bienvenue / départ (séparé du message texte) ---
+  if (action.startsWith('emb_greet') && GREET_LABEL[arg]) {
     if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-      return errorReply(interaction, 'Il faut être administrateur pour changer le message de bienvenue / départ.');
+      return errorReply(interaction, 'Il faut être administrateur pour changer l’embed de bienvenue / départ.');
     }
+    const guildId = interaction.guild.id;
     const embed = currentEmbed(interaction);
-    const channelId = getGreetConfig(interaction.guild.id, arg)?.channelId;
-    const channel = channelId && (await interaction.guild.channels.fetch(channelId).catch(() => null));
-    if (channel) return interaction.update(builderPayload(embed, saveGreeting(interaction.guild.id, arg, channel.id, embed)));
+    const current = getGreetEmbed(guildId, arg);
+    const currentChannel = current?.channelId && (await interaction.guild.channels.fetch(current.channelId).catch(() => null));
 
-    // Aucun salon configuré (ou supprimé) → choix du salon, l'aperçu reste affiché.
-    return interaction.update({
-      content: `📁 Dans quel salon envoyer le message de ${GREET_LABEL[arg]} ?`,
-      embeds: [embed],
-      components: [
-        new ActionRowBuilder().addComponents(
-          new ChannelSelectMenuBuilder()
-            .setCustomId(`emb_greetchan:${arg}`)
-            .setPlaceholder('Choisis un salon')
-            .addChannelTypes(ChannelType.GuildText),
-        ),
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('emb_back').setLabel('Retour').setStyle(ButtonStyle.Secondary),
-        ),
-      ],
-    });
-  }
+    // Écran de choix : nouveau salon, garder l'actuel, ou désactiver.
+    if (interaction.isButton() && action === 'emb_greet') {
+      const buttons = [];
+      if (currentChannel) {
+        buttons.push(new ButtonBuilder().setCustomId(`emb_greetkeep:${arg}`).setLabel('Garder le salon actuel').setStyle(ButtonStyle.Success));
+      }
+      if (current) {
+        buttons.push(new ButtonBuilder().setCustomId(`emb_greetoff:${arg}`).setLabel(`Désactiver l’embed de ${GREET_LABEL[arg]}`).setStyle(ButtonStyle.Danger));
+      }
+      buttons.push(new ButtonBuilder().setCustomId('emb_back').setLabel('Retour').setStyle(ButtonStyle.Secondary));
+      return interaction.update({
+        content:
+          `📁 Dans quel salon envoyer l’**embed de ${GREET_LABEL[arg]}** ?` +
+          (currentChannel ? ` (actuel : ${currentChannel})` : '') +
+          `\n-# Indépendant du message texte de ${GREET_CMD[arg]} : les deux sont envoyés séparément.`,
+        embeds: [embed],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ChannelSelectMenuBuilder()
+              .setCustomId(`emb_greetchan:${arg}`)
+              .setPlaceholder('Choisis un salon')
+              .addChannelTypes(ChannelType.GuildText),
+          ),
+          new ActionRowBuilder().addComponents(...buttons),
+        ],
+      });
+    }
 
-  if (interaction.isChannelSelectMenu() && action === 'emb_greetchan' && GREET_LABEL[arg]) {
-    const embed = currentEmbed(interaction);
-    return interaction.update(builderPayload(embed, saveGreeting(interaction.guild.id, arg, interaction.values[0], embed)));
+    if (interaction.isChannelSelectMenu() && action === 'emb_greetchan') {
+      return interaction.update(builderPayload(embed, saveGreeting(guildId, arg, interaction.values[0], embed)));
+    }
+
+    if (interaction.isButton() && action === 'emb_greetkeep') {
+      if (!currentChannel) return errorReply(interaction, 'Le salon actuel n’existe plus, choisis-en un autre.');
+      return interaction.update(builderPayload(embed, saveGreeting(guildId, arg, currentChannel.id, embed)));
+    }
+
+    if (interaction.isButton() && action === 'emb_greetoff') {
+      setGreetEmbed(guildId, arg, null);
+      return interaction.update(
+        builderPayload(embed, `🗑️ Embed de ${GREET_LABEL[arg]} désactivé.\n-# Le message texte de ${GREET_CMD[arg]} n’est pas touché.`),
+      );
+    }
   }
 
   if (interaction.isButton() && action === 'emb_back') {

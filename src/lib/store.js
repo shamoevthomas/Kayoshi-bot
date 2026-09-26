@@ -20,6 +20,7 @@ export async function initStore() {
   if (error) throw error;
   cache = {};
   for (const row of data) cache[row.guild_id] = row.data ?? {};
+  migrateGreetEmbeds();
   console.log(`🗄️  Store chargé depuis Supabase (${data.length} serveur(s)).`);
 }
 
@@ -507,6 +508,39 @@ export function setGreetConfig(guildId, type, cfg) {
   data[guildId] = g;
   save(data);
   return cfg;
+}
+
+// --- Embed de bienvenue / départ (/embed), indépendant du message texte ---
+// data[guildId].greetEmbed = { welcome|leave: { channelId, embed } }
+export function getGreetEmbed(guildId, type) {
+  return getGuildConfig(guildId).greetEmbed?.[type] ?? null;
+}
+
+// cfg null = désactive l'embed.
+export function setGreetEmbed(guildId, type, cfg) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.greetEmbed = g.greetEmbed ?? {};
+  if (cfg) g.greetEmbed[type] = cfg;
+  else delete g.greetEmbed[type];
+  data[guildId] = g;
+  save(data, guildId);
+  return cfg;
+}
+
+// Ancien format : l'embed était stocké dans greetConfig[type].embed (et
+// remplaçait le message texte). On le déplace vers greetEmbed[type].
+function migrateGreetEmbeds() {
+  for (const [guildId, g] of Object.entries(cache)) {
+    for (const [type, c] of Object.entries(g.greetConfig ?? {})) {
+      if (!c?.embed) continue;
+      g.greetEmbed = g.greetEmbed ?? {};
+      g.greetEmbed[type] = g.greetEmbed[type] ?? { channelId: c.channelId, embed: c.embed };
+      delete c.embed;
+      dirty.add(guildId);
+    }
+  }
+  if (dirty.size) scheduleFlush();
 }
 
 // --- Classement d'activité hebdomadaire (/configstat) ---
