@@ -5,6 +5,7 @@ import { sendGreeting } from '../lib/greetings.js';
 import { onMemberLeave } from '../lib/verification.js';
 import { rememberQuarantineOnLeave } from '../lib/blacklist.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
+import { deleteTicketsOnLeave } from '../lib/tickets.js';
 
 export default {
   name: Events.GuildMemberRemove,
@@ -13,6 +14,9 @@ export default {
 
     // Supprime le captcha de vérification en attente pour ce membre
     await onMemberLeave(member).catch((err) => console.error(err));
+
+    // Ses tickets ouverts sont supprimés directement (pas de MP ni de transcription).
+    await deleteTicketsOnLeave(member).catch((err) => console.error(err));
 
     // Mémorise le rôle de quarantaine pour le remettre s'il revient.
     rememberQuarantineOnLeave(member);
