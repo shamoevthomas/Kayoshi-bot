@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { addWarn } from '../../lib/store.js';
 import { buildWarnPanel } from '../../lib/moderation.js';
-import { sendLog, Colors } from '../../lib/logger.js';
+import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { dmSanction, dmNote } from '../../lib/sanctions.js';
 
 export default {
@@ -36,8 +36,8 @@ export default {
 
     const dmSent = await dmSanction(target, interaction.guild, 'averti', reason, interaction.user, showMod);
 
-    // Log public dans le salon de logs
-    await sendLog(
+    // Log dans le salon des sanctions
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.channel)

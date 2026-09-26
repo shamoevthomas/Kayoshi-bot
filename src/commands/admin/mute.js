@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { sendLog, Colors } from '../../lib/logger.js';
+import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
 import { dmSanction, dmNote } from '../../lib/sanctions.js';
 
@@ -42,7 +42,7 @@ export default {
     await member.timeout(dur.ms, `${reason} — par ${interaction.user.tag}`);
     const dmSent = await dmSanction(target, interaction.guild, 'rendu muet', reason, interaction.user, showMod);
 
-    await sendLog(
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.channel)

@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
-import { sendLog, Colors, findAuditEntry } from '../lib/logger.js';
+import { sendSanctionLog, Colors, findAuditEntry } from '../lib/logger.js';
 
 export default {
   name: Events.GuildBanAdd,
@@ -20,6 +20,6 @@ export default {
       )
       .setTimestamp();
 
-    await sendLog(guild, embed);
+    await sendSanctionLog(guild, embed);
   },
 };

@@ -9,7 +9,7 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import { getWarns, addTempBan } from './store.js';
-import { sendLog, Colors } from './logger.js';
+import { sendSanctionLog, Colors } from './logger.js';
 import { parseDuration, formatDuration } from './time.js';
 
 const SEVEN_DAYS_SECONDS = 604_800;
@@ -102,7 +102,7 @@ export async function handleModerationInteraction(interaction) {
       return true;
     }
     await member.kick(`${reason} — par ${interaction.user.tag}`);
-    await sendLog(
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.leave)
@@ -208,7 +208,7 @@ export async function handleModerationInteraction(interaction) {
       unbanNote = `Débannissement automatique dans **${formatDuration(dur.ms)}**.`;
     }
 
-    await sendLog(
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.delete)

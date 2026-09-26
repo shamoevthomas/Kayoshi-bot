@@ -39,6 +39,22 @@ export async function sendInviteLog(guild, embed, files = []) {
   await channel.send({ embeds: [embed], files }).catch(() => {});
 }
 
+// Envoie un embed dans le salon des sanctions (/sanction) : warn, mute, kick,
+// ban, derank, anti-spam… Si aucun salon dédié n'est configuré (ou qu'il a été
+// supprimé), on retombe sur le salon de logs général.
+export async function sendSanctionLog(guild, embed, files = []) {
+  if (!guild) return;
+  const { sanctionChannelId, logChannelId } = getGuildConfig(guild.id);
+  const channel =
+    (sanctionChannelId &&
+      (guild.channels.cache.get(sanctionChannelId) ??
+        (await guild.channels.fetch(sanctionChannelId).catch(() => null)))) ||
+    (logChannelId &&
+      (guild.channels.cache.get(logChannelId) ?? (await guild.channels.fetch(logChannelId).catch(() => null))));
+  if (!channel?.isTextBased()) return;
+  await channel.send({ embeds: [embed], files }).catch(() => {});
+}
+
 // Best-effort : retrouve l'auteur d'une action via les journaux d'audit.
 // Nécessite la permission "Voir les journaux d'audit". Renvoie null si indisponible.
 export async function findExecutor(guild, type, targetId) {

@@ -18,6 +18,7 @@ const CATEGORIES = [
       ['/delwarn', 'Retirer un avertissement précis'],
       ['/clearwarns', 'Effacer TOUS les avertissements d’un membre'],
       ['/derank', 'Retirer un rôle à un membre et le prévenir en MP'],
+      ['/sanction', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
       ['/purge', 'Supprimer des messages dans ce salon (par lots)'],
       ['/lock · /unlock', 'Verrouiller / déverrouiller l’écriture dans ce salon'],
       ['/slowmode', 'Régler le mode lent du salon (0 = off)'],

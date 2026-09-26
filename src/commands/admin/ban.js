@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { addTempBan } from '../../lib/store.js';
-import { sendLog, Colors } from '../../lib/logger.js';
+import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
 import { dmSanction, dmNote } from '../../lib/sanctions.js';
 
@@ -55,7 +55,7 @@ export default {
       note = `Débannissement automatique dans **${formatDuration(dur.ms)}**.`;
     }
 
-    await sendLog(
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.delete)

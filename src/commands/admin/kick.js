@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { sendLog, Colors } from '../../lib/logger.js';
+import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { dmSanction, dmNote } from '../../lib/sanctions.js';
 
 export default {
@@ -32,7 +32,7 @@ export default {
 
     await member.kick(`${reason} — par ${interaction.user.tag}`);
 
-    await sendLog(
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.leave)

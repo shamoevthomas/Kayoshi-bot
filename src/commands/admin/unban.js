@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { removeTempBan } from '../../lib/store.js';
-import { sendLog, Colors } from '../../lib/logger.js';
+import { sendSanctionLog, Colors } from '../../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -19,7 +19,7 @@ export default {
     await interaction.guild.bans.remove(userId, `Débanni par ${interaction.user.tag}`);
     removeTempBan(interaction.guild.id, userId);
 
-    await sendLog(
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.join)

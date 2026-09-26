@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
-import { sendLog, sendInviteLog, Colors, findAuditEntry } from '../lib/logger.js';
+import { sendLog, sendInviteLog, sendSanctionLog, Colors, findAuditEntry } from '../lib/logger.js';
 import { addMemberEvent, recordInviteLeave } from '../lib/store.js';
 import { sendGreeting } from '../lib/greetings.js';
 import { onMemberLeave } from '../lib/verification.js';
@@ -43,7 +43,7 @@ export default {
     // La commande /kick du bot loggue déjà elle-même → on ignore si l'exécuteur est le bot.
     const kick = await findAuditEntry(member.guild, AuditLogEvent.MemberKick, member.id);
     if (kick && kick.executor?.id !== member.guild.client.user.id) {
-      await sendLog(
+      await sendSanctionLog(
         member.guild,
         new EmbedBuilder()
           .setColor(Colors.leave)

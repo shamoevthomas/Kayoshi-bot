@@ -1,6 +1,6 @@
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { getAntiSpamConfig } from './store.js';
-import { sendLog, Colors } from './logger.js';
+import { sendSanctionLog, Colors } from './logger.js';
 
 // Fenêtres glissantes de messages par membre : `${guildId}:${userId}` -> [{ts,id,channelId}].
 const buckets = new Map();
@@ -63,7 +63,7 @@ export async function handleAntiSpam(message) {
   const warn = await message.channel.send(`⚠️ ${message.author}, arrête le **spam** !`).catch(() => null);
   if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
 
-  await sendLog(
+  await sendSanctionLog(
     message.guild,
     new EmbedBuilder()
       .setColor(Colors.delete)
@@ -123,7 +123,7 @@ async function handleMultiChannelSpam(message) {
     .catch(() => null);
   if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
 
-  await sendLog(
+  await sendSanctionLog(
     message.guild,
     new EmbedBuilder()
       .setColor(Colors.delete)

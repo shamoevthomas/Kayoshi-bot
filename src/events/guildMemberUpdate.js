@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
-import { sendLog, Colors, findExecutor, findAuditEntry } from '../lib/logger.js';
+import { sendLog, sendSanctionLog, Colors, findExecutor, findAuditEntry } from '../lib/logger.js';
 import { handleBoost } from '../lib/boost.js';
 import { syncQuarantineRole } from '../lib/blacklist.js';
 
@@ -22,7 +22,7 @@ export default {
       // Pas d'exécuteur = fin de timeout automatique → on ne loggue pas.
       if (entry?.executor && entry.executor.id !== guild.client.user.id) {
         const muted = newTo && newTo > Date.now();
-        await sendLog(
+        await sendSanctionLog(
           guild,
           new EmbedBuilder()
             .setColor(muted ? Colors.channel : Colors.join)

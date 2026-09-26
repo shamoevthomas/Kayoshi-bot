@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { sendLog, Colors } from '../../lib/logger.js';
+import { sendSanctionLog, Colors } from '../../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -19,7 +19,7 @@ export default {
 
     await member.timeout(null, `Démuté par ${interaction.user.tag}`);
 
-    await sendLog(
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.join)

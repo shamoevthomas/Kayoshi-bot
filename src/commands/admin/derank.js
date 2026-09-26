@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { sendLog, Colors } from '../../lib/logger.js';
+import { sendSanctionLog, Colors } from '../../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -54,7 +54,7 @@ export default {
       return interaction.editReply({ content: `❌ Impossible de retirer le rôle : ${err?.message ?? 'erreur inconnue'}` });
     }
 
-    await sendLog(
+    await sendSanctionLog(
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.role)
