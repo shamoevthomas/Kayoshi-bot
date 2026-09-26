@@ -7,6 +7,7 @@ import { detectUsedInvite } from '../lib/invites.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
 import { restoreQuarantineOnJoin } from '../lib/blacklist.js';
 import { reconcileAutoRoles } from '../lib/autoroles.js';
+import { kickIfRecentAccount } from '../lib/accountage.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -18,6 +19,14 @@ export default {
     const used = await detectUsedInvite(member.guild).catch(() => null);
 
     addMemberEvent(member.guild.id, 'join', member.id);
+
+    // Compte créé il y a moins de 2 jours → expulsé ; pas de bienvenue, de
+    // captcha ni d'invitation comptée au parrain.
+    const tooRecent = await kickIfRecentAccount(member, used?.code).catch((err) => {
+      console.error(err);
+      return false;
+    });
+    if (tooRecent) return;
     // countJoins inclut l'arrivée qu'on vient d'enregistrer → on retire 1.
     const previousJoins = Math.max(0, countJoins(member.guild.id, member.id) - 1);
 

@@ -6,6 +6,7 @@ import { onMemberLeave } from '../lib/verification.js';
 import { rememberQuarantineOnLeave } from '../lib/blacklist.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
 import { deleteTicketsOnLeave } from '../lib/tickets.js';
+import { isRecentAccount } from '../lib/accountage.js';
 
 export default {
   name: Events.GuildMemberRemove,
@@ -61,8 +62,10 @@ export default {
       );
     }
 
-    // Message de départ (si configuré)
-    await sendGreeting(member.guild, 'leave', member).catch((err) => console.error(err));
+    // Message de départ (si configuré) — pas pour un compte récent expulsé à l'arrivée.
+    if (!isRecentAccount(member.user)) {
+      await sendGreeting(member.guild, 'leave', member).catch((err) => console.error(err));
+    }
 
     const embed = new EmbedBuilder()
       .setColor(Colors.leave)
