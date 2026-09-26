@@ -442,6 +442,35 @@ export function removeStatutRule(guildId, keyword, roleId = null) {
   return removed;
 }
 
+// --- Rôles incompatibles (/antirole) ---
+// antiRoles = [{ keepRoleId, removeRoleId }] : si le membre a keepRoleId,
+// removeRoleId lui est retiré.
+export function getAntiRoleRules(guildId) {
+  return getGuildConfig(guildId).antiRoles ?? [];
+}
+
+export function addAntiRoleRule(guildId, keepRoleId, removeRoleId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.antiRoles = g.antiRoles ?? [];
+  if (g.antiRoles.some((r) => r.keepRoleId === keepRoleId && r.removeRoleId === removeRoleId)) return false;
+  g.antiRoles.push({ keepRoleId, removeRoleId });
+  data[guildId] = g;
+  save(data, guildId);
+  return true;
+}
+
+export function removeAntiRoleRule(guildId, keepRoleId, removeRoleId) {
+  const data = load();
+  const g = data[guildId];
+  if (!g?.antiRoles?.length) return false;
+  const before = g.antiRoles.length;
+  g.antiRoles = g.antiRoles.filter((r) => !(r.keepRoleId === keepRoleId && r.removeRoleId === removeRoleId));
+  if (g.antiRoles.length === before) return false;
+  save(data, guildId);
+  return true;
+}
+
 // --- Filtre anti-liens ---
 export function getLinkConfig(guildId) {
   return getGuildConfig(guildId).linkConfig ?? null;

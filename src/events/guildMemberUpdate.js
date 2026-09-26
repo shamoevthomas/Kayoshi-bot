@@ -2,6 +2,7 @@ import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, sendSanctionLog, Colors, findExecutor, findAuditEntry } from '../lib/logger.js';
 import { handleBoost } from '../lib/boost.js';
 import { syncQuarantineRole } from '../lib/blacklist.js';
+import { enforceAntiRoles } from '../lib/antirole.js';
 
 export default {
   name: Events.GuildMemberUpdate,
@@ -12,6 +13,8 @@ export default {
     await handleBoost(oldMember, newMember).catch((err) => console.error(err));
     // Mémorise l'ajout/retrait manuel du rôle de quarantaine (persistance).
     syncQuarantineRole(oldMember, newMember);
+    // Rôles incompatibles (/antirole) : retire le rôle bloqué s'il vient d'être cumulé.
+    await enforceAntiRoles(newMember).catch((err) => console.error(err));
 
     // --- Mute / Unmute (timeout) ---
     const oldTo = oldMember.communicationDisabledUntilTimestamp ?? null;

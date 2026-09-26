@@ -62,6 +62,7 @@ const CATEGORIES = [
       ['/statut', '`ajouter` `liste` `retirer` — rôle selon un mot-clé du statut'],
       ['/statut-role', '`activer` `desactiver` `voir` — rôle selon un texte du statut'],
       ['/tagrole', '`activer` `desactiver` `voir` — rôle si le tag du serveur est porté'],
+      ['/antirole', '`ajouter` `liste` `retirer` — rôles incompatibles (ex : Actif retire Nouveau)'],
     ],
   },
   {

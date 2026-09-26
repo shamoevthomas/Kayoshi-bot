@@ -4,6 +4,7 @@ import { reconcileVerification, maybeRemindUnverified } from '../lib/verificatio
 import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
 import { sweepAutoRoles } from '../lib/autoroles.js';
+import { sweepAntiRoles } from '../lib/antirole.js';
 import { reconcileGiveaways } from '../lib/giveaways.js';
 import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
@@ -46,6 +47,8 @@ export default {
     // source (statut/tag) ne le réclame → plus de conflit entre systèmes.
     setTimeout(() => sweepAutoRoles(client).catch(() => {}), 12_000);
     setInterval(() => sweepAutoRoles(client).catch(() => {}), 300_000);
+    // Rôles incompatibles (/antirole) : rattrapage des changements faits hors ligne.
+    setTimeout(() => sweepAntiRoles(client).catch(() => {}), 20_000);
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
     // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.

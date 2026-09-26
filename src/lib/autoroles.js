@@ -4,6 +4,7 @@
 // -> Fini les conflits où un système enlève le rôle qu'un autre vient de mettre.
 import { getStatutRules, getStatusRoleConfig, getTagRoleConfig } from './store.js';
 import { wearsServerTag } from './tagrole.js';
+import { isBlockedByAntiRole } from './antirole.js';
 
 function presenceText(member) {
   const parts = [];
@@ -51,7 +52,8 @@ export async function reconcileAutoRoles(member) {
 
   for (const roleId of managed) {
     const has = member.roles.cache.has(roleId);
-    if (desired.has(roleId) && !has) await member.roles.add(roleId).catch(() => {});
+    // Un rôle bloqué par /antirole n'est pas redonné (sinon ajout/retrait en boucle).
+    if (desired.has(roleId) && !has && !isBlockedByAntiRole(member, roleId)) await member.roles.add(roleId).catch(() => {});
     else if (!desired.has(roleId) && has) await member.roles.remove(roleId).catch(() => {});
   }
 }
