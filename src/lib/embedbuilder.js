@@ -40,6 +40,7 @@ function builderRows() {
       new ButtonBuilder().setCustomId('emb_greet:welcome').setLabel('Message de bienvenue').setStyle(ButtonStyle.Primary).setEmoji('👋'),
       new ButtonBuilder().setCustomId('emb_greet:leave').setLabel('Message de départ').setStyle(ButtonStyle.Primary).setEmoji('🚪'),
       new ButtonBuilder().setCustomId('emb_send').setLabel('Envoyer dans ce salon').setStyle(ButtonStyle.Success).setEmoji('📨'),
+      new ButtonBuilder().setCustomId('emb_pick').setLabel('Choisir un salon').setStyle(ButtonStyle.Success).setEmoji('📁'),
     ),
   ];
 }
@@ -195,6 +196,37 @@ export async function handleEmbedBuilderInteraction(interaction) {
     const sent = await interaction.channel.send({ embeds: [embed] }).then(() => true).catch(() => false);
     if (!sent) return errorReply(interaction, 'Impossible d’envoyer l’embed ici (permissions ?).');
     return interaction.update(builderPayload(embed, '✅ Embed envoyé dans ce salon.'));
+  }
+
+  // --- Choisir le salon d'envoi → menu, l'aperçu reste affiché ---
+  if (interaction.isButton() && action === 'emb_pick') {
+    return interaction.update({
+      content: '📁 Dans quel salon envoyer l’embed ?',
+      embeds: [currentEmbed(interaction)],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ChannelSelectMenuBuilder()
+            .setCustomId('emb_sendchan')
+            .setPlaceholder('Choisis un salon')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+        ),
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('emb_back').setLabel('Retour').setStyle(ButtonStyle.Secondary),
+        ),
+      ],
+    });
+  }
+
+  if (interaction.isChannelSelectMenu() && action === 'emb_sendchan') {
+    const embed = currentEmbed(interaction);
+    const channel = await interaction.guild.channels.fetch(interaction.values[0]).catch(() => null);
+    // Pas d'envoi via le bot dans un salon où le membre ne peut pas écrire lui-même.
+    if (!channel?.permissionsFor(interaction.member)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+      return errorReply(interaction, 'Tu ne peux pas écrire dans ce salon.');
+    }
+    const sent = await channel.send({ embeds: [embed] }).then(() => true).catch(() => false);
+    if (!sent) return errorReply(interaction, `Impossible d’envoyer l’embed dans ${channel} (permissions ?).`);
+    return interaction.update(builderPayload(embed, `✅ Embed envoyé dans ${channel}.`));
   }
 
   // --- Utiliser comme message de bienvenue / départ ---
