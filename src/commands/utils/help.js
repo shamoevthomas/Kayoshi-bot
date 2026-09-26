@@ -95,7 +95,7 @@ const CATEGORIES = [
     title: '💬 Communication & utilitaires',
     lines: [
       ['/announce', 'Publier une annonce dans un salon précis'],
-      ['/embed', 'Envoyer un message encadré (embed)'],
+      ['/embed', 'Créer un embed (aperçu modifiable) : envoi, ou message de bienvenue / départ'],
       ['/say', 'Faire parler le bot dans ce salon'],
       ['/save', 'Messages sauvegardés (5 emplacements)'],
       ['/serverinfo', 'Statistiques du serveur'],

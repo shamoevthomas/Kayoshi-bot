@@ -27,6 +27,19 @@ function applyTemplates(text, { mention, username, tag, guild, count }) {
     .replace(/\[date\]/gi, new Date().toLocaleDateString('fr-FR'));
 }
 
+// Applique les templates aux textes d'un embed stocké (titre, description,
+// auteur, pied de page, champs), en respectant les limites de Discord.
+function templateEmbed(data, vars) {
+  const t = (s, max) => (s ? applyTemplates(s, vars).slice(0, max) : s);
+  const e = structuredClone(data);
+  e.title = t(e.title, 256);
+  e.description = t(e.description, 4096);
+  if (e.author) e.author.name = t(e.author.name, 256);
+  if (e.footer) e.footer.text = t(e.footer.text, 2048);
+  if (e.fields) for (const f of e.fields) Object.assign(f, { name: t(f.name, 256), value: t(f.value, 1024) });
+  return e;
+}
+
 // Nombre de membres humains (bots exclus). Utilise le cache s'il est complet,
 // sinon récupère la liste ; repli sur memberCount en cas d'échec.
 async function humanCount(guild) {
@@ -41,7 +54,7 @@ async function humanCount(guild) {
 // Envoie le message de bienvenue ('welcome') ou de départ ('leave').
 export async function sendGreeting(guild, type, member) {
   const cfg = getGreetConfig(guild.id, type);
-  if (!cfg?.channelId || !cfg.message) return;
+  if (!cfg?.channelId || (!cfg.message && !cfg.embed)) return;
   const channel = guild.channels.cache.get(cfg.channelId) ?? (await guild.channels.fetch(cfg.channelId).catch(() => null));
   if (!channel?.isTextBased()) return;
 
@@ -49,9 +62,25 @@ export async function sendGreeting(guild, type, member) {
   const isWelcome = type === 'welcome';
   const mention = isWelcome ? `<@${user.id}>` : `**${user.tag}**`; // un membre parti ne peut plus être ping
   const count = await humanCount(guild);
-  const body = applyTemplates(cfg.message, { mention, username: user.username, tag: user.tag, guild, count });
+  const vars = { mention, username: user.username, tag: user.tag, guild, count };
   const rolePing = cfg.pingRoleId ? `<@&${cfg.pingRoleId}> ` : '';
 
+  // Embed créé avec /embed. Une mention dans un embed ne notifie pas : si [@]
+  // est utilisé, le membre est aussi mentionné au-dessus de l'embed.
+  if (cfg.embed) {
+    const pingUser = isWelcome && JSON.stringify(cfg.embed).includes('[@]') ? `<@${user.id}>` : '';
+    const content = `${rolePing}${pingUser}`.trim();
+    await channel
+      .send({
+        ...(content ? { content } : {}),
+        embeds: [templateEmbed(cfg.embed, vars)],
+        allowedMentions: { users: pingUser ? [user.id] : [], roles: cfg.pingRoleId ? [cfg.pingRoleId] : [] },
+      })
+      .catch(() => {});
+    return;
+  }
+
+  const body = applyTemplates(cfg.message, vars);
   const payload = {
     content: `${rolePing}${body}`.slice(0, 2000),
     allowedMentions: {

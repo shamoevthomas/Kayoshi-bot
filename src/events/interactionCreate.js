@@ -4,6 +4,7 @@ import { handleTicketInteraction } from '../lib/tickets.js';
 import { handleTempVoiceInteraction } from '../lib/tempvoice.js';
 import { handleGiveawayInteraction } from '../lib/giveaways.js';
 import { handleAvisInteraction } from '../lib/avis.js';
+import { handleEmbedBuilderInteraction } from '../lib/embedbuilder.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -17,6 +18,7 @@ export default {
         if (cid.startsWith('tv_')) return void (await handleTempVoiceInteraction(interaction));
         if (cid.startsWith('gw_')) return void (await handleGiveawayInteraction(interaction));
         if (cid.startsWith('avis_')) return void (await handleAvisInteraction(interaction));
+        if (cid.startsWith('emb_')) return void (await handleEmbedBuilderInteraction(interaction));
       } catch (err) {
         console.error(err);
         if (!interaction.replied && !interaction.deferred) {
