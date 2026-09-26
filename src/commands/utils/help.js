@@ -78,7 +78,7 @@ const CATEGORIES = [
       ['/configstat', 'Salon du classement des membres les plus actifs'],
       ['/configlien', 'Blocage des liens (par salon et par rôle)'],
       ['/anti-mention', '`ajouter` `liste` `retirer` — interdire la mention de salons'],
-      ['/antispam', '`activer` `desactiver` `voir` — anti-spam'],
+      ['/antispam', '`activer` `desactiver` `voir` — anti-spam (+ mute 1 h si spam multi-salons)'],
       ['/one-message', '`activer` `desactiver` `liste` — messages supprimés auto'],
       ['/configboost', 'Message quand quelqu’un boost le serveur'],
       ['/coiffeur', 'Répond « feur » quand un message finit par « quoi »'],

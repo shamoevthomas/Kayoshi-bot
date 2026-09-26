@@ -1,5 +1,9 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { getAntiSpamConfig, setAntiSpamConfig } from '../../lib/store.js';
+import { MULTI_WINDOW_MS, MULTI_TIMEOUT_MS } from '../../lib/antispam.js';
+
+// Règle fixe, active avec l'anti-spam.
+const MULTI_LINE = `• Multi-salons : messages dans plusieurs salons en **${MULTI_WINDOW_MS / 1000}s** → mute **${MULTI_TIMEOUT_MS / 3_600_000} h**\n`;
 
 export default {
   data: new SlashCommandBuilder()
@@ -41,6 +45,7 @@ export default {
           `🛡️ **Anti-spam activé**\n` +
           `• Seuil : **${c.maxMessages}** messages en **${Math.round(c.intervalMs / 1000)}s**\n` +
           `• Mute : ${c.timeoutMs > 0 ? `**${Math.round(c.timeoutMs / 60000)} min**` : 'aucun (suppression seule)'}\n` +
+          MULTI_LINE +
           `• Rôles exemptés : ${c.exemptRoleIds?.length ? c.exemptRoleIds.map((r) => `<@&${r}>`).join(' ') : '_aucun_'}\n` +
           `_(Le staff « Gérer les messages » est toujours exempté.)_`,
         ephemeral: true,
@@ -74,6 +79,7 @@ export default {
         `✅ **Anti-spam activé.**\n` +
         `• Seuil : **${maxMessages}** messages en **${seconds}s**\n` +
         `• Mute : ${muteMin > 0 ? `**${muteMin} min**` : 'aucun (suppression seule)'}\n` +
+        MULTI_LINE +
         `• Rôle exempté : ${role ? `${role}` : '_aucun_'}\n` +
         `_(Il me faut la permission **Exclure des membres** pour le mute.)_`,
       ephemeral: true,
