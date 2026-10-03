@@ -368,6 +368,22 @@ export function setAvisConfig(guildId, avisConfig) {
   return setGuildConfig(guildId, { avisConfig });
 }
 
+// Salon des avis d'un système de tickets (1 ou 2), null = avis désactivés.
+// avisConfig = { channels: { 1: id|null, 2: id|null } } ; l'ancien format
+// { channelId } valait pour les deux systèmes.
+export function getAvisChannel(guildId, slot) {
+  const c = getAvisConfig(guildId);
+  if (!c) return null;
+  if (c.channels) return c.channels[slot] ?? null;
+  return c.channelId ?? null;
+}
+
+export function setAvisChannel(guildId, slots, channelId) {
+  const channels = { 1: getAvisChannel(guildId, 1), 2: getAvisChannel(guildId, 2) };
+  for (const slot of slots) channels[slot] = channelId;
+  return setAvisConfig(guildId, { channels });
+}
+
 // Avis indexés par numéro de ticket : { userId, motifLabel, rating, comment, messageId }.
 export function getAvisReview(guildId, number) {
   return getGuildConfig(guildId).avisReviews?.[number] ?? null;

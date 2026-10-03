@@ -43,7 +43,7 @@ const CATEGORIES = [
     lines: [
       ['/configticket', 'Configurer le système de tickets (assistant guidé)'],
       ['/configticket2', 'Configurer un 2ᵉ système de tickets indépendant'],
-      ['/avisticket', '`activer` `desactiver` `voir` — avis (⭐) à la fermeture'],
+      ['/avisticket', '`activer` `desactiver` `voir` — avis (⭐) à la fermeture (ticket 1, 2 ou les deux)'],
     ],
   },
   {

@@ -1,5 +1,5 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { getAvisConfig, getAvisReview, saveAvisReview } from './store.js';
+import { getAvisChannel, getAvisReview, saveAvisReview } from './store.js';
 
 const GOLD = 0xf1c40f;
 
@@ -74,14 +74,15 @@ function reviewEmbed(review, number) {
   return embed;
 }
 
-// Poste (ou met à jour) l'avis dans le salon configuré.
+// Poste (ou met à jour) l'avis dans le salon configuré pour son système de
+// tickets (clé « 2-… » = ticket 2, sinon ticket 1).
 async function postOrUpdateAvis(client, guildId, number) {
   const review = getAvisReview(guildId, number);
-  const cfg = getAvisConfig(guildId);
-  if (!review || !cfg?.channelId) return;
+  const channelId = getAvisChannel(guildId, String(number).startsWith('2-') ? 2 : 1);
+  if (!review || !channelId) return;
   const guild = client.guilds.cache.get(guildId) ?? (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return;
-  const channel = guild.channels.cache.get(cfg.channelId) ?? (await guild.channels.fetch(cfg.channelId).catch(() => null));
+  const channel = guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null));
   if (!channel?.isTextBased()) return;
 
   const embed = reviewEmbed(review, number);
