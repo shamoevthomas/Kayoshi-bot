@@ -902,6 +902,24 @@ export function setBoostConfig(guildId, boostConfig) {
   return setGuildConfig(guildId, { boostConfig });
 }
 
+// --- Rappel de bump Disboard (/bremind) ---
+// bumpReminder = { enabled, roleId, reminderMessage, thanksMessage, channelId,
+//                  nextAt, lastBumperId, lastBumpMessageId }
+export function getBumpReminder(guildId) {
+  return getGuildConfig(guildId).bumpReminder ?? {};
+}
+
+export function patchBumpReminder(guildId, patch) {
+  return setGuildConfig(guildId, { bumpReminder: { ...getBumpReminder(guildId), ...patch } }).bumpReminder;
+}
+
+// Tous les rappels de bump de tous les serveurs (vérification périodique).
+export function getAllBumpReminders() {
+  return Object.entries(load())
+    .filter(([, g]) => g.bumpReminder)
+    .map(([guildId, g]) => ({ guildId, cfg: g.bumpReminder }));
+}
+
 // --- Giveaways ---
 // Stockés sous data[guildId].giveaways[messageId].
 export function createGiveaway(guildId, messageId, gw) {

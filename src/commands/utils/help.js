@@ -84,6 +84,8 @@ const CATEGORIES = [
       ['/antispam', '`activer` `desactiver` `voir` — anti-spam (+ mute 1 h si spam multi-salons)'],
       ['/one-message', '`activer` `desactiver` `liste` — messages supprimés auto'],
       ['/configboost', 'Message quand quelqu’un boost le serveur'],
+      ['/bremind', 'Activer / désactiver le rappel de bump Disboard (2 h après chaque /bump)'],
+      ['/bremind-edit', 'Message de rappel, rôle à mentionner, message après avoir bump'],
       ['/coiffeur', 'Répond « feur » quand un message finit par « quoi »'],
       ['/reset', 'Supprime un salon et le recrée à l’identique'],
       ['/log', 'Configurer le salon des logs du serveur'],

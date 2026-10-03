@@ -1,11 +1,16 @@
 import { Events, EmbedBuilder } from 'discord.js';
 import { sendLog, Colors } from '../lib/logger.js';
+import { handleDisboardBump } from '../lib/bumpreminder.js';
 
 export default {
   name: Events.MessageUpdate,
   async execute(oldMessage, newMessage) {
     if (!newMessage.guild) return;
-    if (newMessage.author?.bot) return;
+    // Disboard peut répondre « réfléchit… » puis modifier son message avec le résultat du /bump.
+    if (newMessage.author?.bot) {
+      if (newMessage.partial) newMessage = await newMessage.fetch().catch(() => newMessage);
+      return void (await handleDisboardBump(newMessage).catch((err) => console.error(err)));
+    }
 
     // Récupère l'ancien contenu (peut être partiel/non mis en cache)
     if (oldMessage.partial) oldMessage = await oldMessage.fetch().catch(() => oldMessage);

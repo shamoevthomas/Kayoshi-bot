@@ -5,6 +5,7 @@ import { handleAntiSpam } from '../lib/antispam.js';
 import { handleProtectedChannelMention } from '../lib/channelmention.js';
 import { handleGifPermHint } from '../lib/gifhint.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
+import { handleDisboardBump } from '../lib/bumpreminder.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
 // "quoi" / "pourquoi" en fin de phrase (mot entier, ponctuation finale tolérée).
@@ -14,6 +15,9 @@ const POURQUOI_RE = /(?:^|\s)pourquoi\s*[?!.…]*$/i;
 export default {
   name: Events.MessageCreate,
   async execute(message) {
+    // /bump réussi avec Disboard → remerciement + rappel dans 2 h (/bremind).
+    await handleDisboardBump(message).catch((err) => console.error(err));
+
     // Salon "one-message" : le message est supprimé aussitôt (pour tous, ou
     // seulement pour les membres ciblés).
     if (

@@ -10,6 +10,7 @@ import { reconcileGiveaways } from '../lib/giveaways.js';
 import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
 import { pollAllCreators } from '../lib/creators.js';
+import { processBumpReminders } from '../lib/bumpreminder.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -54,6 +55,9 @@ export default {
     // avec nouvelle session (l'état vocal est alors perdu ; pas sur une simple reprise).
     rejoinVoiceChannels(client);
     client.on(Events.ShardReady, () => rejoinVoiceChannels(client));
+    // Rappels de bump Disboard (/bremind) arrivés à échéance, toutes les 30 s.
+    processBumpReminders(client).catch(() => {});
+    setInterval(() => processBumpReminders(client).catch(() => {}), 30_000);
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
     // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.
