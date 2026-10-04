@@ -16,6 +16,12 @@ function isAllowedPlatform(url) {
   return /snapchat\.com/i.test(url);
 }
 
+// Lien vers un salon / message de ce serveur : Discord l'affiche comme une
+// mention de salon, ce n'est pas un vrai lien → jamais filtré.
+function isOwnChannelLink(url, guildId) {
+  return new RegExp(`^(https?://)?((ptb|canary)\\.)?discord(app)?\\.com/channels/${guildId}/`, 'i').test(url);
+}
+
 // Un lien est autorisé s'il s'agit d'un GIF ou d'une plateforme whitelistée.
 function isAllowedLink(url) {
   return isGifLink(url) || isAllowedPlatform(url);
@@ -41,7 +47,7 @@ export async function handleLinkFilter(message) {
   const blocked = message.member.roles.cache.some((r) => config.roleIds.includes(r.id));
   if (!blocked) return;
 
-  const urls = message.content.match(URL_GLOBAL) || [];
+  const urls = (message.content.match(URL_GLOBAL) || []).filter((u) => !isOwnChannelLink(u, message.guild.id));
   if (urls.length === 0) return;
   // Interdits vs autorisés. Les GIF restent autorisés mais ne sont PAS loggés.
   const forbidden = urls.filter((u) => !isAllowedLink(u));

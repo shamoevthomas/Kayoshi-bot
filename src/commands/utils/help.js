@@ -81,7 +81,6 @@ const CATEGORIES = [
       ['/join', 'Faire rejoindre un salon vocal au bot (il y reste, même vide)'],
       ['/configstat', 'Salon du classement des membres les plus actifs'],
       ['/configlien', 'Blocage des liens (par salon et par rôle)'],
-      ['/anti-mention', '`ajouter` `liste` `retirer` — interdire la mention de salons'],
       ['/antispam', '`activer` `desactiver` `voir` — anti-spam (+ mute 1 h si spam multi-salons)'],
       ['/one-message', '`activer` `desactiver` `liste` — messages supprimés auto'],
       ['/configboost', 'Message quand quelqu’un boost le serveur'],
