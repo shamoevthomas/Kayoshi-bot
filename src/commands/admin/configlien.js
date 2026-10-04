@@ -132,7 +132,7 @@ export default {
           `• Rôles bloqués : ${config.roleIds.map((r) => `<@&${r}>`).join(' ')}\n` +
           `• Rôles autorisés (exceptions) : ${config.allowedRoleIds.length ? config.allowedRoleIds.map((r) => `<@&${r}>`).join(' ') : '_aucun_'}\n` +
           `• Salon des liens détectés : <#${config.logChannelId}>\n\n` +
-          `🔗 Liens **toujours autorisés** : YouTube, TikTok, Instagram, Snapchat (et les GIF).\n` +
+          `🔗 Liens **toujours autorisés** : Snapchat (et les GIF). YouTube, TikTok et Instagram sont bloqués comme les autres liens.\n` +
           `Tout autre lien posté par un rôle bloqué est supprimé **partout sauf** dans les salons autorisés — sauf exception — et enregistré dans <#${config.logChannelId}>.`,
         components: [],
       });

@@ -11,9 +11,9 @@ function isGifLink(url) {
   return /tenor\.(com|co)|giphy\.com|k(i|l)ip(l)?y\.[a-z]+|\.gif(\?|#|$)/i.test(url);
 }
 
-// Plateformes autorisées : YouTube, TikTok, Instagram, Snapchat (toutes variantes).
+// Plateforme autorisée : Snapchat. YouTube, TikTok et Instagram sont filtrés comme les autres liens.
 function isAllowedPlatform(url) {
-  return /(youtube\.com|youtu\.be)|(tiktok\.com)|(instagram\.com|instagr\.am)|(snapchat\.com)/i.test(url);
+  return /snapchat\.com/i.test(url);
 }
 
 // Un lien est autorisé s'il s'agit d'un GIF ou d'une plateforme whitelistée.
