@@ -5,7 +5,9 @@ import {
   ChannelSelectMenuBuilder,
   ChannelType,
   EmbedBuilder,
+  LabelBuilder,
   ModalBuilder,
+  RoleSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle,
   PermissionFlagsBits,
@@ -14,7 +16,8 @@ import { getGreetEmbed, setGreetEmbed } from './store.js';
 import { TEMPLATE_HELP, renderEmbedFor } from './greetings.js';
 
 // Créateur d'embed (/embed) : aperçu éphémère + boutons d'édition.
-// Sans état : l'embed en cours est relu à chaque clic depuis le message d'aperçu.
+// Sans état : l'embed en cours est relu à chaque clic depuis le message d'aperçu,
+// et le rôle du mode partenariat depuis son texte (seule mention de rôle qu'il contient).
 
 const INTRO =
   '🛠️ **Créateur d’embed** — modifie l’aperçu avec les boutons, puis envoie-le ou utilise-le comme message de bienvenue / départ.\n' +
@@ -40,14 +43,29 @@ function builderRows() {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('emb_greet:welcome').setLabel('Message de bienvenue').setStyle(ButtonStyle.Primary).setEmoji('👋'),
       new ButtonBuilder().setCustomId('emb_greet:leave').setLabel('Message de départ').setStyle(ButtonStyle.Primary).setEmoji('🚪'),
+      new ButtonBuilder().setCustomId('emb_partner').setLabel('Partenariat').setStyle(ButtonStyle.Primary).setEmoji('🤝'),
       new ButtonBuilder().setCustomId('emb_send').setLabel('Envoyer dans ce salon').setStyle(ButtonStyle.Success).setEmoji('📨'),
       new ButtonBuilder().setCustomId('emb_pick').setLabel('Choisir un salon').setStyle(ButtonStyle.Success).setEmoji('📁'),
     ),
   ];
 }
 
-export function builderPayload(embed, note = '') {
-  return { content: `${INTRO}${note ? `\n\n${note}` : ''}`, embeds: [embed], components: builderRows() };
+// Ligne qui garde le rôle à mentionner dans le texte de l'aperçu (mode partenariat).
+function withRole(text, roleId) {
+  return roleId ? `${text}\n\n🤝 **Partenariat** — <@&${roleId}> sera mentionné au-dessus de l’embed à l’envoi.` : text;
+}
+
+function currentRole(interaction) {
+  return interaction.message?.content?.match(/<@&(\d+)>/)?.[1] ?? null;
+}
+
+export function builderPayload(embed, note = '', roleId = null) {
+  return {
+    content: `${withRole(INTRO, roleId)}${note ? `\n\n${note}` : ''}`,
+    embeds: [embed],
+    components: builderRows(),
+    allowedMentions: { parse: [] },
+  };
 }
 
 // Ne garde que les champs éditables (retire proxy_url, width, type…), pour
@@ -162,6 +180,73 @@ function applyModal(section, e, get) {
   return cleaned;
 }
 
+// --- Partenariat : rôle à mentionner + embed « Nouveau Partenaire ! » ---
+function partnerModal(embed, roleId) {
+  const text = (id, style, max, required, value, placeholder) => {
+    const input = new TextInputBuilder().setCustomId(id).setStyle(style).setRequired(required).setMaxLength(max);
+    if (value) input.setValue(String(value).slice(0, max));
+    if (placeholder) input.setPlaceholder(placeholder);
+    return input;
+  };
+  const roles = new RoleSelectMenuBuilder().setCustomId('role').setPlaceholder('Choisis le rôle à notifier');
+  if (roleId) roles.setDefaultRoles(roleId);
+  // Premier passage : modèle de partenariat ; ensuite, les valeurs de l'aperçu.
+  const title = roleId ? embed.title : 'Nouveau Partenaire !';
+  const description = roleId ? embed.description : '';
+  return new ModalBuilder()
+    .setCustomId('emb_partnermodal')
+    .setTitle('Partenariat')
+    .addLabelComponents(
+      new LabelBuilder().setLabel('Rôle à mentionner').setRoleSelectMenuComponent(roles),
+      new LabelBuilder().setLabel('Titre').setTextInputComponent(text('title', TextInputStyle.Short, 256, true, title)),
+      new LabelBuilder()
+        .setLabel('Description')
+        .setTextInputComponent(text('description', TextInputStyle.Paragraph, 4000, true, description, '➜ Merci … pour ce partenariat ! ★')),
+      new LabelBuilder()
+        .setLabel('Grande image / GIF (en bas)')
+        .setDescription('Lien en https:// (optionnel)')
+        .setTextInputComponent(text('image', TextInputStyle.Short, 1000, false, embed.image?.url)),
+      new LabelBuilder()
+        .setLabel('Miniature / petit GIF (en haut à droite)')
+        .setDescription('Lien en https:// (optionnel)')
+        .setTextInputComponent(text('thumbnail', TextInputStyle.Short, 1000, false, embed.thumbnail?.url)),
+    );
+}
+
+// Auteur = membre qui crée l'embed, pied de page = serveur, avec l'heure.
+// Auteur et pied de page déjà définis sont gardés (modifiables avec les autres boutons).
+function applyPartnerModal(interaction, e) {
+  const { guild, member } = interaction;
+  const role = interaction.fields.getSelectedRoles('role', true).first();
+  if (role.id === guild.id) throw new Error('Choisis un rôle précis : @everyone n’est pas possible ici.');
+  // Comme pour les salons : pas de mention via le bot que le membre ne pourrait pas faire lui-même.
+  const canPing = (perms) => role.mentionable || perms?.has(PermissionFlagsBits.MentionEveryone);
+  if (!canPing(interaction.memberPermissions)) {
+    throw new Error(`Le rôle **@${role.name}** n’est pas mentionnable et tu n’as pas la permission de le mentionner.`);
+  }
+
+  const get = (k) => interaction.fields.getTextInputValue(k)?.trim() ?? '';
+  e.title = get('title') || undefined;
+  e.description = get('description') || undefined;
+  e.author ??= { name: member.displayName, icon_url: member.displayAvatarURL() };
+  e.footer ??= { text: `Partenariat avec ${guild.name}`, icon_url: guild.iconURL() ?? undefined };
+  e.timestamp = new Date().toISOString();
+  const embed = applyModal('images', e, get); // valide les liens des images
+
+  const note = canPing(guild.members.me?.permissions)
+    ? ''
+    : `⚠️ **@${role.name}** n’est pas mentionnable et le bot n’a pas la permission « Mentionner @everyone, @here et tous les rôles » : la mention s’affichera sans notifier personne.`;
+  return { embed, roleId: role.id, note };
+}
+
+// Message envoyé : templates remplacés, heure d'envoi, et mention du rôle en mode partenariat.
+async function outgoing(interaction, embed, roleId) {
+  const rendered = await renderEmbedFor(interaction.guild, interaction.user, embed);
+  if (rendered.timestamp) rendered.timestamp = new Date().toISOString();
+  if (!roleId) return { embeds: [rendered] };
+  return { content: `<@&${roleId}>`, embeds: [rendered], allowedMentions: { roles: [roleId] } };
+}
+
 // L'embed est stocké à part : le message texte de /bienvenue ou /quitte n'est pas touché.
 function saveGreeting(guildId, type, channelId, embed) {
   setGreetEmbed(guildId, type, { channelId, embed });
@@ -173,6 +258,7 @@ const errorReply = (interaction, text) => interaction.reply({ content: `❌ ${te
 // Routeur des interactions du créateur d'embed (préfixe "emb_").
 export async function handleEmbedBuilderInteraction(interaction) {
   const [action, arg] = (interaction.customId ?? '').split(':');
+  const role = currentRole(interaction);
 
   // --- Bouton d'édition → formulaire pré-rempli ---
   if (interaction.isButton() && action === 'emb_edit' && SECTIONS[arg]) {
@@ -187,23 +273,40 @@ export async function handleEmbedBuilderInteraction(interaction) {
     } catch (err) {
       return errorReply(interaction, err.message);
     }
-    return interaction.update(builderPayload(embed)).catch((err) => errorReply(interaction, `Discord a refusé l’embed : ${err.message}`));
+    return interaction.update(builderPayload(embed, '', role)).catch((err) => errorReply(interaction, `Discord a refusé l’embed : ${err.message}`));
+  }
+
+  // --- Partenariat : formulaire (rôle, titre, description, images) → aperçu ---
+  if (interaction.isButton() && action === 'emb_partner') {
+    return interaction.showModal(partnerModal(currentEmbed(interaction), role));
+  }
+
+  if (interaction.isModalSubmit() && action === 'emb_partnermodal') {
+    let result;
+    try {
+      result = applyPartnerModal(interaction, currentEmbed(interaction));
+    } catch (err) {
+      return errorReply(interaction, err.message);
+    }
+    return interaction
+      .update(builderPayload(result.embed, result.note, result.roleId))
+      .catch((err) => errorReply(interaction, `Discord a refusé l’embed : ${err.message}`));
   }
 
   // --- Envoyer l'embed dans le salon ---
   if (interaction.isButton() && action === 'emb_send') {
     const embed = currentEmbed(interaction);
-    const rendered = await renderEmbedFor(interaction.guild, interaction.user, embed);
-    const sent = await interaction.channel.send({ embeds: [rendered] }).then(() => true).catch(() => false);
+    const sent = await interaction.channel.send(await outgoing(interaction, embed, role)).then(() => true).catch(() => false);
     if (!sent) return errorReply(interaction, 'Impossible d’envoyer l’embed ici (permissions ?).');
-    return interaction.update(builderPayload(embed, '✅ Embed envoyé dans ce salon.'));
+    return interaction.update(builderPayload(embed, '✅ Embed envoyé dans ce salon.', role));
   }
 
   // --- Choisir le salon d'envoi → menu, l'aperçu reste affiché ---
   if (interaction.isButton() && action === 'emb_pick') {
     return interaction.update({
-      content: '📁 Dans quel salon envoyer l’embed ?',
+      content: withRole('📁 Dans quel salon envoyer l’embed ?', role),
       embeds: [currentEmbed(interaction)],
+      allowedMentions: { parse: [] },
       components: [
         new ActionRowBuilder().addComponents(
           new ChannelSelectMenuBuilder()
@@ -225,10 +328,9 @@ export async function handleEmbedBuilderInteraction(interaction) {
     if (!channel?.permissionsFor(interaction.member)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
       return errorReply(interaction, 'Tu ne peux pas écrire dans ce salon.');
     }
-    const rendered = await renderEmbedFor(interaction.guild, interaction.user, embed);
-    const sent = await channel.send({ embeds: [rendered] }).then(() => true).catch(() => false);
+    const sent = await channel.send(await outgoing(interaction, embed, role)).then(() => true).catch(() => false);
     if (!sent) return errorReply(interaction, `Impossible d’envoyer l’embed dans ${channel} (permissions ?).`);
-    return interaction.update(builderPayload(embed, `✅ Embed envoyé dans ${channel}.`));
+    return interaction.update(builderPayload(embed, `✅ Embed envoyé dans ${channel}.`, role));
   }
 
   // --- Embed de bienvenue / départ (séparé du message texte) ---
@@ -252,11 +354,14 @@ export async function handleEmbedBuilderInteraction(interaction) {
       }
       buttons.push(new ButtonBuilder().setCustomId('emb_back').setLabel('Retour').setStyle(ButtonStyle.Secondary));
       return interaction.update({
-        content:
+        content: withRole(
           `📁 Dans quel salon envoyer l’**embed de ${GREET_LABEL[arg]}** ?` +
-          (currentChannel ? ` (actuel : ${currentChannel})` : '') +
-          `\n-# Indépendant du message texte de ${GREET_CMD[arg]} : les deux sont envoyés séparément.`,
+            (currentChannel ? ` (actuel : ${currentChannel})` : '') +
+            `\n-# Indépendant du message texte de ${GREET_CMD[arg]} : les deux sont envoyés séparément.`,
+          role,
+        ),
         embeds: [embed],
+        allowedMentions: { parse: [] },
         components: [
           new ActionRowBuilder().addComponents(
             new ChannelSelectMenuBuilder()
@@ -270,23 +375,23 @@ export async function handleEmbedBuilderInteraction(interaction) {
     }
 
     if (interaction.isChannelSelectMenu() && action === 'emb_greetchan') {
-      return interaction.update(builderPayload(embed, saveGreeting(guildId, arg, interaction.values[0], embed)));
+      return interaction.update(builderPayload(embed, saveGreeting(guildId, arg, interaction.values[0], embed), role));
     }
 
     if (interaction.isButton() && action === 'emb_greetkeep') {
       if (!currentChannel) return errorReply(interaction, 'Le salon actuel n’existe plus, choisis-en un autre.');
-      return interaction.update(builderPayload(embed, saveGreeting(guildId, arg, currentChannel.id, embed)));
+      return interaction.update(builderPayload(embed, saveGreeting(guildId, arg, currentChannel.id, embed), role));
     }
 
     if (interaction.isButton() && action === 'emb_greetoff') {
       setGreetEmbed(guildId, arg, null);
       return interaction.update(
-        builderPayload(embed, `🗑️ Embed de ${GREET_LABEL[arg]} désactivé.\n-# Le message texte de ${GREET_CMD[arg]} n’est pas touché.`),
+        builderPayload(embed, `🗑️ Embed de ${GREET_LABEL[arg]} désactivé.\n-# Le message texte de ${GREET_CMD[arg]} n’est pas touché.`, role),
       );
     }
   }
 
   if (interaction.isButton() && action === 'emb_back') {
-    return interaction.update(builderPayload(currentEmbed(interaction)));
+    return interaction.update(builderPayload(currentEmbed(interaction), '', role));
   }
 }

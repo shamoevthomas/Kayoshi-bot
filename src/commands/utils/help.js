@@ -100,7 +100,7 @@ const CATEGORIES = [
     title: '💬 Communication & utilitaires',
     lines: [
       ['/announce', 'Publier une annonce dans un salon précis'],
-      ['/embed', 'Créer un embed (aperçu modifiable) : envoi, ou message de bienvenue / départ'],
+      ['/embed', 'Créer un embed (aperçu modifiable) : envoi, partenariat (rôle mentionné), ou message de bienvenue / départ'],
       ['/say', 'Faire parler le bot dans ce salon'],
       ['/save', 'Messages sauvegardés (5 emplacements)'],
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
