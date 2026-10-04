@@ -11,10 +11,10 @@ import {
   TextInputStyle,
   EmbedBuilder,
 } from 'discord.js';
-import { getGreetConfig, setGreetConfig, getGreetEmbed } from './store.js';
+import { getGreetConfig, setGreetConfig, getGreetEmbed, getPartner } from './store.js';
 
 export const TEMPLATE_HELP =
-  'Templates : `[@]` (mention/pseudo) · `[user]` (pseudo) · `[tag]` (identifiant complet) · `[server]` (nom du serveur) · `[count]` (nombre de membres, bots exclus) · `[date]`';
+  'Templates : `[@]` (mention/pseudo) · `[user]` (pseudo) · `[tag]` (identifiant complet) · `[server]` (nom du serveur) · `[count]` (nombre de membres, bots exclus) · `[nump]` (nombre de partenariats) · `[date]`';
 
 // Remplace les templates dans le texte. `count` = nombre de membres humains.
 function applyTemplates(text, { mention, username, tag, guild, count }) {
@@ -24,6 +24,7 @@ function applyTemplates(text, { mention, username, tag, guild, count }) {
     .replace(/\[tag\]/gi, tag)
     .replace(/\[server\]/gi, guild.name)
     .replace(/\[count\]/gi, String(count ?? guild.memberCount))
+    .replace(/\[nump\]/gi, String(getPartner(guild.id).total ?? 0))
     .replace(/\[date\]/gi, new Date().toLocaleDateString('fr-FR'));
 }
 

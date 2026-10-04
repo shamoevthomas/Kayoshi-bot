@@ -6,6 +6,7 @@ import { handleProtectedChannelMention } from '../lib/channelmention.js';
 import { handleGifPermHint } from '../lib/gifhint.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
 import { handleDisboardBump } from '../lib/bumpreminder.js';
+import { handlePartnerMessage } from '../lib/partners.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
 // "quoi" / "pourquoi" en fin de phrase (mot entier, ponctuation finale tolérée).
@@ -37,6 +38,8 @@ export default {
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));
+    // Salon partenariat : +1 partenariat pour l'auteur, puis envoi de l'embed.
+    await handlePartnerMessage(message).catch((err) => console.error(err));
     // GIF posté sans la permission d'intégrer les liens → explique comment débloquer.
     await handleGifPermHint(message).catch((err) => console.error(err));
     // Met en cache les photos/vidéos pour pouvoir les ré-afficher si le message est supprimé.

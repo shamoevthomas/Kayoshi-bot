@@ -12,7 +12,7 @@ import {
   TextInputStyle,
   PermissionFlagsBits,
 } from 'discord.js';
-import { getGreetEmbed, setGreetEmbed } from './store.js';
+import { getGreetEmbed, setGreetEmbed, getPartner, patchPartner } from './store.js';
 import { TEMPLATE_HELP, renderEmbedFor } from './greetings.js';
 
 // Créateur d'embed (/embed) : aperçu éphémère + boutons d'édition.
@@ -30,9 +30,23 @@ export function defaultEmbed() {
   return new EmbedBuilder().setTitle('titre').setDescription('description').setColor(0x5865f2);
 }
 
-function builderRows() {
+function builderRows(roleId) {
   const edit = (section, label) =>
     new ButtonBuilder().setCustomId(`emb_edit:${section}`).setLabel(label).setStyle(ButtonStyle.Secondary);
+  // Mode partenariat : salon où l'embed est envoyé après chaque message.
+  const partnerRows = roleId
+    ? [
+        new ActionRowBuilder().addComponents(
+          new ChannelSelectMenuBuilder()
+            .setCustomId('emb_partnerchan')
+            .setPlaceholder('📌 Salon partenariat : embed envoyé après chaque message')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+        ),
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('emb_partneroff').setLabel('Désactiver l’envoi automatique').setStyle(ButtonStyle.Danger),
+        ),
+      ]
+    : [];
   return [
     new ActionRowBuilder().addComponents(
       edit('basic', 'edit basic information (color / title / description)'),
@@ -47,6 +61,7 @@ function builderRows() {
       new ButtonBuilder().setCustomId('emb_send').setLabel('Envoyer dans ce salon').setStyle(ButtonStyle.Success).setEmoji('📨'),
       new ButtonBuilder().setCustomId('emb_pick').setLabel('Choisir un salon').setStyle(ButtonStyle.Success).setEmoji('📁'),
     ),
+    ...partnerRows,
   ];
 }
 
@@ -63,7 +78,7 @@ export function builderPayload(embed, note = '', roleId = null) {
   return {
     content: `${withRole(INTRO, roleId)}${note ? `\n\n${note}` : ''}`,
     embeds: [embed],
-    components: builderRows(),
+    components: builderRows(roleId),
     allowedMentions: { parse: [] },
   };
 }
@@ -192,7 +207,7 @@ function partnerModal(embed, roleId) {
   if (roleId) roles.setDefaultRoles(roleId);
   // Premier passage : modèle de partenariat ; ensuite, les valeurs de l'aperçu.
   const title = roleId ? embed.title : 'Nouveau Partenaire !';
-  const description = roleId ? embed.description : '';
+  const description = roleId ? embed.description : 'Merci [user] pour ce partenariat.\nTotale de partenariat effectué : [nump].';
   return new ModalBuilder()
     .setCustomId('emb_partnermodal')
     .setTitle('Partenariat')
@@ -239,6 +254,14 @@ function applyPartnerModal(interaction, e) {
   return { embed, roleId: role.id, note };
 }
 
+// Point de départ du formulaire partenariat : l'aperçu s'il est déjà en mode
+// partenariat, sinon l'embed partenariat enregistré (pour le modifier), sinon l'aperçu.
+function partnerBase(interaction, roleId) {
+  const saved = getPartner(interaction.guild.id);
+  if (!roleId && saved.embed) return { embed: structuredClone(saved.embed), roleId: saved.roleId };
+  return { embed: currentEmbed(interaction), roleId };
+}
+
 // Message envoyé : templates remplacés, heure d'envoi, et mention du rôle en mode partenariat.
 async function outgoing(interaction, embed, roleId) {
   const rendered = await renderEmbedFor(interaction.guild, interaction.user, embed);
@@ -278,19 +301,56 @@ export async function handleEmbedBuilderInteraction(interaction) {
 
   // --- Partenariat : formulaire (rôle, titre, description, images) → aperçu ---
   if (interaction.isButton() && action === 'emb_partner') {
-    return interaction.showModal(partnerModal(currentEmbed(interaction), role));
+    const base = partnerBase(interaction, role);
+    return interaction.showModal(partnerModal(base.embed, base.roleId));
   }
 
   if (interaction.isModalSubmit() && action === 'emb_partnermodal') {
     let result;
     try {
-      result = applyPartnerModal(interaction, currentEmbed(interaction));
+      result = applyPartnerModal(interaction, partnerBase(interaction, role).embed);
     } catch (err) {
       return errorReply(interaction, err.message);
     }
+    const { channelId } = getPartner(interaction.guild.id);
+    const hint = channelId
+      ? `📌 Envoi automatique actif dans <#${channelId}>. Choisis le salon partenariat ci-dessous pour y enregistrer cette version de l’embed.`
+      : '📌 Choisis le **salon partenariat** ci-dessous : l’embed y sera envoyé après chaque message.';
     return interaction
-      .update(builderPayload(result.embed, result.note, result.roleId))
+      .update(builderPayload(result.embed, [result.note, hint].filter(Boolean).join('\n'), result.roleId))
       .catch((err) => errorReply(interaction, `Discord a refusé l’embed : ${err.message}`));
+  }
+
+  // --- Salon partenariat : l'embed actuel y est envoyé après chaque message ---
+  if ((action === 'emb_partnerchan' || action === 'emb_partneroff') && role) {
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+      return errorReply(interaction, 'Il faut être administrateur pour régler le salon partenariat.');
+    }
+    const embed = currentEmbed(interaction);
+    if (interaction.isButton() && action === 'emb_partneroff') {
+      patchPartner(interaction.guild.id, { channelId: null, embed: null });
+      return interaction.update(
+        builderPayload(embed, '🗑️ Envoi automatique désactivé.\n-# Le nombre de partenariats (`[nump]`, `/nump`) est conservé.', role),
+      );
+    }
+    if (interaction.isChannelSelectMenu()) {
+      const channelId = interaction.values[0];
+      patchPartner(interaction.guild.id, { channelId, roleId: role, embed });
+      const me = interaction.guild.members.me;
+      const canSend = interaction.guild.channels.cache
+        .get(channelId)
+        ?.permissionsFor(me)
+        ?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks]);
+      return interaction.update(
+        builderPayload(
+          embed,
+          `✅ **Salon partenariat : <#${channelId}>** — après chaque message posté, j’envoie cet embed avec la mention du rôle et je compte un partenariat pour son auteur.\n` +
+            (canSend ? '' : '⚠️ Je n’ai pas la permission d’envoyer des embeds dans ce salon : vérifie mes permissions.\n') +
+            '-# Si tu modifies l’embed, resélectionne le salon pour enregistrer la nouvelle version.',
+          role,
+        ),
+      );
+    }
   }
 
   // --- Envoyer l'embed dans le salon ---

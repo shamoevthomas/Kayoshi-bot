@@ -936,6 +936,23 @@ export function getAllBumpReminders() {
     .map(([guildId, g]) => ({ guildId, cfg: g.bumpReminder }));
 }
 
+// --- Partenariats (/embed → Partenariat, /nump) ---
+// partner = { channelId, roleId, embed, total, byUser: { userId: nombre } }
+export function getPartner(guildId) {
+  return getGuildConfig(guildId).partner ?? {};
+}
+
+export function patchPartner(guildId, patch) {
+  return setGuildConfig(guildId, { partner: { ...getPartner(guildId), ...patch } }).partner;
+}
+
+// Un partenariat de plus pour le serveur et pour ce membre.
+export function recordPartnership(guildId, userId) {
+  const p = getPartner(guildId);
+  const byUser = { ...p.byUser, [userId]: (p.byUser?.[userId] ?? 0) + 1 };
+  return patchPartner(guildId, { total: (p.total ?? 0) + 1, byUser });
+}
+
 // --- Giveaways ---
 // Stockés sous data[guildId].giveaways[messageId].
 export function createGiveaway(guildId, messageId, gw) {
