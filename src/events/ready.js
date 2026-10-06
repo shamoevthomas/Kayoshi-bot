@@ -5,6 +5,7 @@ import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
 import { sweepAutoRoles } from '../lib/autoroles.js';
 import { sweepAntiRoles } from '../lib/antirole.js';
+import { sweepNickLocks } from '../lib/nicklock.js';
 import { rejoinVoiceChannels } from '../lib/voicestay.js';
 import { reconcileGiveaways } from '../lib/giveaways.js';
 import { refreshAllStats } from '../lib/activity.js';
@@ -51,6 +52,8 @@ export default {
     setInterval(() => sweepAutoRoles(client).catch(() => {}), 300_000);
     // Rôles incompatibles (/antirole) : rattrapage des changements faits hors ligne.
     setTimeout(() => sweepAntiRoles(client).catch(() => {}), 20_000);
+    // Pseudos verrouillés (/lockpseudo) : rattrapage des changements faits hors ligne.
+    setTimeout(() => sweepNickLocks(client).catch(() => {}), 25_000);
     // Salon vocal de /join : rejoint au démarrage, puis après chaque reconnexion
     // avec nouvelle session (l'état vocal est alors perdu ; pas sur une simple reprise).
     rejoinVoiceChannels(client);

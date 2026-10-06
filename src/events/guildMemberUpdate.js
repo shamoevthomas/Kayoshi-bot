@@ -3,6 +3,7 @@ import { sendLog, sendSanctionLog, Colors, findExecutor, findAuditEntry } from '
 import { handleBoost } from '../lib/boost.js';
 import { syncQuarantineRole } from '../lib/blacklist.js';
 import { enforceAntiRoles } from '../lib/antirole.js';
+import { enforceNickLock } from '../lib/nicklock.js';
 import { dmSanction } from '../lib/sanctions.js';
 
 export default {
@@ -16,6 +17,8 @@ export default {
     syncQuarantineRole(oldMember, newMember);
     // Rôles incompatibles (/antirole) : retire le rôle bloqué s'il vient d'être cumulé.
     await enforceAntiRoles(newMember).catch((err) => console.error(err));
+    // Pseudo verrouillé (/lockpseudo) : remet le pseudo si le membre l'a changé lui-même.
+    if (oldMember.nickname !== newMember.nickname) await enforceNickLock(newMember).catch((err) => console.error(err));
 
     // --- Mute / Unmute (timeout) ---
     const oldTo = oldMember.communicationDisabledUntilTimestamp ?? null;

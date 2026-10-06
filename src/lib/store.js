@@ -487,6 +487,29 @@ export function removeAntiRoleRule(guildId, keepRoleId, removeRoleId) {
   return true;
 }
 
+// --- Pseudos verrouillés (/lockpseudo) ---
+// nickLocks = { [userId]: { nick, by, at } } : le membre garde ce pseudo,
+// seul le staff peut le changer. Conservé si le membre quitte le serveur.
+export function getNickLocks(guildId) {
+  return getGuildConfig(guildId).nickLocks ?? {};
+}
+
+export function getNickLock(guildId, userId) {
+  return getNickLocks(guildId)[userId] ?? null;
+}
+
+export function setNickLock(guildId, userId, lock) {
+  setGuildConfig(guildId, { nickLocks: { ...getNickLocks(guildId), [userId]: lock } });
+}
+
+export function removeNickLock(guildId, userId) {
+  const locks = { ...getNickLocks(guildId) };
+  if (!locks[userId]) return false;
+  delete locks[userId];
+  setGuildConfig(guildId, { nickLocks: locks });
+  return true;
+}
+
 // --- Filtre anti-liens ---
 export function getLinkConfig(guildId) {
   return getGuildConfig(guildId).linkConfig ?? null;
