@@ -8,6 +8,7 @@ import { syncInviteRankRole } from '../lib/inviterank.js';
 import { restoreQuarantineOnJoin } from '../lib/blacklist.js';
 import { reconcileAutoRoles } from '../lib/autoroles.js';
 import { applyNickLock } from '../lib/nicklock.js';
+import { restoreJailOnJoin } from '../lib/jail.js';
 import { kickIfRecentAccount } from '../lib/accountage.js';
 
 export default {
@@ -33,6 +34,8 @@ export default {
 
     // Rend le rôle de quarantaine s'il l'avait avant de partir (persistance).
     await restoreQuarantineOnJoin(member).catch((err) => console.error(err));
+    // Remet le rôle de jail s'il était jail avant de partir.
+    await restoreJailOnJoin(member).catch((err) => console.error(err));
     // Remet le pseudo verrouillé (/lockpseudo) s'il en avait un avant de partir.
     await applyNickLock(member).catch((err) => console.error(err));
     // Rôles automatiques (tag / statut) si le membre y est déjà éligible.

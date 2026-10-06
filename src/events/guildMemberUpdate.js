@@ -4,6 +4,7 @@ import { handleBoost } from '../lib/boost.js';
 import { syncQuarantineRole } from '../lib/blacklist.js';
 import { enforceAntiRoles } from '../lib/antirole.js';
 import { enforceNickLock } from '../lib/nicklock.js';
+import { enforceJail } from '../lib/jail.js';
 import { dmSanction } from '../lib/sanctions.js';
 
 export default {
@@ -17,6 +18,8 @@ export default {
     syncQuarantineRole(oldMember, newMember);
     // Rôles incompatibles (/antirole) : retire le rôle bloqué s'il vient d'être cumulé.
     await enforceAntiRoles(newMember).catch((err) => console.error(err));
+    // Jail : le rôle retiré ne peut pas revenir tant que le membre est jail.
+    await enforceJail(oldMember, newMember).catch((err) => console.error(err));
     // Pseudo verrouillé (/lockpseudo) : remet le pseudo si le membre l'a changé lui-même.
     if (oldMember.nickname !== newMember.nickname) await enforceNickLock(newMember).catch((err) => console.error(err));
 

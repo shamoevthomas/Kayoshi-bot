@@ -510,6 +510,35 @@ export function removeNickLock(guildId, userId) {
   return true;
 }
 
+// --- Jail (/jailconfig, /jail, /unjail) ---
+// jailConfig = { addRoleId, removeRoleId }
+// jailed = { [userId]: { addRoleId, removeRoleId, hadRole, by, at, reason } } :
+// rôles figés au moment du jail, pour que /unjail rende exactement ce qui a été
+// retiré. Conservé si le membre quitte le serveur (jail remis à son retour).
+export function getJailConfig(guildId) {
+  return getGuildConfig(guildId).jailConfig ?? null;
+}
+
+export function setJailConfig(guildId, jailConfig) {
+  return setGuildConfig(guildId, { jailConfig });
+}
+
+export function getJailRecord(guildId, userId) {
+  return getGuildConfig(guildId).jailed?.[userId] ?? null;
+}
+
+export function setJailRecord(guildId, userId, record) {
+  setGuildConfig(guildId, { jailed: { ...(getGuildConfig(guildId).jailed ?? {}), [userId]: record } });
+}
+
+export function removeJailRecord(guildId, userId) {
+  const jailed = { ...(getGuildConfig(guildId).jailed ?? {}) };
+  if (!jailed[userId]) return false;
+  delete jailed[userId];
+  setGuildConfig(guildId, { jailed });
+  return true;
+}
+
 // --- Filtre anti-liens ---
 export function getLinkConfig(guildId) {
   return getGuildConfig(guildId).linkConfig ?? null;
