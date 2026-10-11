@@ -16,15 +16,21 @@ function isAllowedPlatform(url) {
   return /snapchat\.com/i.test(url);
 }
 
+// Cadeau Discord (Nitro) : discord.gift/<code> ou discord.com/gifts/<code>.
+// Ancré sur le domaine pour ne pas laisser passer les faux domaines de phishing.
+function isDiscordGift(url) {
+  return /^(https?:\/\/)?(www\.)?(discord\.gift\/|((ptb|canary)\.)?discord(app)?\.com\/gifts\/)/i.test(url);
+}
+
 // Lien vers un salon / message de ce serveur : Discord l'affiche comme une
 // mention de salon, ce n'est pas un vrai lien → jamais filtré.
 function isOwnChannelLink(url, guildId) {
   return new RegExp(`^(https?://)?((ptb|canary)\\.)?discord(app)?\\.com/channels/${guildId}/`, 'i').test(url);
 }
 
-// Un lien est autorisé s'il s'agit d'un GIF ou d'une plateforme whitelistée.
+// Un lien est autorisé s'il s'agit d'un GIF, d'une plateforme whitelistée ou d'un cadeau Discord.
 function isAllowedLink(url) {
-  return isGifLink(url) || isAllowedPlatform(url);
+  return isGifLink(url) || isAllowedPlatform(url) || isDiscordGift(url);
 }
 
 export async function handleLinkFilter(message) {
