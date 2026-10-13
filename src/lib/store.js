@@ -539,6 +539,16 @@ export function removeJailRecord(guildId, userId) {
   return true;
 }
 
+// --- Message GIF sans perm image (/messimage) ---
+// gifHint = { message, ignoredRoleIds: [roleId] }
+export function getGifHint(guildId) {
+  return getGuildConfig(guildId).gifHint ?? null;
+}
+
+export function setGifHint(guildId, gifHint) {
+  return setGuildConfig(guildId, { gifHint });
+}
+
 // --- Filtre anti-liens ---
 export function getLinkConfig(guildId) {
   return getGuildConfig(guildId).linkConfig ?? null;

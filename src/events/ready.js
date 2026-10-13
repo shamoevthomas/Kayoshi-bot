@@ -33,7 +33,7 @@ export default {
     // Met en cache les invitations de chaque serveur (pour le suivi des invitations).
     await cacheAllInvites(client).catch((err) => console.error(err));
     // Statut du bot.
-    client.user.setActivity('Le meilleur serv .gg/ximi', { type: ActivityType.Watching });
+    client.user.setActivity('.gg/ichima', { type: ActivityType.Custom });
     // Démarre le suivi arrivées/départs pour chaque serveur.
     for (const [guildId] of client.guilds.cache) ensureTracking(guildId);
     // Vérifie les bans temporaires arrivés à échéance, toutes les 60 s.
