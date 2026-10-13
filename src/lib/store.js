@@ -974,7 +974,8 @@ export function getAllBumpReminders() {
 }
 
 // --- Partenariats (/embed → Partenariat, /nump) ---
-// partner = { channelId, roleId, embed, total, byUser: { userId: nombre } }
+// partner = { channelId, roleId, embed, total, byUser: { userId: nombre },
+//             mentions: { userId: [{ channelId, messageId }] } }
 export function getPartner(guildId) {
   return getGuildConfig(guildId).partner ?? {};
 }
@@ -988,6 +989,22 @@ export function recordPartnership(guildId, userId) {
   const p = getPartner(guildId);
   const byUser = { ...p.byUser, [userId]: (p.byUser?.[userId] ?? 0) + 1 };
   return patchPartner(guildId, { total: (p.total ?? 0) + 1, byUser });
+}
+
+// Message du salon partenariat où ce membre a été mentionné (supprimé s'il quitte).
+export function addPartnerMention(guildId, userId, ref) {
+  const mentions = getPartner(guildId).mentions ?? {};
+  patchPartner(guildId, { mentions: { ...mentions, [userId]: [...(mentions[userId] ?? []), ref] } });
+}
+
+// Renvoie les messages où ce membre a été mentionné et les oublie.
+export function takePartnerMentions(guildId, userId) {
+  const mentions = { ...(getPartner(guildId).mentions ?? {}) };
+  const refs = mentions[userId] ?? [];
+  if (!refs.length) return refs;
+  delete mentions[userId];
+  patchPartner(guildId, { mentions });
+  return refs;
 }
 
 // --- Giveaways ---

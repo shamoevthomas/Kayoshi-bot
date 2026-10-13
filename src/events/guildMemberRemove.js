@@ -6,6 +6,7 @@ import { onMemberLeave } from '../lib/verification.js';
 import { rememberQuarantineOnLeave } from '../lib/blacklist.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
 import { deleteTicketsOnLeave } from '../lib/tickets.js';
+import { deletePartnerMentionsOnLeave } from '../lib/partners.js';
 import { isRecentAccount } from '../lib/accountage.js';
 
 export default {
@@ -18,6 +19,9 @@ export default {
 
     // Ses tickets ouverts sont supprimés directement (pas de MP ni de transcription).
     await deleteTicketsOnLeave(member).catch((err) => console.error(err));
+
+    // Messages du salon partenariat où il était mentionné : supprimés.
+    await deletePartnerMentionsOnLeave(member).catch((err) => console.error(err));
 
     // Mémorise le rôle de quarantaine pour le remettre s'il revient.
     rememberQuarantineOnLeave(member);
