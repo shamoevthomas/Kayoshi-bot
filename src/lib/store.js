@@ -354,11 +354,6 @@ export function deleteTicketRecord(guildId, channelId, key = 'ticketConfig') {
   save(data, guildId);
 }
 
-export function countOpenTicketsByUser(guildId, userId, key = 'ticketConfig') {
-  const tickets = getGuildConfig(guildId)[key]?.tickets ?? {};
-  return Object.values(tickets).filter((t) => t.userId === userId && !t.closed);
-}
-
 // --- Avis sur les tickets (/avisticket) ---
 export function getAvisConfig(guildId) {
   return getGuildConfig(guildId).avisConfig ?? null;
@@ -547,6 +542,16 @@ export function getGifHint(guildId) {
 
 export function setGifHint(guildId, gifHint) {
   return setGuildConfig(guildId, { gifHint });
+}
+
+// --- Annonces de rank (/configrank, /rank) ---
+// rankConfig = { channelId, message }
+export function getRankConfig(guildId) {
+  return getGuildConfig(guildId).rankConfig ?? null;
+}
+
+export function setRankConfig(guildId, rankConfig) {
+  return setGuildConfig(guildId, { rankConfig });
 }
 
 // --- Filtre anti-liens ---
