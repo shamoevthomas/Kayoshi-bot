@@ -228,7 +228,7 @@ function partnerModal(embed, roleId) {
     );
 }
 
-// Auteur = membre qui crée l'embed, pied de page = serveur, avec l'heure.
+// Auteur = membre qui crée l'embed, avec l'heure (pas de pied de page par défaut).
 // Auteur et pied de page déjà définis sont gardés (modifiables avec les autres boutons).
 function applyPartnerModal(interaction, e) {
   const { guild, member } = interaction;
@@ -244,7 +244,6 @@ function applyPartnerModal(interaction, e) {
   e.title = get('title') || undefined;
   e.description = get('description') || undefined;
   e.author ??= { name: member.displayName, icon_url: member.displayAvatarURL() };
-  e.footer ??= { text: `Partenariat avec ${guild.name}`, icon_url: guild.iconURL() ?? undefined };
   e.timestamp = new Date().toISOString();
   const embed = applyModal('images', e, get); // valide les liens des images
 

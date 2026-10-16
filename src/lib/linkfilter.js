@@ -1,19 +1,33 @@
 import { EmbedBuilder } from 'discord.js';
-import { getLinkConfig } from './store.js';
+import { getLinkConfig, getJailConfig, getJailRecord } from './store.js';
 import { sendLog, Colors } from './logger.js';
+import { jailMember } from './jail.js';
 
-// Extrait tous les liens d'un message (http, www, invitations, domaine.tld).
+// Extrait tous les liens d'un message (http, www, invitations, domaine.tld). Les sous-domaines
+// sont gardés (music.youtube.com, et non youtube.com) pour juger le lien sur son vrai domaine.
 const URL_GLOBAL =
-  /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(discord\.(gg|com\/invite)\/[^\s]+)|(\b[a-z0-9-]+\.(com|net|org|fr|io|gg|xyz|me|tv|co|shop|store|link|app|dev|site|online|be|eu)\b[^\s]*)/gi;
+  /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(discord\.(gg|com\/invite)\/[^\s]+)|(\b(?:[a-z0-9-]+\.)+(com|net|org|fr|io|gg|xyz|me|tv|co|shop|store|link|app|dev|site|online|be|eu)\b[^\s]*)/gi;
 
 // Un lien GIF est autorisé (Tenor, Giphy, Kiplys, ou fichier .gif — inclut le bouton GIF de Discord).
 function isGifLink(url) {
   return /tenor\.(com|co)|giphy\.com|k(i|l)ip(l)?y\.[a-z]+|\.gif(\?|#|$)/i.test(url);
 }
 
-// Plateforme autorisée : Snapchat. YouTube, TikTok et Instagram sont filtrés comme les autres liens.
+// Plateformes autorisées (le domaine ou un de ses sous-domaines) : la musique (SoundCloud,
+// Spotify, Deezer, YouTube Music). YouTube, TikTok, Instagram et Snapchat sont filtrés
+// comme les autres liens — seul music.youtube.com passe.
+const ALLOWED_PLATFORMS = [
+  'soundcloud.com',
+  'spotify.com',
+  'spotify.link', // liens de partage de l'appli mobile
+  'deezer.com',
+  'deezer.page.link', // anciens liens de partage Deezer
+  'music.youtube.com',
+];
+
 function isAllowedPlatform(url) {
-  return /snapchat\.com/i.test(url);
+  const host = url.match(/^(?:https?:\/\/)?([^/?#:\s]+)/i)?.[1].toLowerCase();
+  return !!host && ALLOWED_PLATFORMS.some((d) => host === d || host.endsWith(`.${d}`));
 }
 
 // Cadeau Discord (Nitro) : discord.gift/<code> ou discord.com/gifts/<code>.
@@ -22,15 +36,49 @@ function isDiscordGift(url) {
   return /^(https?:\/\/)?(www\.)?(discord\.gift\/|((ptb|canary)\.)?discord(app)?\.com\/gifts\/)/i.test(url);
 }
 
+// Fichier hébergé par Discord (cdn.discordapp.com : images, vidéos, pièces jointes).
+// Ancré sur le domaine pour ne pas laisser passer cdn.discordapp.com.faux-site.xyz.
+function isDiscordCdn(url) {
+  return /^(https?:\/\/)?cdn\.discordapp\.com\//i.test(url);
+}
+
 // Lien vers un salon / message de ce serveur : Discord l'affiche comme une
 // mention de salon, ce n'est pas un vrai lien → jamais filtré.
 function isOwnChannelLink(url, guildId) {
   return new RegExp(`^(https?://)?((ptb|canary)\\.)?discord(app)?\\.com/channels/${guildId}/`, 'i').test(url);
 }
 
-// Un lien est autorisé s'il s'agit d'un GIF, d'une plateforme whitelistée ou d'un cadeau Discord.
+// Un lien est autorisé s'il s'agit d'un GIF, d'une plateforme whitelistée, d'un cadeau Discord
+// ou d'un fichier du CDN de Discord.
 function isAllowedLink(url) {
-  return isGifLink(url) || isAllowedPlatform(url) || isDiscordGift(url);
+  return isGifLink(url) || isAllowedPlatform(url) || isDiscordGift(url) || isDiscordCdn(url);
+}
+
+// Messages avec un lien interdit, par membre : le 2ᵉ dans la même minute → jail
+// (rôles de /jailconfig). `${guildId}:${userId}` → horodatages.
+const STRIKE_WINDOW = 60_000;
+const linkStrikes = new Map();
+
+async function jailRepeatOffender(message) {
+  const key = `${message.guild.id}:${message.author.id}`;
+  const now = Date.now();
+  const strikes = (linkStrikes.get(key) ?? []).filter((t) => now - t < STRIKE_WINDOW);
+  strikes.push(now);
+  linkStrikes.set(key, strikes);
+  if (strikes.length < 2) return false;
+
+  if (!getJailConfig(message.guild.id) || getJailRecord(message.guild.id, message.author.id)) return false;
+  if (message.author.id === message.guild.ownerId) return false;
+  const res = await jailMember(message.member, {
+    by: message.client.user,
+    reason: 'Anti-liens : 2 liens interdits envoyés en moins d’une minute',
+  });
+  if (res.error) {
+    console.error('[linkfilter] jail impossible :', res.error);
+    return false;
+  }
+  linkStrikes.delete(key);
+  return true;
 }
 
 export async function handleLinkFilter(message) {
@@ -59,10 +107,17 @@ export async function handleLinkFilter(message) {
   const forbidden = urls.filter((u) => !isAllowedLink(u));
   const allowed = urls.filter((u) => isAllowedLink(u) && !isGifLink(u));
 
-  // Le message est supprimé dès qu'un lien interdit est présent.
+  // Le message est supprimé dès qu'un lien interdit est présent ; à la 2ᵉ fois dans la minute, jail.
   if (forbidden.length) {
     await message.delete().catch(() => {});
-    const warn = await message.channel.send(`❌ ${message.author}, les liens ne sont pas autorisés ici.`).catch(() => null);
+    const jailed = await jailRepeatOffender(message);
+    const warn = await message.channel
+      .send(
+        jailed
+          ? `⛓️ ${message.author} a été jail : liens envoyés à répétition.`
+          : `❌ ${message.author}, les liens ne sont pas autorisés ici.`,
+      )
+      .catch(() => null);
     if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
   }
 

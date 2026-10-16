@@ -27,7 +27,7 @@ function imageProblem(url) {
 // /modifdescticketopen. S'applique aux prochains tickets ouverts.
 export default {
   data: new SlashCommandBuilder()
-    .setName('modifembedticketopen')
+    .setName('modifierembedticket')
     .setDescription('Changer l’embed affiché à l’ouverture d’un ticket (GIF, miniature, couleur, titre).')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)

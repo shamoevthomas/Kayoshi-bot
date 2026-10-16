@@ -1,5 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
+import { getRankConfig } from '../../lib/store.js';
+import { renderRankMessage, DEFAULT_DERANK_MESSAGE } from '../../lib/rank.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -68,10 +70,39 @@ export default {
         .setTimestamp(),
     );
 
+    // Annonce dans le salon de /configrank (message /derank de /configrank), comme /rank.
+    const config = getRankConfig(interaction.guild.id);
+    const channel = config?.channelId ? interaction.guild.channels.cache.get(config.channelId) : null;
+    let note = '';
+    if (!config) {
+      note = '\nℹ️ Aucune annonce postée : configure le salon avec `/configrank`.';
+    } else if (!channel) {
+      note = '\n⚠️ Le salon des annonces de rank n’existe plus. Relance `/configrank`.';
+    } else {
+      const embed = new EmbedBuilder()
+        .setColor(Colors.leave)
+        .setDescription(
+          renderRankMessage(config.derankMessage ?? DEFAULT_DERANK_MESSAGE, {
+            member,
+            roles: [role],
+            motif: reason,
+            staff: interaction.user,
+          }).slice(0, 4096),
+        )
+        .setThumbnail(member.displayAvatarURL())
+        .setTimestamp();
+      const sent = await channel.send({ embeds: [embed] }).catch((err) => {
+        console.error('[derank] annonce impossible :', err.message);
+        return null;
+      });
+      note = sent ? `\n📣 Annonce postée dans ${channel}.` : `\n⚠️ Je n’ai pas pu poster l’annonce dans ${channel} (permissions ?).`;
+    }
+
     return interaction.editReply({
       content:
         `✅ ${target} a été derank du rôle ${role}.` +
-        (dmSent ? '' : "\n⚠️ Je n'ai pas pu lui envoyer de MP (messages privés fermés)."),
+        (dmSent ? '' : "\n⚠️ Je n'ai pas pu lui envoyer de MP (messages privés fermés).") +
+        note,
     });
   },
 };

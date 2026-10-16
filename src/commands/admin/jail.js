@@ -1,7 +1,6 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { getJailConfig, getJailRecord, setJailRecord, removeJailRecord } from '../../lib/store.js';
-import { jailRoleProblem } from '../../lib/jail.js';
-import { sendSanctionLog, Colors } from '../../lib/logger.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { getJailConfig, getJailRecord } from '../../lib/store.js';
+import { jailRoleProblem, jailMember } from '../../lib/jail.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -31,53 +30,24 @@ export default {
       return interaction.reply({ content: '❌ Tu ne peux pas jail un membre dont le rôle est égal ou supérieur au tien.', ephemeral: true });
     }
 
-    const addRole = guild.roles.cache.get(config.addRoleId);
-    const removeRole = guild.roles.cache.get(config.removeRoleId);
-    const problem = jailRoleProblem(guild, addRole) ?? jailRoleProblem(guild, removeRole);
+    const problem =
+      jailRoleProblem(guild, guild.roles.cache.get(config.addRoleId)) ??
+      jailRoleProblem(guild, guild.roles.cache.get(config.removeRoleId));
     if (problem) return interaction.reply({ content: problem, ephemeral: true });
 
     await interaction.deferReply({ ephemeral: true });
 
-    // Enregistré AVANT les changements de rôles : le rôle retiré ne peut plus revenir.
-    const hadRole = member.roles.cache.has(removeRole.id);
-    setJailRecord(guild.id, member.id, {
-      addRoleId: addRole.id,
-      removeRoleId: removeRole.id,
-      hadRole,
-      by: interaction.user.id,
-      at: Date.now(),
-      reason: reason ?? null,
-    });
-    const auditReason = `Jail par ${interaction.user.tag}${reason ? ` : ${reason}` : ''}`;
-    try {
-      await member.roles.add(addRole, auditReason);
-      if (hadRole) await member.roles.remove(removeRole, auditReason);
-    } catch (err) {
-      removeJailRecord(guild.id, member.id);
-      await member.roles.remove(addRole).catch(() => {});
-      if (hadRole) await member.roles.add(removeRole).catch(() => {});
-      return interaction.editReply({ content: `❌ Impossible de jail ce membre : ${err?.message ?? 'erreur inconnue'}` });
-    }
-
-    await sendSanctionLog(
-      guild,
-      new EmbedBuilder()
-        .setColor(Colors.delete)
-        .setAuthor({ name: '⛓️ Membre jail' })
-        .setDescription(`${target} (${target.tag})`)
-        .addFields(
-          { name: 'Rôle retiré', value: hadRole ? `${removeRole}` : `${removeRole} (ne l’avait pas)`, inline: true },
-          { name: 'Rôle donné', value: `${addRole}`, inline: true },
-          { name: 'Raison', value: reason || 'Aucune raison précisée' },
-          { name: 'Par', value: `${interaction.user}`, inline: true },
-        )
-        .setTimestamp(),
-    );
+    const res = await jailMember(member, { by: interaction.user, reason: reason ?? null });
+    if (res.error) return interaction.editReply({ content: res.error });
+    const { addRole, removeRole, hadRole, ticketChannel } = res;
 
     return interaction.editReply({
       content:
         `⛓️ ${target} est jail : ${hadRole ? `il perd ${removeRole} et` : `il n’avait pas ${removeRole},`} il gagne ${addRole}.` +
-        (reason ? `\nRaison : ${reason}` : ''),
+        (reason ? `\nRaison : ${reason}` : '') +
+        (ticketChannel
+          ? `\n📣 Mentionné dans ${ticketChannel}.`
+          : '\n⚠️ Pas de mention dans le salon des tickets (système 1 non configuré ou salon introuvable).'),
     });
   },
 };

@@ -15,7 +15,7 @@ export default {
         .addStringOption((opt) =>
           opt
             .setName('texte')
-            .setDescription('Texte à détecter dans le statut (ex: .gg/ximi)')
+            .setDescription('Texte à détecter dans le statut (ex: .gg/ichima)')
             .setRequired(true),
         )
         .addRoleOption((opt) =>

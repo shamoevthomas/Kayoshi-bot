@@ -18,6 +18,9 @@ export async function handlePartnerMessage(message) {
   // L'auteur de l'embed devient celui qui a fait le partenariat (sauf si l'embed n'a pas d'auteur).
   const who = message.member ?? message.author;
   if (embed.author) embed.author = { name: who.displayName, icon_url: who.displayAvatarURL() };
+  // Ancien pied de page automatique « Partenariat avec <nom du serveur> » : retiré
+  // (un pied de page personnalisé via /embed est gardé).
+  if (embed.footer?.text?.startsWith('Partenariat avec')) delete embed.footer;
   embed.timestamp = new Date().toISOString();
 
   await message.channel
