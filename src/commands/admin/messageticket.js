@@ -10,17 +10,17 @@ import {
   ComponentType,
 } from 'discord.js';
 import { getTicketConfig, setTicketConfig } from '../../lib/store.js';
-import { refreshTicketPanel } from '../../lib/tickets.js';
 
 const slotKey = (slot) => (slot === 2 ? 'ticketConfig2' : 'ticketConfig');
 const cfgCmd = (slot) => (slot === 2 ? 'configticket2' : 'configticket');
+const MAX_LEN = 1900; // marge pour les [@] remplacés par une mention (limite Discord : 2000)
 
-// Change la description (celle affichée sous le nom dans le menu déroulant du
-// panneau) d'un motif existant, puis ré-édite le panneau publié.
+// Définit, pour un motif, le premier message envoyé dans chaque nouveau ticket
+// (juste après l'embed d'accueil). [@] mentionne celui qui a ouvert le ticket.
 export default {
   data: new SlashCommandBuilder()
-    .setName('modifierdescriptionticket')
-    .setDescription('Changer la description (menu déroulant) d’un motif de ticket existant.')
+    .setName('messageticket')
+    .setDescription('Définir le premier message envoyé dans un ticket, pour un motif ([@] = mention de l’auteur).')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)
     .addIntegerOption((o) =>
@@ -41,16 +41,18 @@ export default {
       });
     }
 
-    const select = new StringSelectMenuBuilder().setCustomId('mdt_pick').setPlaceholder('Choisis le motif à modifier');
+    const select = new StringSelectMenuBuilder().setCustomId('mtk_pick').setPlaceholder('Choisis le motif');
     for (const m of config.motifs) {
-      const opt = new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.id);
-      if (m.description) opt.setDescription(m.description.slice(0, 100));
+      const opt = new StringSelectMenuOptionBuilder()
+        .setLabel(m.label)
+        .setValue(m.id)
+        .setDescription(m.firstMessage ? m.firstMessage.replace(/\s+/g, ' ').slice(0, 100) : 'Aucun premier message');
       if (m.emoji) opt.setEmoji(m.emoji);
       select.addOptions(opt);
     }
 
     const msg = await interaction.reply({
-      content: 'Quel motif veux-tu modifier ?',
+      content: 'Pour quel motif veux-tu définir le premier message du ticket ?',
       components: [new ActionRowBuilder().addComponents(select)],
       ephemeral: true,
       fetchReply: true,
@@ -68,37 +70,37 @@ export default {
     if (!motif) return sel.update({ content: '❌ Motif introuvable.', components: [] }).catch(() => {});
 
     const input = new TextInputBuilder()
-      .setCustomId('desc')
-      .setLabel('Nouvelle description (menu déroulant)')
-      .setPlaceholder('Laisse vide pour retirer la description')
+      .setCustomId('text')
+      .setLabel('Premier message ([@] = auteur du ticket)')
+      .setPlaceholder('Ex : Salut [@] ! Explique-nous ta demande en détail. Laisse vide pour retirer.')
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(false)
-      .setMaxLength(90);
-    if (motif.description) input.setValue(motif.description);
+      .setMaxLength(MAX_LEN);
+    if (motif.firstMessage) input.setValue(motif.firstMessage);
 
     const modal = new ModalBuilder()
-      .setCustomId('mdt_modal')
-      .setTitle(`Description — ${motif.label}`.slice(0, 45))
+      .setCustomId('mtk_modal')
+      .setTitle(`Premier message — ${motif.label}`.slice(0, 45))
       .addComponents(new ActionRowBuilder().addComponents(input));
     await sel.showModal(modal);
 
     let sub;
     try {
-      sub = await sel.awaitModalSubmit({ time: 600_000, filter: (i) => i.customId === 'mdt_modal' && i.user.id === interaction.user.id });
+      sub = await sel.awaitModalSubmit({ time: 600_000, filter: (i) => i.customId === 'mtk_modal' && i.user.id === interaction.user.id });
     } catch {
       return interaction.editReply({ content: '⏱️ Délai dépassé.', components: [] }).catch(() => {});
     }
 
-    const desc = sub.fields.getTextInputValue('desc').trim();
-    motif.description = desc || null;
+    const text = sub.fields.getTextInputValue('text').trim();
+    motif.firstMessage = text || null;
     setTicketConfig(interaction.guild.id, config, key);
-    const refreshed = await refreshTicketPanel(interaction.guild, config, slot);
 
     await interaction.editReply({ content: '✅ Terminé.', components: [] }).catch(() => {});
     return sub.reply({
-      content:
-        `✅ Description de **${motif.label}** ${desc ? 'mise à jour.' : 'supprimée.'}` +
-        (refreshed ? ' Le panneau a été actualisé.' : ` ⚠️ Panneau non retrouvé — republie-le via \`/${cfgCmd(slot)}\` si besoin.`),
+      content: text
+        ? `✅ Premier message de **${motif.label}** enregistré. Il sera envoyé dans chaque nouveau ticket de ce motif` +
+          (text.includes('[@]') ? ', avec la mention de celui qui l’a ouvert.' : '.')
+        : `✅ Premier message de **${motif.label}** supprimé.`,
       ephemeral: true,
     });
   },
