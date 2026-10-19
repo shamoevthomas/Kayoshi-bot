@@ -54,6 +54,20 @@ function isAllowedLink(url) {
   return isGifLink(url) || isAllowedPlatform(url) || isDiscordGift(url) || isDiscordCdn(url);
 }
 
+// Invitation Discord (discord.gg/code, discord.com/invite/code) : renvoie son code.
+const INVITE = /(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]+)/i;
+
+// Invitation vers un autre serveur ? Les invitations connues du serveur et son URL
+// personnalisée passent sans appel à Discord. Une invitation qu'on ne peut pas
+// rattacher à ce serveur (expirée, erreur) est considérée comme étrangère.
+async function isForeignInvite(url, guild) {
+  const code = url.match(INVITE)?.[1];
+  if (!code) return false;
+  if (code.toLowerCase() === guild.vanityURLCode?.toLowerCase() || guild.invites.cache.has(code)) return false;
+  const invite = await guild.client.fetchInvite(code).catch(() => null);
+  return invite?.guild?.id !== guild.id;
+}
+
 // Messages avec un lien interdit, par membre : le 2ᵉ dans la même minute → jail
 // (rôles de /jailconfig). `${guildId}:${userId}` → horodatages.
 const STRIKE_WINDOW = 60_000;
@@ -93,38 +107,47 @@ export async function handleLinkFilter(message) {
   const parentName = message.channel.parent?.name?.toLowerCase() ?? '';
   if (parentName.includes('partenariat')) return;
 
-  // Un rôle autorisé (exception) l'emporte : le membre peut poster des liens partout.
-  const exempt = message.member.roles.cache.some((r) => config.allowedRoleIds?.includes(r.id));
-  if (exempt) return;
+  const urls = (message.content.match(URL_GLOBAL) || []).filter((u) => !isOwnChannelLink(u, message.guild.id));
+  if (urls.length === 0) return;
+
+  // Un rôle autorisé (exception) l'emporte : tous les liens passent, partout,
+  // sauf les invitations vers un autre serveur.
+  if (message.member.roles.cache.some((r) => config.allowedRoleIds?.includes(r.id))) {
+    const invites = [];
+    for (const url of urls) if (await isForeignInvite(url, message.guild)) invites.push(url);
+    if (!invites.length) return;
+    await removeAndWarn(message, 'les invitations vers d’autres serveurs ne sont pas autorisées ici.');
+    return logLinks(message, config, invites, []);
+  }
 
   // Seuls les membres portant un des rôles interdits sont filtrés
   const blocked = message.member.roles.cache.some((r) => config.roleIds.includes(r.id));
   if (!blocked) return;
 
-  const urls = (message.content.match(URL_GLOBAL) || []).filter((u) => !isOwnChannelLink(u, message.guild.id));
-  if (urls.length === 0) return;
   // Interdits vs autorisés. Les GIF restent autorisés mais ne sont PAS loggés.
   const forbidden = urls.filter((u) => !isAllowedLink(u));
   const allowed = urls.filter((u) => isAllowedLink(u) && !isGifLink(u));
 
   // Le message est supprimé dès qu'un lien interdit est présent ; à la 2ᵉ fois dans la minute, jail.
-  if (forbidden.length) {
-    await message.delete().catch(() => {});
-    const jailed = await jailRepeatOffender(message);
-    const warn = await message.channel
-      .send(
-        jailed
-          ? `⛓️ ${message.author} a été jail : liens envoyés à répétition.`
-          : `❌ ${message.author}, les liens ne sont pas autorisés ici.`,
-      )
-      .catch(() => null);
-    if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
-  }
+  if (forbidden.length) await removeAndWarn(message, 'les liens ne sont pas autorisés ici.');
 
   // Rien à enregistrer : ni lien interdit, ni lien autorisé loggable (hors GIF)
   // dans un salon dédié.
   if (!forbidden.length && !(config.logChannelId && allowed.length)) return;
+  await logLinks(message, config, forbidden, allowed);
+}
 
+// Supprime le message et prévient le membre ; au 2ᵉ lien interdit dans la minute, jail.
+async function removeAndWarn(message, reason) {
+  await message.delete().catch(() => {});
+  const jailed = await jailRepeatOffender(message);
+  const warn = await message.channel
+    .send(jailed ? `⛓️ ${message.author} a été jail : liens envoyés à répétition.` : `❌ ${message.author}, ${reason}`)
+    .catch(() => null);
+  if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
+}
+
+async function logLinks(message, config, forbidden, allowed) {
   const embed = new EmbedBuilder()
     .setColor(forbidden.length ? Colors.delete : Colors.role)
     .setAuthor({ name: forbidden.length ? '🔗 Lien bloqué' : '🔗 Lien autorisé' })

@@ -1,11 +1,14 @@
 import { Events, EmbedBuilder, AttachmentBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
 import { takeCachedAttachments } from '../lib/attachmentCache.js';
+import { removeSentEmbed } from '../lib/store.js';
 
 export default {
   name: Events.MessageDelete,
   async execute(message) {
     if (!message.guild) return;
+    // Embed du créateur supprimé : /modifierembed ne doit plus le proposer.
+    removeSentEmbed(message.guild.id, message.id);
     if (message.author?.bot) return;
 
     const embed = new EmbedBuilder()

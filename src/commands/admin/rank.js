@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getRankConfig } from '../../lib/store.js';
 import { Colors } from '../../lib/logger.js';
-import { renderRankMessage } from '../../lib/rank.js';
+import { renderRankAnnouncement } from '../../lib/rank.js';
 
 // Donne un ou deux rôles à un membre, puis poste l'annonce (message de /configrank)
 // en embed dans le salon configuré.
@@ -68,7 +68,7 @@ export default {
     } else {
       const embed = new EmbedBuilder()
         .setColor(Colors.join)
-        .setDescription(renderRankMessage(config.message, { member, roles: toGive, motif, staff: interaction.user }).slice(0, 4096))
+        .setDescription(renderRankAnnouncement(config.message, { member, roles: toGive, motif, staff: interaction.user }, 'Rank up'))
         .setThumbnail(member.displayAvatarURL())
         .setTimestamp();
       const sent = await channel.send({ embeds: [embed] }).catch((err) => {

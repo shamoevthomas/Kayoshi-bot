@@ -90,7 +90,7 @@ export default {
       const step3Text = () =>
         `✅ ${config.roleIds.length} rôle(s) bloqué(s)\n\n` +
         `**3/4 — Rôles autorisés (exceptions)** *(facultatif)*\n` +
-        `Ces rôles pourront **toujours** poster des liens, même s’ils ont un rôle bloqué.\n` +
+        `Ces rôles pourront poster **tous les liens**, même s’ils ont un rôle bloqué — **sauf les invitations Discord vers un autre serveur**.\n` +
         (config.allowedRoleIds.length ? `Sélectionnés : ${config.allowedRoleIds.map((r) => `<@&${r}>`).join(' ')}\n` : '') +
         `Clique sur **Suivant** pour continuer (avec ou sans exception).`;
 
@@ -130,7 +130,7 @@ export default {
           `✅ **Filtre anti-liens configuré !**\n` +
           `• Salons autorisés : ${config.allowedChannelIds.map((c) => `<#${c}>`).join(' ')}\n` +
           `• Rôles bloqués : ${config.roleIds.map((r) => `<@&${r}>`).join(' ')}\n` +
-          `• Rôles autorisés (exceptions) : ${config.allowedRoleIds.length ? config.allowedRoleIds.map((r) => `<@&${r}>`).join(' ') : '_aucun_'}\n` +
+          `• Rôles autorisés (exceptions) : ${config.allowedRoleIds.length ? `${config.allowedRoleIds.map((r) => `<@&${r}>`).join(' ')} — tous les liens sauf les invitations vers un autre serveur` : '_aucun_'}\n` +
           `• Salon des liens détectés : <#${config.logChannelId}>\n\n` +
           `🔗 Liens **toujours autorisés** : Snapchat (et les GIF). YouTube, TikTok et Instagram sont bloqués comme les autres liens.\n` +
           `Tout autre lien posté par un rôle bloqué est supprimé **partout sauf** dans les salons autorisés — sauf exception — et enregistré dans <#${config.logChannelId}>.`,

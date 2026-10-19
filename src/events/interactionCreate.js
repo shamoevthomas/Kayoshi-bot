@@ -29,6 +29,13 @@ export default {
       return;
     }
 
+    // Autocomplétion des options (ex. /modifierembed)
+    if (interaction.isAutocomplete()) {
+      const command = interaction.client.commands.get(interaction.commandName);
+      await command?.autocomplete?.(interaction).catch((err) => console.error(err));
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command) return;

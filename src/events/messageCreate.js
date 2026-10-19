@@ -30,7 +30,11 @@ export default {
     }
 
     // Anti-spam : si le message est du spam, il est géré (supprimé) ici.
-    if (await handleAntiSpam(message).catch(() => false)) return;
+    const spam = await handleAntiSpam(message).catch((err) => {
+      console.error('[antispam]', err);
+      return false;
+    });
+    if (spam) return;
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));

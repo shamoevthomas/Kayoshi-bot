@@ -7,13 +7,30 @@ const buckets = new Map();
 // Anti-double-sanction rapprochée.
 const punished = new Map();
 
-// Spam multi-salons : messages dans au moins MULTI_MIN_CHANNELS salons
-// différents en moins de MULTI_WINDOW_MS → mute MULTI_TIMEOUT_MS.
-export const MULTI_WINDOW_MS = 3000;
-export const MULTI_MIN_CHANNELS = 2;
+// Spam multi-salons, en moins de MULTI_WINDOW_MS → mute MULTI_TIMEOUT_MS :
+// - le même message (copier-coller) dans au moins MULTI_SAME_CHANNELS salons différents ;
+// - ou des messages dans au moins MULTI_MIN_CHANNELS salons différents.
+export const MULTI_WINDOW_MS = 10_000;
+export const MULTI_SAME_CHANNELS = 2;
+export const MULTI_MIN_CHANNELS = 3;
 export const MULTI_TIMEOUT_MS = 60 * 60_000;
 const multiBuckets = new Map();
 const multiPunished = new Map();
+
+// Salon ignoré par /antispam ignorer : le salon lui-même, sa catégorie, ou pour
+// un fil, son salon parent (et la catégorie de celui-ci).
+export function isIgnoredChannel(channel, ignoredIds) {
+  if (!ignoredIds?.length) return false;
+  return [channel.id, channel.parentId, channel.parent?.parentId].some((id) => id && ignoredIds.includes(id));
+}
+
+// Empreinte d'un message pour reconnaître un copier-coller : texte normalisé +
+// pièces jointes (nom et taille). null si le message n'a ni texte ni fichier.
+function fingerprint(message) {
+  const text = message.content.trim().toLowerCase().replace(/\s+/g, ' ');
+  const files = [...message.attachments.values()].map((a) => `${a.name}:${a.size}`).join(',');
+  return text || files ? `${text}|${files}` : null;
+}
 
 // Traite un message pour l'anti-spam. Renvoie true si le message a été géré
 // (spam détecté → supprimé), false sinon.
@@ -21,6 +38,7 @@ export async function handleAntiSpam(message) {
   if (!message.guild || message.author.bot || !message.member) return false;
   const config = getAntiSpamConfig(message.guild.id);
   if (!config?.enabled) return false;
+  if (isIgnoredChannel(message.channel, config.ignoredChannelIds)) return false;
 
   // Exemptions : le staff (Gérer les messages) et les rôles exemptés.
   if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return false;
@@ -94,12 +112,18 @@ async function handleMultiChannelSpam(message) {
     return true;
   }
 
+  const print = fingerprint(message);
   const arr = (multiBuckets.get(key) ?? []).filter((m) => now - m.ts < MULTI_WINDOW_MS);
-  arr.push({ ts: now, id: message.id, channelId: message.channel.id });
+  arr.push({ ts: now, id: message.id, channelId: message.channel.id, print });
   multiBuckets.set(key, arr);
 
   const channelIds = [...new Set(arr.map((m) => m.channelId))];
-  if (channelIds.length < MULTI_MIN_CHANNELS) return false;
+  const sameChannels = print ? new Set(arr.filter((m) => m.print === print).map((m) => m.channelId)).size : 0;
+  if (sameChannels < MULTI_SAME_CHANNELS && channelIds.length < MULTI_MIN_CHANNELS) return false;
+  const detected =
+    sameChannels >= MULTI_SAME_CHANNELS
+      ? `le même message dans ${sameChannels} salons en < ${MULTI_WINDOW_MS / 1000}s`
+      : `${arr.length} messages dans ${channelIds.length} salons en < ${MULTI_WINDOW_MS / 1000}s`;
 
   multiPunished.set(key, now);
   multiBuckets.delete(key);
@@ -130,11 +154,7 @@ async function handleMultiChannelSpam(message) {
       .setAuthor({ name: '🚫 Anti-spam multi-salons' })
       .setDescription(`${message.author} (${message.author.tag}) a posté dans plusieurs salons à la suite`)
       .addFields(
-        {
-          name: 'Détecté',
-          value: `${arr.length} messages dans ${channelIds.length} salons en < ${MULTI_WINDOW_MS / 1000}s`,
-          inline: true,
-        },
+        { name: 'Détecté', value: detected, inline: true },
         {
           name: 'Sanction',
           value: muted

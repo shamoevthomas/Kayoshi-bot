@@ -950,6 +950,28 @@ export function deleteSavedMessage(guildId, slot) {
   return true;
 }
 
+// --- Embeds envoyés avec /embed (proposés par /modifierembed) ---
+// sentEmbeds = { messageId: { channelId, title, ts } }, limité aux 100 plus récents.
+const MAX_SENT_EMBEDS = 100;
+
+export function getSentEmbeds(guildId) {
+  return getGuildConfig(guildId).sentEmbeds ?? {};
+}
+
+export function recordSentEmbed(guildId, messageId, record) {
+  const entries = Object.entries({ ...getSentEmbeds(guildId), [messageId]: record })
+    .sort(([, a], [, b]) => b.ts - a.ts)
+    .slice(0, MAX_SENT_EMBEDS);
+  setGuildConfig(guildId, { sentEmbeds: Object.fromEntries(entries) });
+}
+
+export function removeSentEmbed(guildId, messageId) {
+  const { [messageId]: removed, ...rest } = getSentEmbeds(guildId);
+  if (!removed) return false;
+  setGuildConfig(guildId, { sentEmbeds: rest });
+  return true;
+}
+
 // --- Message de boost (/configboost) ---
 // boostConfig = { channelId, message, mentionType, roleId }
 export function getBoostConfig(guildId) {
