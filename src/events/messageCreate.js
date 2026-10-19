@@ -6,6 +6,7 @@ import { handleGifPermHint } from '../lib/gifhint.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
 import { handleDisboardBump } from '../lib/bumpreminder.js';
 import { handlePartnerMessage } from '../lib/partners.js';
+import { handleVoiceStatsCommand } from '../lib/voicestats.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
 // "quoi" / "pourquoi" en fin de phrase (mot entier, ponctuation finale tolérée).
@@ -35,6 +36,9 @@ export default {
       return false;
     });
     if (spam) return;
+
+    // « +vc » : statistiques des salons vocaux.
+    await handleVoiceStatsCommand(message).catch((err) => console.error(err));
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));

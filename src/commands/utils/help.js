@@ -119,6 +119,7 @@ const CATEGORIES = [
       ['/save', 'Messages sauvegardés (5 emplacements)'],
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
       ['/serverinfo', 'Statistiques du serveur'],
+      ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
       ['/userinfo', 'Fiche d’un membre'],
       ['/pseudo', 'Envoie le pseudo d’un membre'],
       ['/ping', 'Latence du bot'],
