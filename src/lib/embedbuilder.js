@@ -26,7 +26,7 @@ import {
   removeSentEmbed,
 } from './store.js';
 import { TEMPLATE_HELP, renderEmbedFor } from './greetings.js';
-import { buildTicketPanel, refreshTicketPanel, syncMotifCategoryName } from './tickets.js';
+import { buildTicketPanel, refreshTicketPanel, syncMotifCategoryName, ticketPanelSlot, rememberTicketPanel } from './tickets.js';
 
 // Créateur d'embed (/embed, et /modifierembed pour un embed existant) : aperçu éphémère + boutons d'édition.
 // Sans état : l'embed en cours est relu à chaque clic depuis le message d'aperçu,
@@ -647,17 +647,24 @@ async function loadTarget(interaction, value) {
   const link = value.match(/discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/);
   if (link && link[1] !== guild.id) throw new Error('Ce message est sur un autre serveur.');
   let [type, a, b] = (link ? `m.${link[2]}.${link[3]}` : value).split('.');
-  // Le panneau de tickets se modifie avec ses motifs, même ouvert par son lien.
-  const panelSlot = b && [1, 2].find((slot) => getTicketConfig(guild.id, TICKET_KEY[slot])?.panelMessageId === b);
-  if (panelSlot) [type, a] = ['ticket', String(panelSlot)];
 
   if (type === 'm' && a && b) {
     const message = await fetchOwnMessage(interaction, a, b);
-    const embed = cleanEmbed(message.embeds[0].toJSON());
-    const components = message.components.flatMap((row) => row.components ?? []);
-    const roleReactOnly = components.every((c) => c.customId?.startsWith('emb_role:') || c.customId === 'emb_rsel');
-    if (!roleReactOnly) return { embed, state: { target: `e.${a}.${b}` } };
-    return { embed, state: { target: `m.${a}.${b}`, rr: readRoleReact(components, 'emb_role:', 'emb_rsel') } };
+    // Le panneau de tickets se modifie avec ses motifs, même ouvert par son lien
+    // (et ce message devient le panneau enregistré du système).
+    const panelSlot = ticketPanelSlot(message);
+    const panelConfig = panelSlot && getTicketConfig(guild.id, TICKET_KEY[panelSlot]);
+    if (panelConfig?.motifs?.length) {
+      requireAdmin(interaction);
+      rememberTicketPanel(guild, panelConfig, panelSlot, message);
+      [type, a] = ['ticket', String(panelSlot)];
+    } else {
+      const embed = cleanEmbed(message.embeds[0].toJSON());
+      const components = message.components.flatMap((row) => row.components ?? []);
+      const roleReactOnly = components.every((c) => c.customId?.startsWith('emb_role:') || c.customId === 'emb_rsel');
+      if (!roleReactOnly) return { embed, state: { target: `e.${a}.${b}` } };
+      return { embed, state: { target: `m.${a}.${b}`, rr: readRoleReact(components, 'emb_role:', 'emb_rsel') } };
+    }
   }
 
   if (type === 'partner') {
@@ -749,11 +756,15 @@ async function saveTarget(interaction, embed, { target, rr, motifs }) {
   }
   setTicketConfig(guild.id, config, TICKET_KEY[slot]);
   for (const motif of renamed) await syncMotifCategoryName(guild, motif);
-  const refreshed = await refreshTicketPanel(guild, config, slot);
-  const cmd = slot === 2 ? '/configticket2' : '/configticket';
-  return refreshed
-    ? `✅ Panneau de tickets mis à jour${renamed.length ? ' (catégories des motifs renommées)' : ''}.`
-    : `⚠️ Modifications enregistrées, mais le panneau publié est introuvable : republie-le avec \`${cmd}\`.`;
+  // Panneau supprimé : republié dans son salon.
+  const refreshed = await refreshTicketPanel(guild, config, slot, { repost: true });
+  const renamedNote = renamed.length ? ' (catégories des motifs renommées)' : '';
+  if (refreshed === 'edited') return `✅ Panneau de tickets mis à jour${renamedNote}.`;
+  if (refreshed === 'posted') return `✅ Panneau introuvable : je l’ai republié dans <#${config.panelChannelId}>${renamedNote}.`;
+  return (
+    '⚠️ Modifications enregistrées, mais je n’ai pas pu mettre à jour le panneau : son salon n’existe plus ou je n’ai pas la permission d’y écrire.\n' +
+    '-# Si le panneau est dans un autre salon, colle le lien de son message dans `/modifierembed` puis clique sur 💾.'
+  );
 }
 
 function motifModal(motif) {

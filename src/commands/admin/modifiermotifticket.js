@@ -132,7 +132,9 @@ export default {
     return sub.reply({
       content:
         `✅ Motif **${label}** modifié :\n${changes.join('\n')}\n` +
-        (refreshed ? 'Le panneau a été actualisé.' : `⚠️ Panneau non retrouvé — republie-le via \`/${cfgCmd(slot)}\` si besoin.`),
+        (refreshed
+          ? 'Le panneau a été actualisé.'
+          : '⚠️ Panneau non retrouvé dans son salon : ouvre « Ouverture de ticket » avec `/modifierembed` et clique sur 💾 pour le republier.'),
       ephemeral: true,
     });
   },
