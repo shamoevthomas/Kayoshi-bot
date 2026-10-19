@@ -10,6 +10,15 @@ const MULTI_LINE =
 const STAFF_NOTE =
   '_Le staff (« Gérer les messages ») est toujours exempté : pour tester, utilise un compte sans cette permission._';
 
+// Salons que /antispam activer peut faire ignorer (une catégorie = tous ses salons).
+const IGNORABLE_TYPES = [
+  ChannelType.GuildText,
+  ChannelType.GuildAnnouncement,
+  ChannelType.GuildVoice,
+  ChannelType.GuildForum,
+  ChannelType.GuildCategory,
+];
+
 const ignoredLine = (ids) => `• Salons ignorés : ${ids?.length ? ids.map((id) => `<#${id}>`).join(' ') : '_aucun_'}\n`;
 
 // Permissions sans lesquelles l'anti-spam ne peut ni supprimer ni mute.
@@ -44,24 +53,18 @@ export default {
             .setMinValue(0)
             .setMaxValue(1440),
         )
-        .addRoleOption((o) => o.setName('role_exempt').setDescription('(Facultatif) rôle exempté de l’anti-spam')),
-    )
-    .addSubcommand((sub) =>
-      sub
-        .setName('ignorer')
-        .setDescription('Ignorer un salon ou une catégorie (relancer sur le même salon pour ne plus l’ignorer).')
+        .addRoleOption((o) => o.setName('role_exempt').setDescription('(Facultatif) rôle exempté de l’anti-spam'))
         .addChannelOption((o) =>
           o
-            .setName('salon')
-            .setDescription('Salon ou catégorie que l’anti-spam doit ignorer')
-            .setRequired(true)
-            .addChannelTypes(
-              ChannelType.GuildText,
-              ChannelType.GuildAnnouncement,
-              ChannelType.GuildVoice,
-              ChannelType.GuildForum,
-              ChannelType.GuildCategory,
-            ),
+            .setName('ignorer')
+            .setDescription('(Facultatif) Salon ou catégorie que l’anti-spam doit ignorer')
+            .addChannelTypes(...IGNORABLE_TYPES),
+        )
+        .addChannelOption((o) =>
+          o
+            .setName('ne_plus_ignorer')
+            .setDescription('(Facultatif) Salon ou catégorie à ne plus ignorer')
+            .addChannelTypes(...IGNORABLE_TYPES),
         ),
     )
     .addSubcommand((sub) => sub.setName('desactiver').setDescription('Désactiver l’anti-spam.'))
@@ -96,25 +99,6 @@ export default {
       return interaction.reply({ content: '🔕 Anti-spam **désactivé**.', ephemeral: true });
     }
 
-    if (sub === 'ignorer') {
-      const channel = interaction.options.getChannel('salon', true);
-      const prev = getAntiSpamConfig(guildId) ?? {};
-      const ignored = prev.ignoredChannelIds ?? [];
-      const removing = ignored.includes(channel.id);
-      const ignoredChannelIds = removing ? ignored.filter((id) => id !== channel.id) : [...ignored, channel.id];
-      setAntiSpamConfig(guildId, { ...prev, ignoredChannelIds });
-      const isCategory = channel.type === ChannelType.GuildCategory;
-      return interaction.reply({
-        content:
-          (removing
-            ? `✅ ${channel} n’est plus ignoré : l’anti-spam s’y applique de nouveau.\n`
-            : `✅ ${channel} est maintenant **ignoré** par l’anti-spam et le multi-salons${isCategory ? ' (tous les salons de cette catégorie)' : ''}.\n`) +
-          ignoredLine(ignoredChannelIds) +
-          (prev.enabled ? '' : 'ℹ️ L’anti-spam est désactivé : active-le avec `/antispam activer`.'),
-        ephemeral: true,
-      });
-    }
-
     // activer
     const prev = getAntiSpamConfig(guildId) ?? {};
     const maxMessages = interaction.options.getInteger('messages') ?? prev.maxMessages ?? 5;
@@ -122,7 +106,21 @@ export default {
     const muteMin = interaction.options.getInteger('mute_minutes') ?? Math.round((prev.timeoutMs ?? 300000) / 60000);
     const role = interaction.options.getRole('role_exempt');
 
-    // ...prev : garde les salons ignorés.
+    // Salons ignorés : la liste actuelle, moins « ne_plus_ignorer », plus « ignorer ».
+    const toIgnore = interaction.options.getChannel('ignorer');
+    const toWatch = interaction.options.getChannel('ne_plus_ignorer');
+    let ignoredChannelIds = (prev.ignoredChannelIds ?? []).filter((id) => id !== toWatch?.id);
+    if (toIgnore && !ignoredChannelIds.includes(toIgnore.id)) ignoredChannelIds = [...ignoredChannelIds, toIgnore.id];
+    const changes = [];
+    if (toWatch && toWatch.id !== toIgnore?.id) changes.push(`✅ ${toWatch} n’est plus ignoré.`);
+    if (toIgnore) {
+      changes.push(
+        `✅ ${toIgnore} est **ignoré** par l’anti-spam et le multi-salons` +
+          `${toIgnore.type === ChannelType.GuildCategory ? ' (tous les salons de cette catégorie)' : ''}.`,
+      );
+    }
+
+    // ...prev : garde les réglages non modifiés.
     const config = {
       ...prev,
       enabled: true,
@@ -130,11 +128,13 @@ export default {
       intervalMs: seconds * 1000,
       timeoutMs: muteMin * 60000,
       exemptRoleIds: role ? [role.id] : prev.exemptRoleIds ?? [],
+      ignoredChannelIds,
     };
     setAntiSpamConfig(guildId, config);
 
     return interaction.reply({
       content:
+        (changes.length ? `${changes.join('\n')}\n` : '') +
         `✅ **Anti-spam activé.**\n` +
         `• Seuil : **${maxMessages}** messages en **${seconds}s**\n` +
         `• Mute : ${muteMin > 0 ? `**${muteMin} min**` : 'aucun (suppression seule)'}\n` +

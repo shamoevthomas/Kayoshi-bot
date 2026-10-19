@@ -93,7 +93,7 @@ const CATEGORIES = [
       ['/configstat', 'Salon du classement des membres les plus actifs'],
       ['/configlien', 'Blocage des liens (par salon et par rôle) — rôles d’exception : tous les liens sauf les invitations vers un autre serveur — 2 liens interdits en 1 min = jail'],
       ['/messimage', 'Message envoyé quand un membre poste un GIF sans la perm image (+ 4 rôles ignorés)'],
-      ['/antispam', '`activer` `ignorer` `desactiver` `voir` — anti-spam (+ mute 1 h si spam multi-salons), salons ignorés'],
+      ['/antispam', '`activer` `desactiver` `voir` — anti-spam (+ mute 1 h si spam multi-salons) ; `activer` règle aussi les salons ignorés'],
       ['/one-message', '`activer` `desactiver` `liste` — messages supprimés auto'],
       ['/configboost', 'Message quand quelqu’un boost le serveur'],
       ['/bremind', 'Activer / désactiver le rappel de bump Disboard (2 h après chaque /bump)'],
