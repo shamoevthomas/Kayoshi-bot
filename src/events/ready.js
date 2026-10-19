@@ -12,6 +12,7 @@ import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
 import { pollAllCreators } from '../lib/creators.js';
 import { processBumpReminders } from '../lib/bumpreminder.js';
+import { ensureVoiceLogChannel } from '../lib/logger.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -36,6 +37,10 @@ export default {
     client.user.setActivity('.gg/ichima', { type: ActivityType.Custom });
     // Démarre le suivi arrivées/départs pour chaque serveur.
     for (const [guildId] of client.guilds.cache) ensureTracking(guildId);
+    // Salon « voc-logs » des logs vocaux, créé dès le démarrage pour les serveurs qui ont des logs.
+    setTimeout(() => {
+      for (const guild of client.guilds.cache.values()) ensureVoiceLogChannel(guild).catch(() => {});
+    }, 10_000);
     // Vérifie les bans temporaires arrivés à échéance, toutes les 60 s.
     processTempBans(client);
     setInterval(() => processTempBans(client), 60_000);

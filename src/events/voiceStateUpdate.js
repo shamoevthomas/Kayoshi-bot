@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder } from 'discord.js';
-import { sendLog, Colors } from '../lib/logger.js';
+import { sendVoiceLog, Colors } from '../lib/logger.js';
 import { handleVoiceState } from '../lib/tempvoice.js';
 import { startVoiceSession, endVoiceSession } from '../lib/voiceactivity.js';
 import { onBotVoiceStateUpdate } from '../lib/voicestay.js';
@@ -29,7 +29,7 @@ export default {
 
     // Connexion
     if (!oldState.channelId && newState.channelId) {
-      return sendLog(
+      return sendVoiceLog(
         guild,
         new EmbedBuilder()
           .setColor(Colors.join)
@@ -41,7 +41,7 @@ export default {
 
     // Déconnexion
     if (oldState.channelId && !newState.channelId) {
-      return sendLog(
+      return sendVoiceLog(
         guild,
         new EmbedBuilder()
           .setColor(Colors.leave)
@@ -53,7 +53,7 @@ export default {
 
     // Changement de salon
     if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
-      return sendLog(
+      return sendVoiceLog(
         guild,
         new EmbedBuilder()
           .setColor(Colors.join)

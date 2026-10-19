@@ -655,6 +655,16 @@ function migrateGreetEmbeds() {
   if (dirty.size) scheduleFlush();
 }
 
+// --- Message privé envoyé à chaque arrivée (/dmjoin) ---
+// dmJoin = { message } (templates de /bienvenue), null = désactivé.
+export function getDmJoin(guildId) {
+  return getGuildConfig(guildId).dmJoin ?? null;
+}
+
+export function setDmJoin(guildId, dmJoin) {
+  return setGuildConfig(guildId, { dmJoin });
+}
+
 // --- Classement d'activité hebdomadaire (/configstat) ---
 // Salon + message à mettre à jour : { channelId, messageId }.
 export function getStatConfig(guildId) {

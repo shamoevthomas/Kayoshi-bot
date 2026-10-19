@@ -42,6 +42,7 @@ const CATEGORIES = [
       ['/verif-all', 'Valider la vérification de tous les non-vérifiés'],
       ['/bienvenue', 'Configurer le message de bienvenue (arrivées)'],
       ['/quitte', 'Configurer le message de départ'],
+      ['/dmjoin', 'Message privé envoyé à chaque membre qui rejoint le serveur (vide = désactivé)'],
       ['/bilan', 'Bilan des arrivées et départs sur une période'],
     ],
   },
@@ -100,7 +101,7 @@ const CATEGORIES = [
       ['/bremind-edit', 'Message de rappel, rôle à mentionner, message après avoir bump'],
       ['/coiffeur', 'Répond « feur » quand un message finit par « quoi »'],
       ['/reset', 'Supprime un salon et le recrée à l’identique'],
-      ['/log', 'Configurer le salon des logs du serveur'],
+      ['/log', 'Configurer le salon des logs du serveur (les logs vocaux vont dans #voc-logs, créé automatiquement à côté)'],
     ],
   },
   {

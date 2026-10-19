@@ -2,7 +2,7 @@ import { Events, EmbedBuilder } from 'discord.js';
 import { sendLog, sendInviteLog, Colors } from '../lib/logger.js';
 import { addMemberEvent, countJoins, recordInviteJoin } from '../lib/store.js';
 import { onMemberJoin } from '../lib/verification.js';
-import { sendGreeting } from '../lib/greetings.js';
+import { sendGreeting, sendJoinDm } from '../lib/greetings.js';
 import { detectUsedInvite } from '../lib/invites.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
 import { restoreQuarantineOnJoin } from '../lib/blacklist.js';
@@ -44,6 +44,8 @@ export default {
     await onMemberJoin(member).catch((err) => console.error(err));
     // Message de bienvenue (si configuré)
     await sendGreeting(member.guild, 'welcome', member).catch((err) => console.error(err));
+    // Message privé d'arrivée (/dmjoin, si configuré)
+    await sendJoinDm(member).catch((err) => console.error(err));
 
     // --- Log d'arrivée (salon de logs général) ---
     await sendLog(

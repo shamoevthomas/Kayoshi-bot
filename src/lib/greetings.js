@@ -11,7 +11,7 @@ import {
   TextInputStyle,
   EmbedBuilder,
 } from 'discord.js';
-import { getGreetConfig, setGreetConfig, getGreetEmbed, getPartner } from './store.js';
+import { getGreetConfig, setGreetConfig, getGreetEmbed, getPartner, getDmJoin } from './store.js';
 
 export const TEMPLATE_HELP =
   'Templates : `[@]` (mention/pseudo) · `[user]` (pseudo) · `[tag]` (identifiant complet) · `[server]` (nom du serveur) · `[count]` (nombre de membres, bots exclus) · `[nump]` (nombre de partenariats) · `[date]`';
@@ -57,6 +57,23 @@ async function templateVars(guild, user, isWelcome) {
 // Embed de /embed envoyé à la main : variables remplacées avec la personne qui l'envoie.
 export async function renderEmbedFor(guild, user, data) {
   return templateEmbed(data, await templateVars(guild, user, true));
+}
+
+// Texte avec les templates remplacés pour ce membre (message privé de /dmjoin).
+export async function renderTextFor(guild, user, text) {
+  return applyTemplates(text, await templateVars(guild, user, true)).slice(0, 2000);
+}
+
+// Message privé de /dmjoin au membre qui arrive. Renvoie false s'il n'est pas
+// configuré ou si le membre a fermé ses MP.
+export async function sendJoinDm(member) {
+  const message = getDmJoin(member.guild.id)?.message;
+  if (!message) return false;
+  const content = await renderTextFor(member.guild, member.user, message);
+  return member
+    .send({ content, allowedMentions: { parse: [] } })
+    .then(() => true)
+    .catch(() => false);
 }
 
 // Nombre de membres humains (bots exclus). Utilise le cache s'il est complet,
@@ -106,16 +123,11 @@ export async function sendGreeting(guild, type, member) {
     await channel.send(payload).catch(() => {});
   }
 
-  // Une mention dans un embed ne notifie pas : si [@] est utilisé, le membre
-  // est aussi mentionné au-dessus de l'embed.
+  // L'embed ne mentionne personne : [@] y reste affiché en mention, mais une
+  // mention dans un embed ne notifie pas.
   if (embedChannel) {
-    const pingUser = isWelcome && JSON.stringify(embedCfg.embed).includes('[@]');
     await embedChannel
-      .send({
-        ...(pingUser ? { content: `<@${user.id}>` } : {}),
-        embeds: [templateEmbed(embedCfg.embed, vars)],
-        allowedMentions: { users: pingUser ? [user.id] : [], roles: [] },
-      })
+      .send({ embeds: [templateEmbed(embedCfg.embed, vars)], allowedMentions: { parse: [] } })
       .catch(() => {});
   }
 }
