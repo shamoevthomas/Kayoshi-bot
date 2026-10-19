@@ -112,7 +112,7 @@ const CATEGORIES = [
     lines: [
       ['/announce', 'Publier une annonce dans un salon précis'],
       ['/embed', 'Créer un embed (aperçu modifiable) : envoi, role-react (boutons ou sélecteur pour se donner un rôle), partenariat (rôle mentionné, salon partenariat), ou message de bienvenue / départ'],
-      ['/modifierembed', 'Modifier un embed existant (embeds envoyés avec /embed, partenariat, bienvenue / départ, panneau de tickets et son sélecteur)'],
+      ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds envoyés avec /embed, partenariat, bienvenue / départ, panneau de tickets : ajouter, modifier ou supprimer ses motifs)'],
       ['/nump', 'Nombre de partenariats effectués par un membre (rang + total du serveur)'],
       ['/say', 'Faire parler le bot dans ce salon'],
       ['/save', 'Messages sauvegardés (5 emplacements)'],

@@ -26,7 +26,14 @@ import {
   removeSentEmbed,
 } from './store.js';
 import { TEMPLATE_HELP, renderEmbedFor } from './greetings.js';
-import { buildTicketPanel, refreshTicketPanel, syncMotifCategoryName, ticketPanelSlot, rememberTicketPanel } from './tickets.js';
+import {
+  buildTicketPanel,
+  refreshTicketPanel,
+  syncMotifCategoryName,
+  ticketPanelSlot,
+  rememberTicketPanel,
+  createCategories,
+} from './tickets.js';
 
 // Créateur d'embed (/embed, et /modifierembed pour un embed existant) : aperçu éphémère + boutons d'édition.
 // Sans état : l'embed en cours est relu à chaque clic depuis le message d'aperçu,
@@ -297,8 +304,16 @@ function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, m
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('emb_tmotif')
-            .setPlaceholder('🎫 Sélecteur du panneau : choisis un motif pour le modifier')
+            .setPlaceholder('🎫 Sélecteur du panneau : choisis un motif pour le modifier ou le supprimer')
             .addOptions(motifs),
+        ),
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('emb_tmotifadd')
+            .setLabel('Ajouter un motif')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('➕')
+            .setDisabled(motifs.length >= MAX_OPTIONS),
         ),
       );
     }
@@ -310,6 +325,9 @@ function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, m
           .setLabel('Enregistrer les modifications')
           .setStyle(ButtonStyle.Success)
           .setEmoji('💾'),
+        ...(type === 'm' || type === 'ticket'
+          ? [new ButtonBuilder().setCustomId('emb_resend').setLabel('Renvoyer').setStyle(ButtonStyle.Primary).setEmoji('📨')]
+          : []),
       ),
       ...extra,
     ];
@@ -365,7 +383,8 @@ export function builderPayload(embed, note = '', state = {}) {
   // Le panneau de tickets n'est pas passé par les templates.
   const intro = !target
     ? withRole(INTRO, role)
-    : `✏️ **${targetLabel(target)}** — modifie l’aperçu, puis clique sur 💾 **Enregistrer les modifications**.` +
+    : `✏️ **${targetLabel(target)}** — modifie l’aperçu, puis clique sur 💾 **Enregistrer les modifications**` +
+      (type === 'm' || type === 'ticket' ? ', ou sur 📨 **Renvoyer** pour l’envoyer en nouveau message.' : '.') +
       (type === 'ticket' ? '' : `\n-# ${TEMPLATE_HELP}`);
   const hints = [];
   if (hasRoleReact(rr)) {
@@ -375,7 +394,10 @@ export function builderPayload(embed, note = '', state = {}) {
     );
   }
   if (type === 'ticket') {
-    hints.push('🎫 Choisis un motif dans le sélecteur pour changer son emoji, son titre ou sa description.\n-# Pour ajouter ou retirer des motifs : `/configticket`.');
+    hints.push(
+      '🎫 Choisis un motif dans le sélecteur pour changer son emoji, son titre ou sa description (titre vide = le supprimer), ou ➕ pour en ajouter un.\n' +
+        '-# Un nouveau motif a sa catégorie, le texte d’ouverture commun et le staff global : change son texte avec `/modifierembedticket`.',
+    );
   }
   if (type === 'e') hints.push('-# Ce message a d’autres boutons ou menus : ils sont gardés tels quels, seul l’embed est modifié.');
   return {
@@ -597,16 +619,23 @@ function requireAdmin(interaction) {
 }
 
 // Message du bot avec un embed, dans un salon où le membre peut écrire.
-async function fetchOwnMessage(interaction, channelId, messageId) {
+// Salon de l'embed, si le membre peut y écrire (comme pour l'envoi avec /embed).
+async function writableChannel(interaction, channelId, messageId = null) {
   const { guild } = interaction;
   const channel = await guild.channels.fetch(channelId).catch(() => null);
   if (!channel?.isTextBased()) {
-    removeSentEmbed(guild.id, messageId);
+    if (messageId) removeSentEmbed(guild.id, messageId);
     throw new Error('Le salon de cet embed n’existe plus.');
   }
   if (!channel.permissionsFor(interaction.member)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
     throw new Error(`Tu ne peux pas écrire dans ${channel}.`);
   }
+  return channel;
+}
+
+async function fetchOwnMessage(interaction, channelId, messageId) {
+  const { guild } = interaction;
+  const channel = await writableChannel(interaction, channelId, messageId);
   const message = await channel.messages.fetch(messageId).catch(() => null);
   if (!message) {
     removeSentEmbed(guild.id, messageId);
@@ -736,8 +765,22 @@ async function saveTarget(interaction, embed, { target, rr, motifs }) {
     return `✅ Embed de ${GREET_LABEL[a]} enregistré.`;
   }
 
-  // Panneau de tickets : embed complet + titre, emoji et description des motifs.
   const slot = Number(a);
+  const { config, summary } = await applyTicketPanel(guild, slot, embed, motifs);
+  // Panneau supprimé : republié dans son salon.
+  const refreshed = await refreshTicketPanel(guild, config, slot, { repost: true });
+  const details = summary ? ` (${summary})` : '';
+  if (refreshed === 'edited') return `✅ Panneau de tickets mis à jour${details}.`;
+  if (refreshed === 'posted') return `✅ Panneau introuvable : je l’ai republié dans <#${config.panelChannelId}>${details}.`;
+  return (
+    '⚠️ Modifications enregistrées, mais je n’ai pas pu mettre à jour le panneau : son salon n’existe plus ou je n’ai pas la permission d’y écrire.\n' +
+    '-# Si le panneau est dans un autre salon, colle le lien de son message dans `/modifierembed` puis clique sur 💾.'
+  );
+}
+
+// Panneau de tickets : embed complet + motifs de l'aperçu (ajoutés, modifiés, supprimés).
+// Renvoie { config, summary } (summary = ce qui a changé pour les catégories, ou '').
+async function applyTicketPanel(guild, slot, embed, motifs) {
   const config = getTicketConfig(guild.id, TICKET_KEY[slot]);
   if (!config?.motifs?.length) throw new Error(`Le système de tickets ${slot} n’est plus configuré.`);
   config.panelEmbed = embed;
@@ -745,52 +788,131 @@ async function saveTarget(interaction, embed, { target, rr, motifs }) {
   config.panelDescription = embed.description ?? '';
   config.panelColor = embed.color ?? null;
   config.panelImage = embed.image?.url ?? null;
+
+  // Les motifs suivent l'aperçu ; un nouveau motif a le staff global et le texte d'ouverture commun.
+  const before = config.motifs;
+  const removed = before.filter((m) => !motifs.some((o) => o.value === m.id));
   const renamed = [];
-  for (const option of motifs) {
-    const motif = config.motifs.find((m) => m.id === option.value);
-    if (!motif) continue;
-    if (motif.label !== option.label) renamed.push(motif);
+  const added = [];
+  config.motifs = motifs.map((option) => {
+    let motif = before.find((m) => m.id === option.value);
+    if (!motif) {
+      motif = { id: option.value, categoryId: null, welcome: null, roleIds: [] };
+      added.push(motif);
+    } else if (motif.label !== option.label) renamed.push(motif);
     motif.label = option.label;
     motif.description = option.description ?? null;
     motif.emoji = emojiText(option.emoji) || null;
-  }
+    return motif;
+  });
   setTicketConfig(guild.id, config, TICKET_KEY[slot]);
+
+  const summary = [];
   for (const motif of renamed) await syncMotifCategoryName(guild, motif);
-  // Panneau supprimé : republié dans son salon.
-  const refreshed = await refreshTicketPanel(guild, config, slot, { repost: true });
-  const renamedNote = renamed.length ? ' (catégories des motifs renommées)' : '';
-  if (refreshed === 'edited') return `✅ Panneau de tickets mis à jour${renamedNote}.`;
-  if (refreshed === 'posted') return `✅ Panneau introuvable : je l’ai republié dans <#${config.panelChannelId}>${renamedNote}.`;
-  return (
-    '⚠️ Modifications enregistrées, mais je n’ai pas pu mettre à jour le panneau : son salon n’existe plus ou je n’ai pas la permission d’y écrire.\n' +
-    '-# Si le panneau est dans un autre salon, colle le lien de son message dans `/modifierembed` puis clique sur 💾.'
-  );
+  if (renamed.length) summary.push('catégories renommées');
+  if (added.length) {
+    // Une catégorie par nouveau motif (comme /configticket).
+    const created = await createCategories(guild, config).then(() => true).catch(() => false);
+    setTicketConfig(guild.id, config, TICKET_KEY[slot]);
+    summary.push(
+      `${added.length} motif${added.length > 1 ? 's' : ''} ajouté${added.length > 1 ? 's' : ''}` +
+        (created ? '' : ' — catégorie non créée, il me faut la permission « Gérer les salons »'),
+    );
+  }
+  if (removed.length) {
+    // La catégorie d'un motif supprimé part avec lui si elle est vide (sinon ses tickets ouverts restent).
+    let kept = 0;
+    for (const motif of removed) {
+      const category = motif.categoryId && guild.channels.cache.get(motif.categoryId);
+      if (!category) continue;
+      const empty = !guild.channels.cache.some((c) => c.parentId === category.id);
+      if (!empty || !(await category.delete('Motif supprimé avec /modifierembed').then(() => true).catch(() => false))) kept += 1;
+    }
+    summary.push(
+      `${removed.length} motif${removed.length > 1 ? 's' : ''} supprimé${removed.length > 1 ? 's' : ''}` +
+        (kept ? ` — ${kept} catégorie${kept > 1 ? 's' : ''} gardée${kept > 1 ? 's' : ''} car ${kept > 1 ? 'elles contiennent' : 'elle contient'} encore des tickets` : ''),
+    );
+  }
+  return { config, summary: summary.join(', ') };
 }
 
+// 📨 Renvoyer : l'aperçu part en nouveau message dans le salon d'origine (le panneau de
+// tickets dans son salon), l'ancien message n'est pas touché. Renvoie la note et la
+// nouvelle cible (le message envoyé), lève une Error si impossible.
+async function resendTarget(interaction, embed, { target, rr, motifs }) {
+  const { guild } = interaction;
+  const [type, a] = target.split('.');
+
+  if (type === 'm') {
+    const channel = await writableChannel(interaction, a);
+    const rendered = await renderEmbedFor(guild, interaction.user, embed);
+    if (rendered.timestamp) rendered.timestamp = new Date().toISOString();
+    const sent = await channel.send({ embeds: [rendered], components: roleReactRows(rr, 'live') }).catch((err) => {
+      throw new Error(`Impossible d’envoyer l’embed dans ${channel} : ${err.message}`);
+    });
+    trackSentEmbed(sent, embed);
+    return {
+      note: `✅ Embed renvoyé : ${sent.url}\n-# L’ancien message n’a pas été touché : supprime-le si tu n’en veux plus. 💾 modifie maintenant le nouveau.`,
+      target: `m.${channel.id}.${sent.id}`,
+    };
+  }
+
+  requireAdmin(interaction);
+  const slot = Number(a);
+  const { config, summary } = await applyTicketPanel(guild, slot, embed, motifs);
+  const channel = await writableChannel(interaction, config.panelChannelId);
+  const sent = await channel.send(buildTicketPanel(config, slot)).catch((err) => {
+    throw new Error(`Impossible d’envoyer le panneau dans ${channel} : ${err.message}`);
+  });
+  rememberTicketPanel(guild, config, slot, sent);
+  return {
+    note:
+      `✅ Panneau renvoyé : ${sent.url}${summary ? ` (${summary})` : ''}\n` +
+      '-# L’ancien panneau marche encore : supprime-le si tu n’en veux qu’un. 💾 modifie maintenant le nouveau.',
+    target,
+  };
+}
+
+// Formulaire d'un motif du panneau : modification (titre vide = suppression), ou ajout si motif est null.
 function motifModal(motif) {
   const text = (id, required, max, value) => {
     const input = new TextInputBuilder().setCustomId(id).setStyle(TextInputStyle.Short).setRequired(required).setMaxLength(max);
     if (value) input.setValue(value.slice(0, max));
     return input;
   };
+  const title = new LabelBuilder().setTextInputComponent(text('label', !motif, 80, motif?.label));
+  if (motif) title.setLabel('Titre').setDescription('Vide = supprimer ce motif du panneau');
+  else title.setLabel('Titre');
   return new ModalBuilder()
-    .setCustomId(`emb_tmotifmodal:${motif.value}`)
-    .setTitle(`Motif — ${motif.label}`.slice(0, 45))
+    .setCustomId(`emb_tmotifmodal:${motif?.value ?? 'new'}`)
+    .setTitle(motif ? `Motif — ${motif.label}`.slice(0, 45) : 'Nouveau motif')
     .addLabelComponents(
-      new LabelBuilder().setLabel('Emoji (optionnel)').setDescription(EMOJI_HELP).setTextInputComponent(text('emoji', false, 100, emojiText(motif.emoji))),
-      new LabelBuilder().setLabel('Titre').setTextInputComponent(text('label', true, 80, motif.label)),
-      new LabelBuilder().setLabel('Description (optionnel)').setTextInputComponent(text('description', false, 90, motif.description)),
+      new LabelBuilder().setLabel('Emoji (optionnel)').setDescription(EMOJI_HELP).setTextInputComponent(text('emoji', false, 100, emojiText(motif?.emoji))),
+      title,
+      new LabelBuilder().setLabel('Description (optionnel)').setTextInputComponent(text('description', false, 90, motif?.description)),
     );
 }
 
+// Motifs de l'aperçu après le formulaire : ajouté ("new"), modifié, ou supprimé (titre vide).
+// Renvoie { motifs, note }.
 function applyMotifModal(interaction, motifId, motifs) {
-  const index = motifs.findIndex((m) => m.value === motifId);
-  if (index < 0) throw new Error('Motif introuvable dans l’aperçu.');
   const get = (k) => interaction.fields.getTextInputValue(k)?.trim() ?? '';
-  const option = { label: get('label'), value: motifId };
+  const index = motifId === 'new' ? -1 : motifs.findIndex((m) => m.value === motifId);
+  if (motifId !== 'new' && index < 0) throw new Error('Motif introuvable dans l’aperçu.');
+
+  if (!get('label')) {
+    if (motifs.length <= 1) throw new Error('Le panneau doit garder au moins un motif.');
+    return { motifs: motifs.filter((_, i) => i !== index), note: `🗑️ Motif **${motifs[index].label}** retiré de l’aperçu` };
+  }
+  if (index < 0 && motifs.length >= MAX_OPTIONS) throw new Error(`${MAX_OPTIONS} motifs maximum dans le panneau.`);
+  // Nouveau motif : id unique (les motifs de /configticket sont m0, m1…).
+  const option = { label: get('label'), value: index < 0 ? `m${Date.now().toString(36)}` : motifId };
   if (get('description')) option.description = get('description');
   if (get('emoji')) option.emoji = emojiFromInput(interaction, get('emoji'));
-  return upsert(motifs, index, option);
+  return {
+    motifs: upsert(motifs, index, option),
+    note: index < 0 ? `➕ Motif **${option.label}** ajouté à l’aperçu` : `✏️ Motif **${option.label}** modifié dans l’aperçu`,
+  };
 }
 
 const errorReply = (interaction, text) => interaction.reply({ content: `❌ ${text}`, ephemeral: true }).catch(() => {});
@@ -851,16 +973,34 @@ export async function handleEmbedBuilderInteraction(interaction) {
     return interaction.showModal(motifModal(motif));
   }
 
+  if (interaction.isButton() && action === 'emb_tmotifadd') {
+    if (state.motifs.length >= MAX_OPTIONS) return errorReply(interaction, `${MAX_OPTIONS} motifs maximum dans le panneau.`);
+    return interaction.showModal(motifModal(null));
+  }
+
   if (interaction.isModalSubmit() && action === 'emb_tmotifmodal') {
-    let motifs;
+    let result;
     try {
-      motifs = applyMotifModal(interaction, arg, state.motifs);
+      result = applyMotifModal(interaction, arg, state.motifs);
     } catch (err) {
       return errorReply(interaction, err.message);
     }
     return interaction
-      .update(builderPayload(currentEmbed(interaction), '✏️ Motif modifié dans l’aperçu : clique sur 💾 pour l’enregistrer.', { ...state, motifs }))
+      .update(builderPayload(currentEmbed(interaction), `${result.note} : clique sur 💾 pour l’enregistrer.`, { ...state, motifs: result.motifs }))
       .catch((err) => errorReply(interaction, `Discord a refusé le motif (emoji invalide ?) : ${err.message}`));
+  }
+
+  // --- /modifierembed : l'aperçu part en nouveau message (l'ancien reste) ---
+  if (interaction.isButton() && action === 'emb_resend' && state.target) {
+    const embed = currentEmbed(interaction);
+    await interaction.deferUpdate();
+    let result;
+    try {
+      result = await resendTarget(interaction, embed, state);
+    } catch (err) {
+      return interaction.followUp({ content: `❌ ${err.message}`, ephemeral: true }).catch(() => {});
+    }
+    return interaction.editReply(builderPayload(embed, result.note, { ...state, target: result.target }));
   }
 
   // --- /modifierembed : l'aperçu remplace l'embed d'origine ---
