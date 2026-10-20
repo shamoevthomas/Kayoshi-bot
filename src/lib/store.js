@@ -332,6 +332,31 @@ export function removeTempBan(guildId, userId) {
   save(data);
 }
 
+// --- Rôles temporaires (/roletempo) ---
+// tempRoles = [{ userId, roleId, removeAt, by }] : rôle retiré à removeAt.
+const sameTempRole = (r, userId, roleId) => r.userId === userId && r.roleId === roleId;
+
+export function getTempRole(guildId, userId, roleId) {
+  return (getGuildConfig(guildId).tempRoles ?? []).find((r) => sameTempRole(r, userId, roleId)) ?? null;
+}
+
+export function setTempRole(guildId, record) {
+  const others = (getGuildConfig(guildId).tempRoles ?? []).filter((r) => !sameTempRole(r, record.userId, record.roleId));
+  setGuildConfig(guildId, { tempRoles: [...others, record] });
+}
+
+export function removeTempRole(guildId, userId, roleId) {
+  const list = getGuildConfig(guildId).tempRoles ?? [];
+  if (!list.some((r) => sameTempRole(r, userId, roleId))) return;
+  setGuildConfig(guildId, { tempRoles: list.filter((r) => !sameTempRole(r, userId, roleId)) });
+}
+
+// Rôles temporaires arrivés à échéance, tous serveurs confondus.
+export function getDueTempRoles() {
+  const now = Date.now();
+  return Object.entries(load()).flatMap(([guildId, g]) => (g.tempRoles ?? []).filter((r) => r.removeAt <= now).map((r) => ({ guildId, ...r })));
+}
+
 // Renvoie tous les bans temporaires arrivés à échéance, tous serveurs confondus.
 export function getDueTempBans() {
   const data = load();

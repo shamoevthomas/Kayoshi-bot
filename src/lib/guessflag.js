@@ -130,10 +130,12 @@ function gamePayload(state) {
         ? `🏁 Le dernier drapeau était ${flag}, deviné par <@${last.userId}> !\n\n`
         : `⏩ Le dernier drapeau était ${flag} (passé par <@${last.userId}>).\n\n`;
   }
+  // Indice demandé pour ce drapeau : affiché à tout le monde, jusqu'au drapeau suivant.
+  const hintLine = current.hintBy ? `\n\n💡 Indice demandé par <@${current.hintBy}> : ${hint(countryName(current.code))}` : '';
   const embed = new EmbedBuilder()
     .setColor(0x57f287)
     .setTitle('Devinez le drapeau — à quel pays appartient-il ?')
-    .setDescription(`${intro}Écris le nom du pays dans ce salon.`)
+    .setDescription(`${intro}Écris le nom du pays dans ce salon.${hintLine}`)
     .setImage(flagUrl(current.code))
     .setFooter({ text: 'Kayoshi • Devine le drapeau' });
   return {
@@ -215,10 +217,21 @@ export async function handleGuessFlagMessage(message) {
 
 // --- Boutons (préfixe « gf_ ») ---
 
+// « **K** — `K _ _ _ _ _` (6 lettres) »
 function hint(name) {
   const letters = [...name].filter((ch) => /\p{L}/u.test(ch)).length;
   const pattern = [...name].map((ch, i) => (i === 0 ? ch.toUpperCase() : /\p{L}/u.test(ch) ? '_' : ch === ' ' ? ' ' : ch)).join(' ');
-  return `💡 Première lettre : **${[...name][0].toUpperCase()}**\n\`${pattern}\` (${letters} lettres)`;
+  return `**${[...name][0].toUpperCase()}** — \`${pattern}\` (${letters} lettres)`;
+}
+
+// Limites pour tout le salon, sur 2 heures glissantes : 4 drapeaux passés, 8 indices.
+const WINDOW_MS = 2 * 3_600_000;
+const LIMITS = { skipTimes: 4, hintTimes: 8 };
+
+// Horodatages encore dans la fenêtre, et quand une place se libère si la limite est atteinte.
+function quota(state, field, now = Date.now()) {
+  const times = (state[field] ?? []).filter((t) => now - t < WINDOW_MS);
+  return { times, full: times.length >= LIMITS[field], freeAt: times.length ? Math.min(...times) + WINDOW_MS : now };
 }
 
 export async function handleGuessFlagInteraction(interaction) {
@@ -227,15 +240,29 @@ export async function handleGuessFlagInteraction(interaction) {
   const reply = (content, extra = {}) => interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] }, ...extra });
   if (!state?.channelId) return reply('❌ Aucune partie en cours.');
 
-  if (interaction.customId === 'gf_hint') {
-    if (!state.current) return reply('❌ Aucun drapeau en cours.');
-    return reply(hint(countryName(state.current.code)));
-  }
-
-  if (interaction.customId === 'gf_skip') {
+  // Indice et passage : la limite est vérifiée dans le verrou (deux clics en même temps comptent bien deux fois).
+  if (interaction.customId === 'gf_hint' || interaction.customId === 'gf_skip') {
+    const isHint = interaction.customId === 'gf_hint';
+    const field = isHint ? 'hintTimes' : 'skipTimes';
     await interaction.deferUpdate();
     const channel = guild.channels.cache.get(state.channelId) ?? interaction.channel;
-    return withLock(guild.id, () => nextFlag(channel, { by: 'skip', userId: interaction.user.id }));
+    const refusal = await withLock(guild.id, async () => {
+      const s = getGuessFlag(guild.id);
+      if (!s?.current) return '❌ Aucun drapeau en cours.';
+      if (isHint && s.current.hintBy) return '💡 L’indice de ce drapeau est déjà affiché dans le message.';
+      const { times, full, freeAt } = quota(s, field);
+      if (full) {
+        return isHint
+          ? `⏳ Les ${LIMITS.hintTimes} indices des 2 dernières heures ont déjà été utilisés. Prochain indice possible <t:${Math.ceil(freeAt / 1000)}:R>.`
+          : `⏳ ${LIMITS.skipTimes} drapeaux ont déjà été passés ces 2 dernières heures. Prochain passage possible <t:${Math.ceil(freeAt / 1000)}:R>.`;
+      }
+      patchGuessFlag(guild.id, { [field]: [...times, Date.now()] });
+      if (isHint) await showGame(channel, patchGuessFlag(guild.id, { current: { ...s.current, hintBy: interaction.user.id } }));
+      else await nextFlag(channel, { by: 'skip', userId: interaction.user.id });
+      return null;
+    });
+    if (refusal) await interaction.followUp({ content: refusal, ephemeral: true }).catch(() => {});
+    return;
   }
 
   if (interaction.customId === 'gf_top') {

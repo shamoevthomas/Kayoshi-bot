@@ -222,10 +222,20 @@ export async function handleGiveawayInteraction(interaction) {
       return interaction.reply({ content: '❌ Ce giveaway est terminé.', ephemeral: true });
     }
 
-    // Conditions d'inscription (statut / invitations).
+    // Conditions d'inscription (statut / messages / invitations).
     if (gw.requiredStatus && !statusText(interaction.member).includes(gw.requiredStatus.toLowerCase())) {
       return interaction.reply({
         content: `❌ Pour participer, tu dois avoir **\`${gw.requiredStatus}\`** dans ton statut, puis re-cliquer sur **Participer**.`,
+        ephemeral: true,
+      });
+    }
+    // Messages comptés depuis le début du giveaway : pas d'inscription avant d'en avoir assez.
+    const sent = gw.messageCounts?.[interaction.user.id] ?? 0;
+    if (gw.requiredMessages && sent < gw.requiredMessages) {
+      return interaction.reply({
+        content:
+          `❌ Il te faut **${gw.requiredMessages}** message(s) depuis le début du giveaway. Tu en as **${sent}** : ` +
+          `encore **${gw.requiredMessages - sent}**, puis re-clique sur **Participer**.`,
         ephemeral: true,
       });
     }
@@ -247,11 +257,7 @@ export async function handleGiveawayInteraction(interaction) {
 
     // Info éligibilité.
     let extra = '';
-    if (gw.requiredMessages) {
-      const c = gw.messageCounts?.[interaction.user.id] ?? 0;
-      const ok = c >= gw.requiredMessages;
-      extra += `\n✉️ Messages : **${c}/${gw.requiredMessages}** ${ok ? '✅ éligible' : '— continue à écrire pour être éligible'}`;
-    }
+    if (gw.requiredMessages) extra += `\n✉️ Messages : **${sent}/${gw.requiredMessages}** ✅`;
     if (gw.requiredInvites) {
       extra += `\n📨 Invitations : **${invitesGained(gw, guildId, interaction.user.id)}/${gw.requiredInvites}** ✅`;
     }

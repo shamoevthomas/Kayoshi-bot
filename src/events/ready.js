@@ -16,6 +16,7 @@ import { ensureVoiceLogChannel } from '../lib/logger.js';
 import { startStatsTracking, backfillMessages } from '../lib/stats.js';
 import { closeInactiveTickets } from '../lib/tickets.js';
 import { reconcileWouldYouRather } from '../lib/wouldyourather.js';
+import { processTempRoles } from '../lib/roles.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -47,6 +48,9 @@ export default {
     // Vérifie les bans temporaires arrivés à échéance, toutes les 60 s.
     processTempBans(client);
     setInterval(() => processTempBans(client), 60_000);
+    // Rôles temporaires (/roletempo) arrivés à échéance, toutes les 30 s.
+    processTempRoles(client).catch((err) => console.error('[roletempo]', err));
+    setInterval(() => processTempRoles(client).catch((err) => console.error('[roletempo]', err)), 30_000);
     // Reprogramme les kicks des membres non vérifiés.
     reconcileVerification(client);
     // Rappel des membres non vérifiés toutes les 5 h (ticker de contrôle : 30 min).

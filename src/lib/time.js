@@ -1,12 +1,19 @@
-// Parse une durée type "10m", "1h", "7d", "2w", "perm".
+const UNITS = {
+  s: 1000, sec: 1000, seconde: 1000, secondes: 1000,
+  m: 60_000, min: 60_000, minute: 60_000, minutes: 60_000,
+  h: 3_600_000, heure: 3_600_000, heures: 3_600_000,
+  d: 86_400_000, j: 86_400_000, jour: 86_400_000, jours: 86_400_000,
+  w: 604_800_000, semaine: 604_800_000, semaines: 604_800_000,
+};
+
+// Parse une durée type "10m", "1h", "7d", "2w", "15 minutes", "perm".
 // Renvoie { permanent, ms } ou null si le format est invalide.
 export function parseDuration(str) {
   const s = (str || '').trim().toLowerCase();
   if (!s || ['perm', 'permanent', 'p', '0', '∞'].includes(s)) return { permanent: true, ms: null };
-  const m = s.match(/^(\d+)\s*(s|min|m|h|d|j|w)$/);
-  if (!m) return null;
-  const mult = { s: 1000, m: 60_000, min: 60_000, h: 3_600_000, d: 86_400_000, j: 86_400_000, w: 604_800_000 };
-  return { permanent: false, ms: Number(m[1]) * mult[m[2]] };
+  const m = s.match(/^(\d+)\s*([a-z]+)$/);
+  if (!m || !UNITS[m[2]]) return null;
+  return { permanent: false, ms: Number(m[1]) * UNITS[m[2]] };
 }
 
 // Formate une durée en ms de façon lisible ("2 j 3 h").
