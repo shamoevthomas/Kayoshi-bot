@@ -6,12 +6,13 @@ import {
   UserSelectMenuBuilder,
 } from 'discord.js';
 import { createCanvas } from '@napi-rs/canvas';
+import { createHash } from 'node:crypto';
 import { font, fetchImage } from './fonts.js';
 
 // Calculateur d'amour / de haine / d'amitié, comme le bot Koya :
 //   ^^lc (amour), ^^hc (haine), ^^fc (amitié), suivis de « random », d'un ou de deux membres.
-// Le pourcentage est tiré au hasard à chaque fois. Les boutons sous le message (réservés
-// à l'auteur de la commande) gardent leur état dans leur id :
+// Le pourcentage a l'air aléatoire mais reste toujours le même pour un duo et un mode.
+// Les boutons sous le message (réservés à l'auteur de la commande) gardent leur état dans leur id :
 //   lc_<action>:<mode>:<auteur>:<membre 1>:<membre 2>
 
 const COMMAND = /^\^\^([lhf])c(?:\s+(.*))?$/i;
@@ -23,6 +24,8 @@ const MODES = {
     of: 'd’amour',
     colors: ['#2ee6d6', '#f3f08a'],
     shape: ['#ff4d7d', '#ff9ab8'],
+    empty: 'rgba(255,255,255,0.45)',
+    outline: 'rgba(170,20,70,0.55)',
     phrases: [
       'Aucune étincelle entre **{a}** et **{b}**… peut-être dans une autre vie',
       'Entre **{a}** et **{b}**, c’est plutôt glacial',
@@ -40,6 +43,8 @@ const MODES = {
     of: 'de haine',
     colors: ['#3a0d12', '#a3243c'],
     shape: ['#5c0a1c', '#d63a55'],
+    empty: 'rgba(255,255,255,0.18)',
+    outline: 'rgba(60,0,15,0.7)',
     phrases: [
       '**{a}** et **{b}** s’entendent à merveille, aucune haine ici',
       'Quelques petites tensions entre **{a}** et **{b}**',
@@ -57,6 +62,8 @@ const MODES = {
     of: 'd’amitié',
     colors: ['#4facfe', '#a6f77b'],
     shape: ['#ffb703', '#ffe066'],
+    empty: 'rgba(255,255,255,0.45)',
+    outline: 'rgba(150,80,0,0.6)',
     phrases: [
       '**{a}** et **{b}** se connaissent à peine',
       '**{a}** et **{b}**, de simples connaissances',
@@ -72,25 +79,123 @@ const MODE_BY_LETTER = Object.fromEntries(Object.entries(MODES).map(([mode, m]) 
 
 // --- Image ---
 
-function heartPath(ctx, cx, cy, size) {
-  const s = size / 2;
+// Cœur classique (courbe x = 16 sin³t, y = 13 cos t − 5 cos 2t − 2 cos 3t − cos 4t) : lobes
+// ronds et larges, pointe courte. Points du contour, centré sur (cx, cy), largeur « width ».
+function heartPoints(cx, cy, width) {
+  const k = width / 32;
+  return Array.from({ length: 240 }, (_, i) => {
+    const t = (i / 240) * Math.PI * 2;
+    const x = 16 * Math.sin(t) ** 3;
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    // La courbe va de y = −17 (pointe) à y ≈ 12 (lobes) : +2,5 la centre verticalement.
+    return [cx + x * k, cy - (y + 2.5) * k];
+  });
+}
+
+function starPoints(cx, cy, size) {
+  const outer = size / 2;
+  const inner = outer * 0.48;
+  return Array.from({ length: 10 }, (_, i) => {
+    const r = i % 2 ? inner : outer;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  });
+}
+
+function shapePath(ctx, points) {
   ctx.beginPath();
-  ctx.moveTo(cx, cy + s * 0.85);
-  ctx.bezierCurveTo(cx - s * 1.25, cy - s * 0.05, cx - s * 0.75, cy - s * 1.05, cx, cy - s * 0.45);
-  ctx.bezierCurveTo(cx + s * 0.75, cy - s * 1.05, cx + s * 1.25, cy - s * 0.05, cx, cy + s * 0.85);
+  points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
   ctx.closePath();
 }
 
-function starPath(ctx, cx, cy, size) {
-  const outer = size / 2;
-  const inner = outer * 0.48;
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const r = i % 2 ? inner : outer;
-    const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+// Hauteur de la ligne sous laquelle se trouve « fraction » de la SURFACE de la forme : la pointe
+// du cœur est étroite, un remplissage à la hauteur y paraîtrait presque vide à 25 %.
+function fillLevel(points, fraction) {
+  const ys = points.map(([, y]) => y);
+  const top = Math.min(...ys);
+  const bottom = Math.max(...ys);
+  if (fraction <= 0) return bottom;
+  if (fraction >= 1) return top;
+  const steps = 300;
+  const dy = (bottom - top) / steps;
+  // Largeur de la forme à chaque hauteur, du bas vers le haut (règle pair-impair sur les bords).
+  const widths = [];
+  for (let i = 0; i < steps; i++) {
+    const y = bottom - (i + 0.5) * dy;
+    const xs = [];
+    points.forEach(([x1, y1], j) => {
+      const [x2, y2] = points[(j + 1) % points.length];
+      if (y1 > y !== y2 > y) xs.push(x1 + ((y - y1) / (y2 - y1)) * (x2 - x1));
+    });
+    xs.sort((a, b) => a - b);
+    let width = 0;
+    for (let k = 0; k + 1 < xs.length; k += 2) width += xs[k + 1] - xs[k];
+    widths.push(width);
   }
-  ctx.closePath();
+  const total = widths.reduce((a, b) => a + b, 0);
+  let area = 0;
+  for (let i = 0; i < steps; i++) {
+    area += widths[i];
+    if (area >= fraction * total) return bottom - (i + 1) * dy;
+  }
+  return top;
+}
+
+// Forme remplie jusqu'au pourcentage comme un liquide, le reste vide et translucide, avec
+// ombre douce, contour, reflet brillant (shine) et fissure du cœur brisé (crack).
+function drawGauge(ctx, points, percent, { shape: [dark, light], empty }, { shine = null, crack = null } = {}) {
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const [left, right, top, bottom] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+
+  // Ombre + partie vide.
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 22;
+  ctx.shadowOffsetY = 6;
+  shapePath(ctx, points);
+  ctx.fillStyle = empty;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  shapePath(ctx, points);
+  ctx.clip();
+  // Partie remplie, et surface du liquide.
+  const level = fillLevel(points, percent / 100);
+  const fill = ctx.createLinearGradient(0, top, 0, bottom);
+  fill.addColorStop(0, light);
+  fill.addColorStop(1, dark);
+  ctx.fillStyle = fill;
+  ctx.fillRect(left, level, right - left, bottom - level + 2);
+  if (percent > 0 && percent < 100) {
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillRect(left, level, right - left, 3);
+  }
+  if (shine) {
+    const glow = ctx.createRadialGradient(shine.x, shine.y, 0, shine.x, shine.y, shine.r);
+    glow.addColorStop(0, 'rgba(255,255,255,0.45)');
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(left, top, right - left, bottom - top);
+  }
+  ctx.restore();
+
+  shapePath(ctx, points);
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  if (crack) {
+    ctx.beginPath();
+    crack.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.strokeStyle = 'rgba(30,0,8,0.55)';
+    ctx.lineWidth = 5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
 }
 
 function avatar(ctx, img, cx, cy, size, fallback) {
@@ -149,48 +254,33 @@ async function renderCard(mode, userA, userB, percent) {
   avatar(ctx, imgA, 210, H / 2, 210, userA.username);
   avatar(ctx, imgB, W - 210, H / 2, 210, userB.username);
 
-  // Cœur (amour), cœur brisé (haine) ou étoile (amitié), avec le pourcentage.
+  // Cœur (amour), cœur brisé (haine) ou étoile (amitié), rempli jusqu'au pourcentage.
   const cx = W / 2;
   const cy = H / 2 + 6;
-  const shape = ctx.createLinearGradient(cx, cy - 120, cx, cy + 120);
-  shape.addColorStop(0, m.shape[1]);
-  shape.addColorStop(1, m.shape[0]);
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.3)';
-  ctx.shadowBlur = 20;
-  if (mode === 'friendship') starPath(ctx, cx, cy + 10, 280);
-  else heartPath(ctx, cx, cy - 6, 250);
-  ctx.fillStyle = shape;
-  ctx.fill();
-  ctx.restore();
-  if (mode === 'hate') {
-    // Fissure du cœur brisé.
-    ctx.beginPath();
-    ctx.moveTo(cx + 4, cy - 64);
-    ctx.lineTo(cx - 14, cy - 28);
-    ctx.lineTo(cx + 12, cy - 4);
-    ctx.lineTo(cx - 10, cy + 30);
-    ctx.lineTo(cx + 6, cy + 70);
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-    ctx.lineWidth = 6;
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-  }
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.35)';
-  ctx.shadowBlur = 8;
   const isStar = mode === 'friendship';
+  if (isStar) {
+    drawGauge(ctx, starPoints(cx, cy + 10, 280), percent, m);
+  } else {
+    const hy = cy - 4;
+    const k = 236 / 32; // pixels par unité de la courbe du cœur
+    const at = ([x, y]) => [cx + x * k, hy + y * k];
+    drawGauge(ctx, heartPoints(cx, hy, 236), percent, m, {
+      shine: { x: cx - 8 * k, y: hy - 9 * k, r: 7.5 * k },
+      // Du creux du cœur jusqu'à la pointe.
+      crack: mode === 'hate' ? [[0, -7.5], [-2.2, -3], [1.6, 1.5], [-1.8, 6.5], [0.8, 11], [0, 13.2]].map(at) : null,
+    });
+  }
+
+  // Pourcentage, avec un contour pour rester lisible sur la partie vide comme sur la partie remplie.
   const ty = isStar ? cy + 24 : cy - 4;
+  ctx.save();
   ctx.font = font(isStar ? 48 : 66, { bold: true });
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if (isStar) {
-    // Contour pour rester lisible sur le jaune de l'étoile.
-    ctx.strokeStyle = 'rgba(150,80,0,0.6)';
-    ctx.lineWidth = 7;
-    ctx.lineJoin = 'round';
-    ctx.strokeText(`${percent}%`, cx, ty);
-  }
+  ctx.strokeStyle = m.outline;
+  ctx.lineWidth = 7;
+  ctx.lineJoin = 'round';
+  ctx.strokeText(`${percent}%`, cx, ty);
   ctx.fillStyle = '#ffffff';
   ctx.fillText(`${percent}%`, cx, ty);
   ctx.restore();
@@ -215,9 +305,15 @@ function buttons(mode, authorId, a, b) {
   );
 }
 
+// Pourcentage fixe d'un duo pour un mode (0 à 100), le même dans les deux sens (A + B = B + A).
+function pairPercent(mode, idA, idB) {
+  const [first, second] = [idA, idB].sort();
+  return createHash('sha256').update(`${mode}:${first}:${second}`).digest().readUInt32BE(0) % 101;
+}
+
 async function resultPayload(guild, mode, authorId, userA, userB) {
   const m = MODES[mode];
-  const percent = Math.floor(Math.random() * 101);
+  const percent = pairPercent(mode, userA.id, userB.id);
   const phrase = m.phrases[Math.min(m.phrases.length - 1, Math.floor(percent / (101 / m.phrases.length)))]
     .replace('{a}', clean(nameOf(guild, userA)))
     .replace('{b}', clean(nameOf(guild, userB)));
