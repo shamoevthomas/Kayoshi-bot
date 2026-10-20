@@ -15,6 +15,7 @@ import { processBumpReminders } from '../lib/bumpreminder.js';
 import { ensureVoiceLogChannel } from '../lib/logger.js';
 import { startStatsTracking, backfillMessages } from '../lib/stats.js';
 import { closeInactiveTickets } from '../lib/tickets.js';
+import { reconcileWouldYouRather } from '../lib/wouldyourather.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -73,6 +74,8 @@ export default {
     setInterval(() => closeInactiveTickets(client).catch((err) => console.error('[tickets]', err)), 3_600_000);
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
+    // Pareil pour les votes « Tu préfères… » en cours.
+    reconcileWouldYouRather(client);
     // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.
     setTimeout(() => pollAllCreators(client).catch(() => {}), 30_000);
     setInterval(() => pollAllCreators(client).catch(() => {}), 600_000);

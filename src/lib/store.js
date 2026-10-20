@@ -696,6 +696,38 @@ function migrateGreetEmbeds() {
   if (dirty.size) scheduleFlush();
 }
 
+// --- Tu préfères (/tu-preferes) : votes en cours, par message ---
+// wyr = { messageId: { channelId, a, b, endsAt, votes: { userId: 'a' | 'b' } } }
+export function getWyr(guildId, messageId) {
+  return getGuildConfig(guildId).wyr?.[messageId] ?? null;
+}
+
+export function saveWyr(guildId, messageId, poll) {
+  setGuildConfig(guildId, { wyr: { ...getGuildConfig(guildId).wyr, [messageId]: poll } });
+}
+
+export function deleteWyr(guildId, messageId) {
+  const { [messageId]: removed, ...rest } = getGuildConfig(guildId).wyr ?? {};
+  if (removed) setGuildConfig(guildId, { wyr: rest });
+}
+
+export function getAllWyr() {
+  return Object.entries(load()).flatMap(([guildId, g]) =>
+    Object.entries(g.wyr ?? {}).map(([messageId, poll]) => ({ guildId, messageId, poll })),
+  );
+}
+
+// --- Devine le drapeau (/guessflag) ---
+// guessFlag = { channelId, messageId, current: { code, since },
+//               last: { code, by: 'guess' | 'skip', userId, at }, recent: [codes], scores: { userId: n } }
+export function getGuessFlag(guildId) {
+  return getGuildConfig(guildId).guessFlag ?? null;
+}
+
+export function patchGuessFlag(guildId, patch) {
+  return setGuildConfig(guildId, { guessFlag: { ...(getGuessFlag(guildId) ?? {}), ...patch } }).guessFlag;
+}
+
 // --- Message privé envoyé à chaque arrivée (/dmjoin) ---
 // dmJoin = { message } (templates de /bienvenue), null = désactivé.
 export function getDmJoin(guildId) {

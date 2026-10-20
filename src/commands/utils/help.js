@@ -120,6 +120,8 @@ const CATEGORIES = [
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
       ['/serverinfo', 'Statistiques du serveur'],
       ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
+      ['/tu-preferes', 'Dilemme « Tu préfères… » au hasard pour une durée (ex : `15m`) : vote A ou B, pourcentages à la fin'],
+      ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indice, passer, classement)'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre (`s?u @membre`, son pseudo ou son ID), `s?t` le top, `s?m` les messages, `s?v` le vocal'],
       ['/userinfo', 'Fiche d’un membre'],

@@ -6,6 +6,8 @@ import { handleGiveawayInteraction } from '../lib/giveaways.js';
 import { handleAvisInteraction } from '../lib/avis.js';
 import { handleEmbedBuilderInteraction } from '../lib/embedbuilder.js';
 import { handleLoveInteraction } from '../lib/lovecalc.js';
+import { handleGuessFlagInteraction } from '../lib/guessflag.js';
+import { handleWouldYouRatherInteraction } from '../lib/wouldyourather.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -21,6 +23,8 @@ export default {
         if (cid.startsWith('avis_')) return void (await handleAvisInteraction(interaction));
         if (cid.startsWith('emb_')) return void (await handleEmbedBuilderInteraction(interaction));
         if (cid.startsWith('lc_')) return void (await handleLoveInteraction(interaction));
+        if (cid.startsWith('gf_')) return void (await handleGuessFlagInteraction(interaction));
+        if (cid.startsWith('tp_')) return void (await handleWouldYouRatherInteraction(interaction));
       } catch (err) {
         console.error(err);
         if (!interaction.replied && !interaction.deferred) {

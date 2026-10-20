@@ -10,6 +10,7 @@ import { handleVoiceStatsCommand } from '../lib/voicestats.js';
 import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
 import { handleLoveCommand } from '../lib/lovecalc.js';
+import { handleGuessFlagMessage } from '../lib/guessflag.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
 // "quoi" / "pourquoi" en fin de phrase (mot entier, ponctuation finale tolérée).
@@ -32,6 +33,10 @@ export default {
       await message.delete().catch(() => {});
       return;
     }
+
+    // Salon du jeu « Devine le drapeau » : chaque message est une réponse, supprimée aussitôt
+    // (avant l'anti-spam : répondre vite n'est pas du spam).
+    if (await handleGuessFlagMessage(message).catch((err) => console.error('[guessflag]', err))) return;
 
     // Anti-spam : si le message est du spam, il est géré (supprimé) ici.
     const spam = await handleAntiSpam(message).catch((err) => {

@@ -2,6 +2,7 @@ import { Events, EmbedBuilder, AttachmentBuilder, AuditLogEvent } from 'discord.
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
 import { takeCachedAttachments } from '../lib/attachmentCache.js';
 import { removeSentEmbed } from '../lib/store.js';
+import { isGuessFlagChannel } from '../lib/guessflag.js';
 
 export default {
   name: Events.MessageDelete,
@@ -10,6 +11,8 @@ export default {
     // Embed du créateur supprimé : /modifierembed ne doit plus le proposer.
     removeSentEmbed(message.guild.id, message.id);
     if (message.author?.bot) return;
+    // Réponses du jeu du drapeau, supprimées par le bot : pas de log.
+    if (isGuessFlagChannel(message.guild.id, message.channelId)) return;
 
     const embed = new EmbedBuilder()
       .setColor(Colors.delete)
