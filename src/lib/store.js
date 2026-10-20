@@ -10,6 +10,14 @@ let cache = {};
 let flushTimer = null;
 const dirty = new Set();
 
+// Statistiques (s?u, s?t, s?m, s?v) : une ligne à part par serveur, « stats:<guildId> »,
+// hors du cache principal et sauvegardée moins souvent (les compteurs changent à chaque message).
+const STATS_PREFIX = 'stats:';
+const STATS_FLUSH_MS = 120_000;
+let statsCache = {};
+let statsTimer = null;
+const statsDirty = new Set();
+
 // À appeler UNE FOIS au démarrage (avant client.login).
 export async function initStore() {
   const url = process.env.SUPABASE_URL;
@@ -19,9 +27,13 @@ export async function initStore() {
   const { data, error } = await supabase.from(TABLE).select('guild_id, data');
   if (error) throw error;
   cache = {};
-  for (const row of data) cache[row.guild_id] = row.data ?? {};
+  statsCache = {};
+  for (const row of data) {
+    if (row.guild_id.startsWith(STATS_PREFIX)) statsCache[row.guild_id.slice(STATS_PREFIX.length)] = row.data ?? {};
+    else cache[row.guild_id] = row.data ?? {};
+  }
   migrateGreetEmbeds();
-  console.log(`🗄️  Store chargé depuis Supabase (${data.length} serveur(s)).`);
+  console.log(`🗄️  Store chargé depuis Supabase (${Object.keys(cache).length} serveur(s)).`);
 }
 
 function load() {
@@ -63,7 +75,36 @@ async function flush() {
 
 // Force l'écriture immédiate des données en attente (arrêt propre du bot).
 export async function flushStore() {
-  await flush();
+  await Promise.all([flush(), flushStats()]);
+}
+
+// --- Statistiques : données modifiées en place par stats.js, puis markStatsDirty() ---
+export function getStatsData(guildId) {
+  return (statsCache[guildId] ??= {});
+}
+
+export function markStatsDirty(guildId) {
+  statsDirty.add(guildId);
+  if (supabase && !statsTimer) statsTimer = setTimeout(() => flushStats().catch((e) => console.error(e)), STATS_FLUSH_MS);
+}
+
+async function flushStats() {
+  if (statsTimer) {
+    clearTimeout(statsTimer);
+    statsTimer = null;
+  }
+  if (!supabase || statsDirty.size === 0) return;
+  const rows = [...statsDirty].map((id) => ({
+    guild_id: STATS_PREFIX + id,
+    data: statsCache[id] ?? {},
+    updated_at: new Date().toISOString(),
+  }));
+  statsDirty.clear();
+  const { error } = await supabase.from(TABLE).upsert(rows);
+  if (error) {
+    console.error('Erreur flush stats Supabase:', error.message);
+    for (const r of rows) markStatsDirty(r.guild_id.slice(STATS_PREFIX.length));
+  }
 }
 
 export function getGuildConfig(guildId) {

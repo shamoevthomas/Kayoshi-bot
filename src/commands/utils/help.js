@@ -49,7 +49,7 @@ const CATEGORIES = [
   {
     title: '🎫 Tickets',
     lines: [
-      ['/configticket', 'Configurer le système de tickets (assistant guidé)'],
+      ['/configticket', 'Configurer le système de tickets (assistant guidé) — un ticket sans message depuis 3 jours est fermé automatiquement (MP au membre)'],
       ['/configticket2', 'Configurer un 2ᵉ système de tickets indépendant'],
       ['/ajouterroleticket', 'Ajouter un rôle au staff des tickets (accès + mention à l’ouverture) — système 1 ou 2'],
       ['/retirerroleticket', 'Retirer un rôle du staff des tickets — système 1 ou 2'],
@@ -120,6 +120,8 @@ const CATEGORIES = [
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
       ['/serverinfo', 'Statistiques du serveur'],
       ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
+      ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
+      ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre (`s?u @membre`, son pseudo ou son ID), `s?t` le top, `s?m` les messages, `s?v` le vocal'],
       ['/userinfo', 'Fiche d’un membre'],
       ['/pseudo', 'Envoie le pseudo d’un membre'],
       ['/ping', 'Latence du bot'],

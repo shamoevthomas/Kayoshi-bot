@@ -13,6 +13,8 @@ import { initVoiceSessions } from '../lib/voiceactivity.js';
 import { pollAllCreators } from '../lib/creators.js';
 import { processBumpReminders } from '../lib/bumpreminder.js';
 import { ensureVoiceLogChannel } from '../lib/logger.js';
+import { startStatsTracking, backfillMessages } from '../lib/stats.js';
+import { closeInactiveTickets } from '../lib/tickets.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -66,6 +68,9 @@ export default {
     // Rappels de bump Disboard (/bremind) arrivés à échéance, toutes les 30 s.
     processBumpReminders(client).catch(() => {});
     setInterval(() => processBumpReminders(client).catch(() => {}), 30_000);
+    // Tickets sans message depuis 3 jours : fermés automatiquement (vérifié toutes les heures).
+    setTimeout(() => closeInactiveTickets(client).catch((err) => console.error('[tickets]', err)), 120_000);
+    setInterval(() => closeInactiveTickets(client).catch((err) => console.error('[tickets]', err)), 3_600_000);
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
     reconcileGiveaways(client).catch(() => {});
     // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.
@@ -74,6 +79,12 @@ export default {
     // Classement des plus actifs : démarre le suivi vocal des membres déjà connectés,
     // puis actualisation immédiate + toutes les 5 min.
     initVoiceSessions(client);
+    // Stats (s?u, s?t, s?m, s?v) : début du suivi, puis historique des messages des
+    // 30 derniers jours, une fois par serveur, un serveur après l'autre.
+    for (const guild of client.guilds.cache.values()) startStatsTracking(guild.id);
+    setTimeout(async () => {
+      for (const guild of client.guilds.cache.values()) await backfillMessages(guild).catch((err) => console.error('[stats]', err));
+    }, 60_000);
     setTimeout(() => refreshAllStats(client).catch(() => {}), 15_000);
     setInterval(() => refreshAllStats(client).catch(() => {}), 300_000);
   },

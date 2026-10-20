@@ -7,6 +7,9 @@ import { cacheAttachments } from '../lib/attachmentCache.js';
 import { handleDisboardBump } from '../lib/bumpreminder.js';
 import { handlePartnerMessage } from '../lib/partners.js';
 import { handleVoiceStatsCommand } from '../lib/voicestats.js';
+import { recordMessage } from '../lib/stats.js';
+import { handleStatCommand } from '../lib/statcommands.js';
+import { handleLoveCommand } from '../lib/lovecalc.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
 // "quoi" / "pourquoi" en fin de phrase (mot entier, ponctuation finale tolérée).
@@ -39,6 +42,11 @@ export default {
 
     // « +vc » : statistiques des salons vocaux.
     await handleVoiceStatsCommand(message).catch((err) => console.error(err));
+    // Stats d'activité (messages par membre et par salon), puis s?u / s?t / s?m / s?v.
+    recordMessage(message);
+    await handleStatCommand(message).catch((err) => console.error('[stats]', err));
+    // ^^lc / ^^hc / ^^fc : pourcentage d'amour, de haine ou d'amitié (comme Koya).
+    await handleLoveCommand(message).catch((err) => console.error('[lovecalc]', err));
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));

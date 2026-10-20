@@ -21,11 +21,14 @@ export default {
     // Vocaux temporaires (création/suppression auto)
     await handleVoiceState(oldState, newState).catch((err) => console.error(err));
 
-    // Suivi du temps vocal pour le classement (/configstat) — AFK exclu.
+    // Suivi du temps vocal pour le classement (/configstat) et les stats (s?…) — AFK exclu.
+    // Un changement de salon clôt la session du salon quitté (stats par salon).
     const wasCounting = counts(oldState);
     const isCounting = counts(newState);
-    if (!wasCounting && isCounting) startVoiceSession(newState.guild.id, member.id);
-    else if (wasCounting && !isCounting) endVoiceSession(newState.guild.id, member.id);
+    if (wasCounting && (!isCounting || oldState.channelId !== newState.channelId)) endVoiceSession(newState.guild.id, member.id);
+    if (isCounting && (!wasCounting || oldState.channelId !== newState.channelId)) {
+      startVoiceSession(newState.guild.id, member.id, newState.channelId);
+    }
 
     // Connexion
     if (!oldState.channelId && newState.channelId) {

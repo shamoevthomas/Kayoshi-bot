@@ -1,30 +1,39 @@
 import { bumpVoiceActivity } from './store.js';
+import { recordVoice } from './stats.js';
 
-// Sessions vocales en cours : `${guildId}:${userId}` -> timestamp du dernier comptage.
+// Sessions vocales en cours : `${guildId}:${userId}` -> { since, channelId }
+// (since = dernier comptage ; channelId = salon, pour les stats par salon).
 const sessions = new Map();
 const key = (guildId, userId) => `${guildId}:${userId}`;
 
-export function startVoiceSession(guildId, userId) {
-  sessions.set(key(guildId, userId), Date.now());
+// Compte le temps depuis le dernier comptage : classement de la semaine (/configstat) et stats (s?…).
+function count(guildId, userId, session, now) {
+  const seconds = (now - session.since) / 1000;
+  bumpVoiceActivity(guildId, userId, seconds);
+  recordVoice(guildId, userId, session.channelId, seconds, now);
+}
+
+export function startVoiceSession(guildId, userId, channelId) {
+  sessions.set(key(guildId, userId), { since: Date.now(), channelId });
 }
 
 // Comptabilise le temps écoulé puis termine la session.
 export function endVoiceSession(guildId, userId) {
   const k = key(guildId, userId);
-  const start = sessions.get(k);
-  if (start == null) return;
+  const session = sessions.get(k);
+  if (!session) return;
   sessions.delete(k);
-  bumpVoiceActivity(guildId, userId, (Date.now() - start) / 1000);
+  count(guildId, userId, session, Date.now());
 }
 
 // Comptabilise le temps écoulé pour toutes les sessions en cours SANS les terminer
-// (garde le classement à jour pour les membres toujours connectés).
+// (garde le classement et les stats à jour pour les membres toujours connectés).
 export function flushVoiceSessions() {
   const now = Date.now();
-  for (const [k, start] of sessions) {
+  for (const [k, session] of sessions) {
     const [guildId, userId] = k.split(':');
-    bumpVoiceActivity(guildId, userId, (now - start) / 1000);
-    sessions.set(k, now);
+    count(guildId, userId, session, now);
+    session.since = now;
   }
 }
 
@@ -34,7 +43,7 @@ export function initVoiceSessions(client) {
     for (const [, channel] of guild.channels.cache) {
       if (!channel.isVoiceBased?.() || channel.id === guild.afkChannelId) continue;
       for (const [, member] of channel.members) {
-        if (!member.user.bot) startVoiceSession(guild.id, member.id);
+        if (!member.user.bot) startVoiceSession(guild.id, member.id, channel.id);
       }
     }
   }
