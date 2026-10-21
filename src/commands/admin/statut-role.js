@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getStatusRoleConfig, setStatusRoleConfig } from '../../lib/store.js';
-import { sweepAutoRolesGuild } from '../../lib/autoroles.js';
+import { sweepAutoRolesGuild, reconcileAutoRoles } from '../../lib/autoroles.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -25,10 +25,59 @@ export default {
     .addSubcommand((sub) =>
       sub.setName('desactiver').setDescription('Désactiver le rôle automatique lié au statut.'),
     )
-    .addSubcommand((sub) => sub.setName('voir').setDescription('Voir la configuration actuelle.')),
+    .addSubcommand((sub) => sub.setName('voir').setDescription('Voir la configuration actuelle.'))
+    .addSubcommand((sub) =>
+      sub
+        .setName('tester')
+        .setDescription('Diagnostiquer pourquoi un membre ne reçoit pas (ou reçoit) le rôle.')
+        .addUserOption((o) => o.setName('membre').setDescription('Le membre à vérifier').setRequired(true)),
+    ),
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
+
+    if (sub === 'tester') {
+      const config = getStatusRoleConfig(interaction.guild.id);
+      if (!config?.text || !config.roleId) {
+        return interaction.reply({ content: 'ℹ️ Aucun rôle-statut configuré. Utilise `/statut-role activer`.', ephemeral: true });
+      }
+      const member = await interaction.guild.members.fetch(interaction.options.getUser('membre').id).catch(() => null);
+      if (!member) return interaction.reply({ content: '❌ Membre introuvable sur le serveur.', ephemeral: true });
+
+      // Ce que le bot lit du statut (statut personnalisé uniquement — pas la bio « À propos de moi »).
+      const activities = member.presence?.activities ?? [];
+      const statusText = activities
+        .flatMap((a) => [a.state, a.details].filter(Boolean))
+        .join(' ');
+      const seen = statusText || null;
+      const keyword = config.text.toLowerCase();
+      const matches = Boolean(seen && seen.toLowerCase().includes(keyword));
+      const role = interaction.guild.roles.cache.get(config.roleId);
+      const me = interaction.guild.members.me;
+      const hasRole = member.roles.cache.has(config.roleId);
+
+      const checks = [];
+      checks.push(`• Texte configuré : \`${config.text}\` → rôle ${role ?? '`(rôle supprimé)`'}`);
+      checks.push(member.presence ? '✅ Présence visible par le bot' : '❌ Présence **invisible** : le membre est hors ligne/invisible, ou l’intent Présence est coupé');
+      checks.push(seen ? `📄 Statut personnalisé lu : \`${seen}\`` : '❌ **Aucun statut personnalisé** lu — le texte est peut-être dans la bio « À propos de moi » (illisible par les bots), ou le membre n’a pas de statut');
+      checks.push(matches ? '✅ Le statut **contient** le texte configuré' : '❌ Le statut ne contient pas le texte configuré');
+      if (!role) checks.push('❌ Le rôle configuré n’existe plus — refais `/statut-role activer`');
+      else {
+        if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) checks.push('❌ Il me manque la permission **Gérer les rôles**');
+        if (role.position >= me.roles.highest.position) checks.push(`❌ ${role} est **au-dessus** de mon rôle le plus haut : je ne peux pas le donner`);
+      }
+      checks.push(hasRole ? 'ℹ️ Le membre a **déjà** le rôle' : 'ℹ️ Le membre n’a pas le rôle');
+
+      const verdict = matches && role && !hasRole && me.permissions.has(PermissionFlagsBits.ManageRoles) && role.position < me.roles.highest.position
+        ? '\n\n➡️ Tout est bon : je vais lui donner le rôle maintenant.'
+        : matches && hasRole
+          ? '\n\n➡️ Le membre correspond et a déjà le rôle.'
+          : '\n\n➡️ Corrige le point marqué ❌ ci-dessus.';
+
+      // Applique la réconciliation (donne/retire le rôle selon le statut réel).
+      await reconcileAutoRoles(member).catch(() => {});
+      return interaction.reply({ content: `🔎 **Diagnostic rôle-statut pour ${member}**\n${checks.join('\n')}${verdict}`, ephemeral: true, allowedMentions: { parse: [] } });
+    }
 
     if (sub === 'voir') {
       const config = getStatusRoleConfig(interaction.guild.id);
