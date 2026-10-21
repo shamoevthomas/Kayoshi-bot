@@ -200,8 +200,17 @@ export default {
 
   async execute(interaction) {
     // Un embed par message : chacun reste sous les 6000 caractères permis par message.
+    // deferReply d'abord : réponse garantie même si la génération prend un instant.
     const [first, ...rest] = buildEmbeds();
-    await interaction.reply({ embeds: [first], ephemeral: true });
-    for (const embed of rest) await interaction.followUp({ embeds: [embed], ephemeral: true });
+    try {
+      await interaction.deferReply({ ephemeral: true });
+      await interaction.editReply({ embeds: [first] });
+      for (const embed of rest) await interaction.followUp({ embeds: [embed], ephemeral: true });
+    } catch (err) {
+      console.error('[help] échec de l’envoi :', err);
+      const notice = { content: '❌ Impossible d’afficher l’aide pour le moment.', ephemeral: true };
+      if (interaction.deferred || interaction.replied) await interaction.followUp(notice).catch(() => {});
+      else await interaction.reply(notice).catch(() => {});
+    }
   },
 };
