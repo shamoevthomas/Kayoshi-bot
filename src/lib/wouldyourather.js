@@ -157,11 +157,20 @@ export function reconcileWouldYouRather(client) {
   for (const { guildId, messageId, poll } of getAllWyr()) schedule(client, guildId, messageId, poll.endsAt);
 }
 
-// Lance un vote dans le salon de l'interaction. Renvoie le message envoyé.
-export async function startPoll(interaction, durationMs) {
-  const [a, b] = pick();
+// Lance un vote dans le salon de l'interaction. Les options A/B manquantes sont tirées au hasard ;
+// roleId mentionne un rôle au-dessus du vote. Renvoie le message envoyé.
+export async function startPoll(interaction, durationMs, { optionA = null, optionB = null, roleId = null } = {}) {
+  const [randomA, randomB] = pick();
+  const a = optionA || randomA;
+  const b = optionB || randomB;
   const poll = { channelId: interaction.channelId, a, b, endsAt: Date.now() + durationMs, votes: {} };
-  const message = await interaction.reply({ embeds: [voteEmbed(poll)], components: [voteButtons(poll)], fetchReply: true });
+  const message = await interaction.reply({
+    content: roleId ? `<@&${roleId}>` : undefined,
+    embeds: [voteEmbed(poll)],
+    components: [voteButtons(poll)],
+    allowedMentions: { roles: roleId ? [roleId] : [] },
+    fetchReply: true,
+  });
   saveWyr(interaction.guildId, message.id, poll);
   schedule(interaction.client, interaction.guildId, message.id, poll.endsAt);
   return message;

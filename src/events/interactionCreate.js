@@ -8,6 +8,7 @@ import { handleEmbedBuilderInteraction } from '../lib/embedbuilder.js';
 import { handleLoveInteraction } from '../lib/lovecalc.js';
 import { handleGuessFlagInteraction } from '../lib/guessflag.js';
 import { handleWouldYouRatherInteraction } from '../lib/wouldyourather.js';
+import { handleFamilyInteraction } from '../lib/family.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -25,6 +26,7 @@ export default {
         if (cid.startsWith('lc_')) return void (await handleLoveInteraction(interaction));
         if (cid.startsWith('gf_')) return void (await handleGuessFlagInteraction(interaction));
         if (cid.startsWith('tp_')) return void (await handleWouldYouRatherInteraction(interaction));
+        if (cid.startsWith('fam_')) return void (await handleFamilyInteraction(interaction));
       } catch (err) {
         console.error(err);
         if (!interaction.replied && !interaction.deferred) {

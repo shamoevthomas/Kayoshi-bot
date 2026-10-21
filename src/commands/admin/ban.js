@@ -42,15 +42,17 @@ export default {
     }
 
     // MP AVANT le ban (impossible de le joindre une fois banni).
-    const dmSent = await dmSanction(target, interaction.guild, 'banni', reason, interaction.user, showMod);
+    const dmSent = await dmSanction(target, interaction.guild, dur.permanent ? 'banni' : 'softban (banni temporairement)', reason, interaction.user, showMod);
 
     await interaction.guild.bans.create(target.id, {
       reason: `${reason} — par ${interaction.user.tag}`,
       deleteMessageSeconds: definitif ? 604_800 : 0,
     });
 
+    // Ban temporaire = softban (débannissement automatique à la fin).
+    const isTemp = !dur.permanent;
     let note = 'Bannissement **permanent**.';
-    if (!dur.permanent) {
+    if (isTemp) {
       addTempBan(interaction.guild.id, target.id, Date.now() + dur.ms);
       note = `Débannissement automatique dans **${formatDuration(dur.ms)}**.`;
     }
@@ -59,7 +61,7 @@ export default {
       interaction.guild,
       new EmbedBuilder()
         .setColor(Colors.delete)
-        .setAuthor({ name: definitif ? '💀 Ban définitif' : '🔨 Bannissement' })
+        .setAuthor({ name: isTemp ? '⏳ Softban' : definitif ? '💀 Ban définitif' : '🔨 Bannissement' })
         .setDescription(`${target.tag} (\`${target.id}\`)`)
         .addFields(
           { name: 'Durée', value: dur.permanent ? 'Permanent' : formatDuration(dur.ms), inline: true },
@@ -70,6 +72,9 @@ export default {
         .setTimestamp(),
     );
 
-    await interaction.reply({ content: `✅ **${target.tag}** banni. ${note}\nRaison : ${reason}${dmNote(dmSent)}`, ephemeral: true });
+    await interaction.reply({
+      content: `✅ **${target.tag}** ${isTemp ? 'softban' : 'banni'}. ${note}\nRaison : ${reason}${dmNote(dmSent)}`,
+      ephemeral: true,
+    });
   },
 };

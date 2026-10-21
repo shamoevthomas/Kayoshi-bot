@@ -8,6 +8,7 @@ import {
 import { createCanvas } from '@napi-rs/canvas';
 import { createHash } from 'node:crypto';
 import { font, fetchImage } from './fonts.js';
+import { proposeMarriage } from './family.js';
 
 // Calculateur d'amour / de haine / d'amitié, comme le bot Koya :
 //   ^^lc (amour), ^^hc (haine), ^^fc (amitié), suivis de « random », d'un ou de deux membres.
@@ -224,16 +225,15 @@ function avatar(ctx, img, cx, cy, size, fallback) {
   ctx.restore();
 }
 
-async function renderCard(mode, userA, userB, percent) {
+async function renderCard(mode, entA, entB, percent) {
   const m = MODES[mode];
   const W = 1000;
   const H = 340;
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
-  const [imgA, imgB] = await Promise.all([
-    fetchImage(userA.displayAvatarURL({ extension: 'png', size: 256 })),
-    fetchImage(userB.displayAvatarURL({ extension: 'png', size: 256 })),
-  ]);
+  // Avatar du membre, ou null pour un prénom libre (initiale dessinée à la place).
+  const avatarImg = (e) => (e.avatar ? fetchImage(e.avatar.displayAvatarURL({ extension: 'png', size: 256 })) : null);
+  const [imgA, imgB] = await Promise.all([avatarImg(entA), avatarImg(entB)]);
 
   // Fond dégradé + panneau translucide.
   const bg = ctx.createLinearGradient(0, 0, W, H);
@@ -251,8 +251,8 @@ async function renderCard(mode, userA, userB, percent) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  avatar(ctx, imgA, 210, H / 2, 210, userA.username);
-  avatar(ctx, imgB, W - 210, H / 2, 210, userB.username);
+  avatar(ctx, imgA, 210, H / 2, 210, entA.name);
+  avatar(ctx, imgB, W - 210, H / 2, 210, entB.name);
 
   // Cœur (amour), cœur brisé (haine) ou étoile (amitié), rempli jusqu'au pourcentage.
   const cx = W / 2;
@@ -296,13 +296,18 @@ const clean = (name) => name.replace(/[*_~`|\\]/g, '');
 function buttons(mode, authorId, a, b) {
   const state = `${mode}:${authorId}:${a}:${b}`;
   const others = Object.entries(MODES).filter(([key]) => key !== mode);
-  return new ActionRowBuilder().addComponents(
+  const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`lc_rand:${state}`).setLabel('Aléatoire').setStyle(ButtonStyle.Secondary).setEmoji('🎲'),
     new ButtonBuilder().setCustomId(`lc_user:${state}`).setLabel('Changer de membre').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
     ...others.map(([key, m]) =>
       new ButtonBuilder().setCustomId(`lc_mode:${key}:${authorId}:${a}:${b}`).setLabel(m.label).setStyle(ButtonStyle.Secondary).setEmoji(m.emoji),
     ),
   );
+  // En mode amour seulement : demander en mariage le membre comparé.
+  if (mode === 'love') {
+    row.addComponents(new ButtonBuilder().setCustomId(`lc_marry:${state}`).setLabel('Demander en mariage').setStyle(ButtonStyle.Primary).setEmoji('💍'));
+  }
+  return row;
 }
 
 // Pourcentage fixe d'un duo pour un mode (0 à 100), le même dans les deux sens (A + B = B + A).
@@ -311,18 +316,27 @@ function pairPercent(mode, idA, idB) {
   return createHash('sha256').update(`${mode}:${first}:${second}`).digest().readUInt32BE(0) % 101;
 }
 
-async function resultPayload(guild, mode, authorId, userA, userB) {
+// Entité comparée : un membre Discord (avatar + mention) ou un prénom libre (texte).
+const userEntity = (guild, user) => ({ id: user.id, isUser: true, name: nameOf(guild, user), mention: `${user}`, avatar: user });
+const nameEntity = (text) => {
+  const label = text.trim().slice(0, 40);
+  return { id: `n:${label.toLowerCase()}`, isUser: false, name: label, mention: `**${clean(label)}**`, avatar: null };
+};
+
+async function resultPayload(mode, authorId, entA, entB) {
   const m = MODES[mode];
-  const percent = pairPercent(mode, userA.id, userB.id);
+  const percent = pairPercent(mode, entA.id, entB.id);
   const phrase = m.phrases[Math.min(m.phrases.length - 1, Math.floor(percent / (101 / m.phrases.length)))]
-    .replace('{a}', clean(nameOf(guild, userA)))
-    .replace('{b}', clean(nameOf(guild, userB)));
-  const png = await renderCard(mode, userA, userB, percent);
+    .replace('{a}', clean(entA.name))
+    .replace('{b}', clean(entB.name));
+  const png = await renderCard(mode, entA, entB, percent);
+  // Boutons seulement entre deux membres : ils rechargent le duo depuis les IDs.
+  const components = entA.isUser && entB.isUser ? [buttons(mode, authorId, entA.id, entB.id)] : [];
   return {
-    content: `${userA} + ${userB} = **${percent}%** ${m.of} ${m.emoji}\n${m.decor} ${phrase} ${m.decor}`,
+    content: `${entA.mention} + ${entB.mention} = **${percent}%** ${m.of} ${m.emoji}\n${m.decor} ${phrase} ${m.decor}`,
     files: [new AttachmentBuilder(png, { name: 'lovecalc.png' })],
     attachments: [],
-    components: [buttons(mode, authorId, userA.id, userB.id)],
+    components,
     allowedMentions: { parse: [] },
   };
 }
@@ -338,10 +352,6 @@ async function randomMember(guild, excludeIds) {
   return pool.random()?.user ?? null;
 }
 
-async function resolveUser(client, token) {
-  const id = token.match(/^<@!?(\d{17,20})>$/)?.[1] ?? token.match(/^\d{17,20}$/)?.[0];
-  return id ? client.users.fetch(id).catch(() => null) : null;
-}
 
 // --- Commandes en message ---
 
@@ -352,30 +362,39 @@ export async function handleLoveCommand(message) {
   const mode = MODE_BY_LETTER[match[1].toLowerCase()];
   const args = (match[2] ?? '').trim().split(/\s+/).filter(Boolean);
 
-  // ^^lc / ^^lc random → toi + quelqu'un au hasard ; ^^lc @a → toi + a ; ^^lc @a @b → a + b.
-  let userA = message.author;
-  let userB = null;
-  const named = [];
-  for (const token of args.filter((t) => t.toLowerCase() !== 'random').slice(0, 2)) {
-    const user = await resolveUser(message.client, token);
-    if (!user) {
-      await message
-        .reply({ content: `❌ Membre introuvable : \`${token}\`. Mentionne-le (\`^^${match[1]}c @membre\`) ou donne son ID.`, allowedMentions: { repliedUser: false } })
-        .catch(() => {});
+  // Chaque mot est une entité : une mention / un ID → membre, sinon un prénom libre.
+  // ^^lc → toi + au hasard ; ^^lc Alice → toi + Alice ; ^^lc Alice Bob → Alice + Bob ; ^^lc @a Bob → a + Bob.
+  const tokens = args.filter((t) => t.toLowerCase() !== 'random').slice(0, 2);
+  const entities = [];
+  for (const token of tokens) {
+    const mentionId = token.match(/^<@!?(\d{17,20})>$/)?.[1];
+    const rawId = token.match(/^\d{17,20}$/)?.[0];
+    const user = mentionId || rawId ? await message.client.users.fetch(mentionId ?? rawId).catch(() => null) : null;
+    if (user) entities.push(userEntity(message.guild, user));
+    else if (mentionId) {
+      await message.reply({ content: '❌ Ce membre est introuvable.', allowedMentions: { repliedUser: false } }).catch(() => {});
       return true;
-    }
-    named.push(user);
+    } else entities.push(nameEntity(token)); // texte libre (ou ID inconnu) → prénom
   }
-  if (named.length === 2) [userA, userB] = named;
-  else if (named.length === 1) userB = named[0];
-  else userB = await randomMember(message.guild, [message.author.id]);
-  if (!userB) {
-    await message.reply({ content: '❌ Je n’ai trouvé personne d’autre sur le serveur.', allowedMentions: { repliedUser: false } }).catch(() => {});
-    return true;
+
+  let entA;
+  let entB;
+  if (entities.length === 2) [entA, entB] = entities;
+  else {
+    entA = userEntity(message.guild, message.author);
+    if (entities.length === 1) entB = entities[0];
+    else {
+      const rnd = await randomMember(message.guild, [message.author.id]);
+      if (!rnd) {
+        await message.reply({ content: '❌ Je n’ai trouvé personne d’autre sur le serveur.', allowedMentions: { repliedUser: false } }).catch(() => {});
+        return true;
+      }
+      entB = userEntity(message.guild, rnd);
+    }
   }
 
   await message.channel.sendTyping().catch(() => {});
-  const payload = await resultPayload(message.guild, mode, message.author.id, userA, userB);
+  const payload = await resultPayload(mode, message.author.id, entA, entB);
   delete payload.attachments;
   await message.reply({ ...payload, allowedMentions: { parse: [], repliedUser: false } }).catch(() => {});
   return true;
@@ -391,6 +410,14 @@ export async function handleLoveInteraction(interaction) {
   }
   const { guild, client } = interaction;
   const fetchUser = (id) => client.users.fetch(id).catch(() => null);
+
+  // Demander en mariage : propose à l'autre membre du calcul (celui qui n'est pas celui qui clique).
+  if (interaction.isButton() && action === 'lc_marry') {
+    const targetId = b === authorId ? a : b;
+    const target = guild.members.cache.get(targetId) ?? (await guild.members.fetch(targetId).catch(() => null));
+    if (!target) return interaction.reply({ content: '❌ Membre introuvable sur le serveur.', ephemeral: true });
+    return proposeMarriage(interaction, target);
+  }
 
   // Changer de membre : menu de sélection à la place des boutons (1 membre = remplace le 2ᵉ, 2 = les deux).
   if (interaction.isButton() && action === 'lc_user') {
@@ -427,6 +454,7 @@ export async function handleLoveInteraction(interaction) {
 
   if (!pair[0] || !pair[1]) return interaction.reply({ content: '❌ Membre introuvable.', ephemeral: true });
   await interaction.deferUpdate();
-  const payload = await resultPayload(guild, mode, authorId, pair[0], pair[1]);
+  // Les boutons ne manipulent que des membres Discord.
+  const payload = await resultPayload(mode, authorId, userEntity(guild, pair[0]), userEntity(guild, pair[1]));
   await interaction.editReply(payload).catch(() => {});
 }

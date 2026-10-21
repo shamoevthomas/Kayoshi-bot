@@ -721,6 +721,61 @@ function migrateGreetEmbeds() {
   if (dirty.size) scheduleFlush();
 }
 
+// --- Famille virtuelle (/marry, /divorce, /adopt, /family) ---
+// family = { spouse: { userId: conjointId } (symétrique),
+//            parent: { enfantId: parentId }, children: { parentId: [enfantIds] },
+//            since: { "a-b": timestamp } (date de mariage, clé triée) }
+export function getFamily(guildId) {
+  const f = getGuildConfig(guildId).family ?? {};
+  return { spouse: f.spouse ?? {}, parent: f.parent ?? {}, children: f.children ?? {}, since: f.since ?? {} };
+}
+
+const pairKey = (a, b) => [a, b].sort().join('-');
+
+// Relations d'un membre : conjoint, parent adoptif, enfants adoptés.
+export function getRelations(guildId, userId) {
+  const f = getFamily(guildId);
+  return { spouse: f.spouse[userId] ?? null, parent: f.parent[userId] ?? null, children: f.children[userId] ?? [], since: f.since };
+}
+
+export function marry(guildId, a, b) {
+  const f = getFamily(guildId);
+  f.spouse[a] = b;
+  f.spouse[b] = a;
+  f.since[pairKey(a, b)] = Date.now();
+  setGuildConfig(guildId, { family: f });
+}
+
+// Annule le mariage de `userId`. Renvoie l'ex-conjoint, ou null s'il n'était pas marié.
+export function divorce(guildId, userId) {
+  const f = getFamily(guildId);
+  const spouse = f.spouse[userId];
+  if (!spouse) return null;
+  delete f.spouse[userId];
+  delete f.spouse[spouse];
+  delete f.since[pairKey(userId, spouse)];
+  setGuildConfig(guildId, { family: f });
+  return spouse;
+}
+
+export function adopt(guildId, parentId, childId) {
+  const f = getFamily(guildId);
+  f.parent[childId] = parentId;
+  f.children[parentId] = [...(f.children[parentId] ?? []).filter((id) => id !== childId), childId];
+  setGuildConfig(guildId, { family: f });
+}
+
+// Défait un lien d'adoption (dans un sens ou l'autre). Renvoie true si un lien existait.
+export function removeAdoption(guildId, parentId, childId) {
+  const f = getFamily(guildId);
+  if (f.parent[childId] !== parentId) return false;
+  delete f.parent[childId];
+  f.children[parentId] = (f.children[parentId] ?? []).filter((id) => id !== childId);
+  if (!f.children[parentId].length) delete f.children[parentId];
+  setGuildConfig(guildId, { family: f });
+  return true;
+}
+
 // --- Tu préfères (/tu-preferes) : votes en cours, par message ---
 // wyr = { messageId: { channelId, a, b, endsAt, votes: { userId: 'a' | 'b' } } }
 export function getWyr(guildId, messageId) {

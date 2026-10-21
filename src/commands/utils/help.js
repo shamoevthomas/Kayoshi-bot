@@ -122,9 +122,12 @@ const CATEGORIES = [
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
       ['/serverinfo', 'Statistiques du serveur'],
       ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
-      ['/tu-preferes', 'Dilemme « Tu préfères… » au hasard pour une durée (ex : `15m`) : vote A ou B, pourcentages à la fin'],
+      ['kayo pp', 'Écrire `kayo pp @membre` : affiche la photo de profil du membre (ou la tienne)'],
+      ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, rôle à mentionner facultatif, vote A/B, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indice : 8 / 2 h, passer : 4 / 2 h, classement)'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
+      ['/marry · /divorce', 'Demander un membre en mariage virtuel (il doit accepter) / annuler son mariage'],
+      ['/adopt · /family', 'Adopter un membre dans sa famille (il doit accepter) / voir son arbre généalogique en image'],
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre (`s?u @membre`, son pseudo ou son ID), `s?t` le top, `s?m` les messages, `s?v` le vocal'],
       ['/userinfo', 'Fiche d’un membre'],
       ['/pseudo', 'Envoie le pseudo d’un membre'],
@@ -134,7 +137,8 @@ const CATEGORIES = [
   },
 ];
 
-// Limites Discord : 1024 car/champ, ~6000 car/embed, 25 champs/embed, 10 embeds/message.
+// Limites Discord : 1024 car/champ, 25 champs/embed, et 6000 car pour TOUS les embeds d'un
+// même message réunis (d'où un embed par message, voir execute).
 const MAX_FIELD = 1024;
 const MAX_EMBED = 5500; // marge sous 6000
 const MAX_FIELDS = 25;
@@ -195,7 +199,9 @@ export default {
     .setDMPermission(false),
 
   async execute(interaction) {
-    // Jusqu'à 10 embeds/message : largement suffisant ici.
-    await interaction.reply({ embeds: buildEmbeds(), ephemeral: true });
+    // Un embed par message : chacun reste sous les 6000 caractères permis par message.
+    const [first, ...rest] = buildEmbeds();
+    await interaction.reply({ embeds: [first], ephemeral: true });
+    for (const embed of rest) await interaction.followUp({ embeds: [embed], ephemeral: true });
   },
 };
