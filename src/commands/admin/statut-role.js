@@ -41,8 +41,13 @@ export default {
       if (!config?.text || !config.roleId) {
         return interaction.reply({ content: 'ℹ️ Aucun rôle-statut configuré. Utilise `/statut-role activer`.', ephemeral: true });
       }
-      const member = await interaction.guild.members.fetch(interaction.options.getUser('membre').id).catch(() => null);
-      if (!member) return interaction.reply({ content: '❌ Membre introuvable sur le serveur.', ephemeral: true });
+      await interaction.deferReply({ ephemeral: true });
+      const targetId = interaction.options.getUser('membre').id;
+      // withPresences : redemande la présence fraîche à Discord (le cache peut être périmé).
+      const member =
+        (await interaction.guild.members.fetch({ user: targetId, withPresences: true, force: true }).catch(() => null)) ??
+        (await interaction.guild.members.fetch(targetId).catch(() => null));
+      if (!member) return interaction.editReply({ content: '❌ Membre introuvable sur le serveur.' });
 
       // Ce que le bot lit du statut (statut personnalisé uniquement — pas la bio « À propos de moi »).
       const activities = member.presence?.activities ?? [];
@@ -81,7 +86,7 @@ export default {
 
       // Applique la réconciliation (donne/retire le rôle selon le statut réel).
       await reconcileAutoRoles(member).catch(() => {});
-      return interaction.reply({ content: `🔎 **Diagnostic rôle-statut pour ${member}**\n${checks.join('\n')}${verdict}`, ephemeral: true, allowedMentions: { parse: [] } });
+      return interaction.editReply({ content: `🔎 **Diagnostic rôle-statut pour ${member}**\n${checks.join('\n')}${verdict}`, allowedMentions: { parse: [] } });
     }
 
     if (sub === 'voir') {
