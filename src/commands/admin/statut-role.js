@@ -47,9 +47,13 @@ export default {
       // Ce que le bot lit du statut (statut personnalisé uniquement — pas la bio « À propos de moi »).
       const activities = member.presence?.activities ?? [];
       const statusText = activities
-        .flatMap((a) => [a.state, a.details].filter(Boolean))
+        .flatMap((a) => [a.state, a.details, a.name].filter(Boolean))
         .join(' ');
       const seen = statusText || null;
+      // Détail brut de ce que le bot reçoit (pour repérer un cache périmé ou un texte ailleurs).
+      const raw = activities.length
+        ? activities.map((a) => `type ${a.type}${a.name ? ` « ${a.name} »` : ''}${a.state ? ` · state: \`${a.state}\`` : ''}${a.emoji ? ` · emoji ${a.emoji.name}` : ''}`).join('\n   ')
+        : '(aucune activité reçue)';
       const keyword = config.text.toLowerCase();
       const matches = Boolean(seen && seen.toLowerCase().includes(keyword));
       const role = interaction.guild.roles.cache.get(config.roleId);
@@ -59,7 +63,8 @@ export default {
       const checks = [];
       checks.push(`• Texte configuré : \`${config.text}\` → rôle ${role ?? '`(rôle supprimé)`'}`);
       checks.push(member.presence ? '✅ Présence visible par le bot' : '❌ Présence **invisible** : le membre est hors ligne/invisible, ou l’intent Présence est coupé');
-      checks.push(seen ? `📄 Statut personnalisé lu : \`${seen}\`` : '❌ **Aucun statut personnalisé** lu — le texte est peut-être dans la bio « À propos de moi » (illisible par les bots), ou le membre n’a pas de statut');
+      checks.push(seen ? `📄 Statut personnalisé lu : \`${seen}\`` : '❌ **Aucun statut personnalisé** lu — le texte est peut-être dans la bio « À propos de moi » (illisible par les bots), ou le statut n’est pas synchronisé');
+      checks.push(`🧩 Activités reçues (${activities.length}) : ${raw}`);
       checks.push(matches ? '✅ Le statut **contient** le texte configuré' : '❌ Le statut ne contient pas le texte configuré');
       if (!role) checks.push('❌ Le rôle configuré n’existe plus — refais `/statut-role activer`');
       else {
