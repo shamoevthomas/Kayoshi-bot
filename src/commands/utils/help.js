@@ -120,6 +120,7 @@ const CATEGORIES = [
       ['/say', 'Faire parler le bot dans ce salon'],
       ['/save', 'Messages sauvegardés (5 emplacements)'],
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
+      ['/emoji', '`rename` `delete` `image` — renommer, supprimer un emoji du serveur, ou envoyer son image'],
       ['/serverinfo', 'Statistiques du serveur'],
       ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
       ['kayo pp', 'Écrire `kayo pp @membre` : affiche la photo de profil du membre (ou la tienne)'],
