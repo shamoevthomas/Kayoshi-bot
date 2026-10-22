@@ -126,6 +126,7 @@ const CATEGORIES = [
       ['/niveaux', 'Classement des membres par niveau / XP'],
       ['/shop', 'Boutique : acheter des objets avec ton argent (gagné en montant de niveau) et voir ton inventaire'],
       ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire (admin)'],
+      ['/change-item', 'Modifier le nom, le prix ou la description d’un objet (admin)'],
       ['/configshop', 'Titre, description et couleur de la boutique (admin)'],
       ['/add-money · /remove-money', 'Donner / retirer de l’argent à un membre (admin)'],
       ['/history-shop', 'Historique des achats de la boutique, ou ceux d’un membre (admin)'],

@@ -1094,6 +1094,17 @@ export function addShopItem(guildId, item) {
   return { id, ...g.shop.items[id] };
 }
 
+// Modifie les champs fournis d'un objet (nom, prix, description…). Renvoie l'objet à jour, ou null.
+export function updateShopItem(guildId, itemId, patch) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  if (!g.shop?.items?.[itemId]) return null;
+  g.shop.items[itemId] = { ...g.shop.items[itemId], ...patch };
+  data[guildId] = g;
+  save(data, guildId);
+  return { id: itemId, ...g.shop.items[itemId] };
+}
+
 export function removeShopItem(guildId, itemId) {
   const data = load();
   const g = data[guildId] ?? {};
