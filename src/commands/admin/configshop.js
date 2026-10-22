@@ -50,7 +50,10 @@ export default {
     }
 
     setShopConfig(guildId, patch);
-    // Aperçu de la boutique telle qu'elle apparaîtra.
-    return interaction.reply({ content: '✅ Boutique mise à jour. Aperçu :', ...shopPayload(interaction.guild, interaction.user.id, {}), ephemeral: true });
+    // Aperçu (Components V2) de la boutique telle qu'elle apparaîtra.
+    const { MessageFlags } = await import('discord.js');
+    const payload = shopPayload(interaction.guild, interaction.user.id, {});
+    await interaction.reply({ content: '✅ Boutique mise à jour. Aperçu :', ephemeral: true });
+    return interaction.followUp({ ...payload, flags: payload.flags | MessageFlags.Ephemeral });
   },
 };

@@ -2,8 +2,13 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ContainerBuilder,
   EmbedBuilder,
+  MessageFlags,
+  SectionBuilder,
+  SeparatorBuilder,
   StringSelectMenuBuilder,
+  TextDisplayBuilder,
 } from 'discord.js';
 import { getMoney, addMoney, getShopItems, getShopItem, addPurchase, getPurchases, getShopConfig, setTempRole } from './store.js';
 import { openTicketFor } from './tickets.js';
@@ -36,7 +41,7 @@ function sortedItems(guildId, sort) {
   return items.sort((SORTS[sort] ?? SORTS.prix_asc).cmp);
 }
 
-// Construit l'affichage de la boutique pour une page et un tri donnés.
+// Construit l'affichage de la boutique (Components V2 : bouton d'achat à droite de chaque objet).
 export function shopPayload(guild, userId, { page = 0, sort = 'prix_asc' } = {}) {
   const items = sortedItems(guild.id, sort);
   const pages = Math.max(1, Math.ceil(items.length / PER_PAGE));
@@ -44,53 +49,61 @@ export function shopPayload(guild, userId, { page = 0, sort = 'prix_asc' } = {})
   const slice = items.slice(current * PER_PAGE, current * PER_PAGE + PER_PAGE);
   const balance = getMoney(guild.id, userId);
   const cfg = getShopConfig(guild.id);
+  const title = cfg.title || `🛒 Boutique — ${guild.name}`;
 
-  const embed = new EmbedBuilder()
-    .setColor(cfg.color ?? DEFAULT_COLOR)
-    .setAuthor({ name: cfg.title || `🛒 Boutique — ${guild.name}`, iconURL: guild.iconURL() ?? undefined })
-    .setFooter({ text: `Tu as ${formatMoney(balance)} ${COIN}  ·  Tri : ${(SORTS[sort] ?? SORTS.prix_asc).label}` });
+  const container = new ContainerBuilder().setAccentColor(cfg.color ?? DEFAULT_COLOR);
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ${title}${cfg.description ? `\n${cfg.description}` : ''}`));
+  container.addSeparatorComponents(new SeparatorBuilder());
 
-  // Description personnalisée (/configshop) affichée en tête, puis la page d'objets.
-  const intro = cfg.description ? `${cfg.description}\n\n` : '';
   if (!items.length) {
-    embed.setDescription(`${intro}La boutique est vide pour le moment.\n-# Un admin peut ajouter des objets avec \`/add-item\`.`);
-    return { embeds: [embed], components: [], allowedMentions: { parse: [] } };
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('La boutique est vide pour le moment.\n-# Un admin peut ajouter des objets avec `/add-item`.'),
+    );
+    return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } };
   }
 
-  embed.setDescription(
-    intro +
-      slice
-        .map((it) => `**${it.name}** — ${COIN} **${formatMoney(it.price)}**\n${it.description ?? '*Aucune description.*'}`)
-        .join('\n\n'),
-  );
-
   const state = `${current}:${sort}`;
-  // Un bouton d'achat par objet de la page (prix affiché), dans une rangée.
-  const buyRow = new ActionRowBuilder().addComponents(
-    slice.map((it) =>
-      new ButtonBuilder()
-        .setCustomId(`shop_buy:${it.id}:${state}`)
-        .setLabel(`${formatMoney(it.price)} — Acheter`)
-        .setStyle(balance >= it.price ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji(COIN)
-        .setDisabled(balance < it.price),
+  // Chaque objet = une section : texte à gauche, bouton « Acheter » à droite (comme Draftbot).
+  for (const it of slice) {
+    container.addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`**${it.name}**\n${it.description ?? '*Aucune description.*'}`),
+        )
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setCustomId(`shop_buy:${it.id}:${state}`)
+            .setLabel(`${formatMoney(it.price)} — Acheter`)
+            .setStyle(balance >= it.price ? ButtonStyle.Primary : ButtonStyle.Secondary)
+            .setEmoji(COIN)
+            .setDisabled(balance < it.price),
+        ),
+    );
+  }
+
+  container.addSeparatorComponents(new SeparatorBuilder());
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `Tu as ${COIN} **${formatMoney(balance)}**  ·  Tri : ${(SORTS[sort] ?? SORTS.prix_asc).label}  ·  Page ${current + 1}/${pages}`,
+    ),
+  );
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop_page:${current - 1}:${sort}`).setLabel('Précédent').setStyle(ButtonStyle.Secondary).setDisabled(current === 0),
+      new ButtonBuilder().setCustomId(`shop_page:${current + 1}:${sort}`).setLabel('Suivant').setStyle(ButtonStyle.Secondary).setDisabled(current >= pages - 1),
+      new ButtonBuilder().setCustomId(`shop_inv:${state}`).setLabel('Mon inventaire').setStyle(ButtonStyle.Success).setEmoji('🎒'),
+    ),
+  );
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`shop_sort:${current}`)
+        .setPlaceholder('Trier la boutique')
+        .addOptions(Object.entries(SORTS).map(([value, s]) => ({ label: s.label, value, default: value === sort }))),
     ),
   );
 
-  const navRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`shop_page:${current - 1}:${sort}`).setLabel('Précédent').setStyle(ButtonStyle.Secondary).setDisabled(current === 0),
-    new ButtonBuilder().setCustomId('shop_noop').setLabel(`Page ${current + 1}/${pages}`).setStyle(ButtonStyle.Secondary).setDisabled(true),
-    new ButtonBuilder().setCustomId(`shop_page:${current + 1}:${sort}`).setLabel('Suivant').setStyle(ButtonStyle.Secondary).setDisabled(current >= pages - 1),
-    new ButtonBuilder().setCustomId(`shop_inv:${state}`).setLabel('Mon inventaire').setStyle(ButtonStyle.Success).setEmoji('🎒'),
-  );
-
-  const sortRow = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder().setCustomId(`shop_sort:${current}`).setPlaceholder('Trier la boutique').addOptions(
-      Object.entries(SORTS).map(([value, s]) => ({ label: s.label, value, default: value === sort })),
-    ),
-  );
-
-  return { embeds: [embed], components: [buyRow, navRow, sortRow], allowedMentions: { parse: [] } };
+  return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } };
 }
 
 // Embed de l'inventaire : objets achetés par le membre (regroupés). title = en-tête affiché.
@@ -110,31 +123,26 @@ export function inventoryEmbed(guild, userId, title = '🎒 Ton inventaire') {
     .setFooter({ text: `Solde : ${formatMoney(balance)} ${COIN}  ·  ${purchases.length} achat(s)` });
 }
 
-// --- Achat ---
+// --- Achat --- Renvoie le message à afficher (ne répond pas lui-même).
 async function buy(interaction, itemId) {
   const guildId = interaction.guild.id;
   const userId = interaction.user.id;
   const item = getShopItem(guildId, itemId);
-  if (!item) return interaction.reply({ content: '❌ Cet objet n’existe plus.', ephemeral: true });
+  if (!item) return '❌ Cet objet n’existe plus.';
   const balance = getMoney(guildId, userId);
   if (balance < item.price) {
-    return interaction.reply({
-      content: `❌ Il te faut ${COIN} **${formatMoney(item.price)}** pour **${item.name}**, tu as **${formatMoney(balance)}**.`,
-      ephemeral: true,
-    });
+    return `❌ Il te faut ${COIN} **${formatMoney(item.price)}** pour **${item.name}**, tu as **${formatMoney(balance)}**.`;
   }
   // Exécute l'effet de l'objet selon son type (ticket / rôle permanent / rôle temporaire).
   const outcome = await fulfill(interaction, item);
-  if (outcome.error) return interaction.reply({ content: `❌ ${outcome.error} Rien n’a été débité.`, ephemeral: true });
+  if (outcome.error) return `❌ ${outcome.error} Rien n’a été débité.`;
 
   const after = addMoney(guildId, userId, -item.price);
   addPurchase(guildId, { userId, itemId, name: item.name, price: item.price, type: item.type ?? 'personnalise' });
-  return interaction.reply({
-    content:
-      `✅ Tu as acheté **${item.name}** pour ${COIN} **${formatMoney(item.price)}** !\n` +
-      `Nouveau solde : ${COIN} **${formatMoney(after)}**.\n${outcome.note}`,
-    ephemeral: true,
-  });
+  return (
+    `✅ Tu as acheté **${item.name}** pour ${COIN} **${formatMoney(item.price)}** !\n` +
+    `Nouveau solde : ${COIN} **${formatMoney(after)}**.\n${outcome.note}`
+  );
 }
 
 // Effet d'un objet acheté. Renvoie { note } en cas de succès, ou { error } (achat annulé).
@@ -171,19 +179,20 @@ async function fulfill(interaction, item) {
 }
 
 // --- Routeur des interactions « shop_ » ---
+// La boutique est un message Components V2 (flag requis à chaque envoi/modification).
 export async function openShop(interaction) {
-  return interaction.reply({ ...shopPayload(interaction.guild, interaction.user.id, {}), ephemeral: true });
+  const payload = shopPayload(interaction.guild, interaction.user.id, {});
+  return interaction.reply({ ...payload, flags: payload.flags | MessageFlags.Ephemeral });
 }
 
 export async function handleShopInteraction(interaction) {
   const [action, arg, pageStr, sort] = interaction.customId.split(':');
 
   if (action === 'shop_buy') {
-    await buy(interaction, arg);
-    // Rafraîchit l'affichage (soldes, boutons) sur le message d'origine.
-    return interaction.message
-      .edit(shopPayload(interaction.guild, interaction.user.id, { page: Number(pageStr) || 0, sort }))
-      .catch(() => {});
+    // Achète, rafraîchit la boutique (soldes, boutons), puis confirme à part.
+    const note = await buy(interaction, arg);
+    await interaction.update(shopPayload(interaction.guild, interaction.user.id, { page: Number(pageStr) || 0, sort })).catch(() => {});
+    return interaction.followUp({ content: note, ephemeral: true }).catch(() => {});
   }
 
   if (action === 'shop_page') {
