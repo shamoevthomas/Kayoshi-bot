@@ -5,7 +5,9 @@ import {
   EmbedBuilder,
   StringSelectMenuBuilder,
 } from 'discord.js';
-import { getMoney, addMoney, getShopItems, getShopItem, addPurchase, getPurchases, getShopConfig } from './store.js';
+import { getMoney, addMoney, getShopItems, getShopItem, addPurchase, getPurchases, getShopConfig, setTempRole } from './store.js';
+import { openTicketFor } from './tickets.js';
+import { formatDuration } from './time.js';
 
 // Couleur par défaut de la boutique, et parseur de couleur hex pour /configshop.
 const DEFAULT_COLOR = 0x2ecc71;
@@ -121,15 +123,51 @@ async function buy(interaction, itemId) {
       ephemeral: true,
     });
   }
+  // Exécute l'effet de l'objet selon son type (ticket / rôle permanent / rôle temporaire).
+  const outcome = await fulfill(interaction, item);
+  if (outcome.error) return interaction.reply({ content: `❌ ${outcome.error} Rien n’a été débité.`, ephemeral: true });
+
   const after = addMoney(guildId, userId, -item.price);
-  addPurchase(guildId, { userId, itemId, name: item.name, price: item.price });
+  addPurchase(guildId, { userId, itemId, name: item.name, price: item.price, type: item.type ?? 'personnalise' });
   return interaction.reply({
     content:
       `✅ Tu as acheté **${item.name}** pour ${COIN} **${formatMoney(item.price)}** !\n` +
-      `Nouveau solde : ${COIN} **${formatMoney(after)}**.\n` +
-      '-# Pour un objet à remettre à la main (rôle, pseudo…), ouvre un ticket avec une capture de ton achat.',
+      `Nouveau solde : ${COIN} **${formatMoney(after)}**.\n${outcome.note}`,
     ephemeral: true,
   });
+}
+
+// Effet d'un objet acheté. Renvoie { note } en cas de succès, ou { error } (achat annulé).
+async function fulfill(interaction, item) {
+  const { guild, user } = interaction;
+  const type = item.type ?? 'personnalise';
+
+  if (type === 'role' || type === 'role_temp') {
+    const role = guild.roles.cache.get(item.roleId);
+    if (!role) return { error: 'Le rôle de cet objet n’existe plus (préviens un admin).' };
+    const me = guild.members.me;
+    if (role.position >= me.roles.highest.position || !me.permissions.has('ManageRoles')) {
+      return { error: 'Je ne peux pas donner ce rôle (hiérarchie/permission — préviens un admin).' };
+    }
+    const member = interaction.member ?? (await guild.members.fetch(user.id).catch(() => null));
+    if (!member) return { error: 'Membre introuvable.' };
+    const given = await member.roles.add(role, `Achat boutique : ${item.name}`).then(() => true).catch(() => false);
+    if (!given) return { error: 'Impossible de te donner le rôle.' };
+    if (type === 'role_temp') {
+      setTempRole(guild.id, { userId: user.id, roleId: role.id, removeAt: Date.now() + item.durationMs, by: guild.client.user.id });
+      return { note: `🎖️ Tu as le rôle ${role} pendant **${formatDuration(item.durationMs)}**.` };
+    }
+    return { note: `🎖️ Tu as reçu le rôle ${role}.` };
+  }
+
+  // personnalisé : ouvre un ticket du système 2 avec le motif choisi.
+  const result = await openTicketFor(guild, user, 2, item.motifId);
+  if (result.error) return { error: result.error };
+  return {
+    note: result.already
+      ? `🎫 Tu as déjà un ticket ouvert pour ça : ${result.channel}.`
+      : `🎫 Un ticket a été ouvert pour ta demande : ${result.channel}.`,
+  };
 }
 
 // --- Routeur des interactions « shop_ » ---
