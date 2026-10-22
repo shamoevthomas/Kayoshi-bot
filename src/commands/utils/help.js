@@ -128,7 +128,7 @@ const CATEGORIES = [
       ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire (admin)'],
       ['/change-item', 'Modifier le nom, le prix ou la description d’un objet (admin)'],
       ['/configshop', 'Titre, description et couleur de la boutique (admin)'],
-      ['/add-money · /remove-money', 'Donner / retirer de l’argent à un membre (admin)'],
+      ['/money', '`ajouter` `retirer` — donner / retirer de l’argent à un membre (admin)'],
       ['/history-shop', 'Historique des achats de la boutique, ou ceux d’un membre (admin)'],
       ['/xp', '`ajouter` `retirer` `definir` `recompense` — gérer XP, niveaux & rôles-récompenses (admin)'],
       ['/configniveau', '`activer` `desactiver` `voir` `message` — activer/désactiver le système de niveaux et personnaliser le message (admin)'],
