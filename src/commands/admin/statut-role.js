@@ -43,9 +43,16 @@ export default {
       }
       await interaction.deferReply({ ephemeral: true });
       const targetId = interaction.options.getUser('membre').id;
-      // withPresences : redemande la présence fraîche à Discord (le cache peut être périmé).
+      // withPresences redemande la présence fraîche à Discord, mais peut être lent/sans réponse :
+      // on la borne à 4 s, puis on retombe sur la version en cache.
+      const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), 4000));
+      const fresh = await Promise.race([
+        interaction.guild.members.fetch({ user: targetId, withPresences: true }).catch(() => 'error'),
+        timeout,
+      ]);
       const member =
-        (await interaction.guild.members.fetch({ user: targetId, withPresences: true, force: true }).catch(() => null)) ??
+        (fresh && fresh !== 'timeout' && fresh !== 'error' ? fresh : null) ??
+        interaction.guild.members.cache.get(targetId) ??
         (await interaction.guild.members.fetch(targetId).catch(() => null));
       if (!member) return interaction.editReply({ content: '❌ Membre introuvable sur le serveur.' });
 
