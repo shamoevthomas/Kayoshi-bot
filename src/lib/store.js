@@ -940,6 +940,88 @@ export function setAntiSpamConfig(guildId, antispam) {
   return setGuildConfig(guildId, { antispam });
 }
 
+// --- Système de niveaux (XP) ---
+// data[guildId].levels = { [userId]: xpTotale } ; levelUpChannelId, levelUpMessage ; levelRewards = { [niveau]: roleId }
+export function getXp(guildId, userId) {
+  return getGuildConfig(guildId).levels?.[userId] ?? 0;
+}
+
+export function setXp(guildId, userId, xp) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.levels = g.levels ?? {};
+  g.levels[userId] = Math.max(0, Math.round(xp));
+  data[guildId] = g;
+  save(data, guildId);
+  return g.levels[userId];
+}
+
+// Ajoute (ou retire si delta < 0) de l'XP. Renvoie { before, after } (borné à 0).
+export function addXp(guildId, userId, delta) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.levels = g.levels ?? {};
+  const before = g.levels[userId] ?? 0;
+  const after = Math.max(0, before + Math.round(delta));
+  g.levels[userId] = after;
+  data[guildId] = g;
+  save(data, guildId);
+  return { before, after };
+}
+
+export function getLevelLeaderboard(guildId, limit = 10) {
+  const levels = getGuildConfig(guildId).levels ?? {};
+  return Object.entries(levels)
+    .map(([userId, xp]) => ({ userId, xp }))
+    .filter((r) => r.xp > 0)
+    .sort((a, b) => b.xp - a.xp)
+    .slice(0, limit);
+}
+
+export function getLevelRank(guildId, userId) {
+  const levels = getGuildConfig(guildId).levels ?? {};
+  const xp = levels[userId] ?? 0;
+  if (xp <= 0) return null;
+  let rank = 1;
+  for (const [id, v] of Object.entries(levels)) if (id !== userId && v > xp) rank += 1;
+  return rank;
+}
+
+export function levelUpChannelId(guildId) {
+  return getGuildConfig(guildId).levelUpChannelId ?? null;
+}
+
+export function getLevelUpMessage(guildId) {
+  return getGuildConfig(guildId).levelUpMessage ?? null;
+}
+
+export function setLevelUpConfig(guildId, { message, channelId }) {
+  return setGuildConfig(guildId, { levelUpMessage: message, levelUpChannelId: channelId });
+}
+
+export function getLevelRewards(guildId) {
+  return getGuildConfig(guildId).levelRewards ?? {};
+}
+
+export function setLevelReward(guildId, level, roleId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.levelRewards = g.levelRewards ?? {};
+  g.levelRewards[level] = roleId;
+  data[guildId] = g;
+  save(data, guildId);
+}
+
+export function removeLevelReward(guildId, level) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  if (!g.levelRewards || !(level in g.levelRewards)) return false;
+  delete g.levelRewards[level];
+  data[guildId] = g;
+  save(data, guildId);
+  return true;
+}
+
 // --- Rôle de quarantaine persistant (ex-blacklist) ---
 // data[guildId].serverBlacklist = { quarantineRoleId, sticky:[userIds] }
 // Le rôle est conservé : si un membre l'a en partant, il le retrouve au retour.

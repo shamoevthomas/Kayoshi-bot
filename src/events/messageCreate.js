@@ -11,6 +11,7 @@ import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
 import { handleLoveCommand } from '../lib/lovecalc.js';
 import { handleAvatarCommand } from '../lib/avatarcommand.js';
+import { grantMessageXp } from '../lib/levels.js';
 import { handleGuessFlagMessage } from '../lib/guessflag.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
@@ -55,6 +56,8 @@ export default {
     await handleLoveCommand(message).catch((err) => console.error('[lovecalc]', err));
     // « kayo pp [@membre] » : photo de profil du membre.
     await handleAvatarCommand(message).catch((err) => console.error('[avatar]', err));
+    // XP : gain par message + annonce de passage de niveau.
+    await grantMessageXp(message).catch((err) => console.error('[levels]', err));
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));
