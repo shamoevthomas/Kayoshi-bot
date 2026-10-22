@@ -125,7 +125,7 @@ const CATEGORIES = [
       ['/niveau', 'Voir ton niveau, ton XP et ta progression (ou celui d’un membre)'],
       ['/niveaux', 'Classement des membres par niveau / XP'],
       ['/xp', '`ajouter` `retirer` `definir` `recompense` — gérer XP, niveaux & rôles-récompenses (admin)'],
-      ['/configniveau', '    — activer/désactiver le système de niveaux et personnaliser le message (admin)'],
+      ['/configniveau', '`activer` `desactiver` `voir` `message` — activer/désactiver le système de niveaux et personnaliser le message (admin)'],
       ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
       ['kayo pp', 'Écrire `kayo pp @membre` : affiche la photo de profil du membre (ou la tienne)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, rôle à mentionner facultatif, vote A/B, pourcentages à la fin'],
