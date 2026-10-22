@@ -50,7 +50,11 @@ export default {
     // « +vc » : statistiques des salons vocaux.
     await handleVoiceStatsCommand(message).catch((err) => console.error(err));
     // Stats d'activité (messages par membre et par salon), puis s?u / s?t / s?m / s?v.
-    recordMessage(message);
+    try {
+      recordMessage(message);
+    } catch (err) {
+      console.error('[stats]', err);
+    }
     await handleStatCommand(message).catch((err) => console.error('[stats]', err));
     // ^^lc / ^^hc / ^^fc : pourcentage d'amour, de haine ou d'amitié (comme Koya).
     await handleLoveCommand(message).catch((err) => console.error('[lovecalc]', err));

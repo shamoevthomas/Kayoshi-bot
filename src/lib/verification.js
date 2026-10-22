@@ -1,4 +1,4 @@
-import { EmbedBuilder, AttachmentBuilder } from 'discord.js';
+import { EmbedBuilder, AttachmentBuilder, PermissionFlagsBits } from 'discord.js';
 import { generateCaptcha } from './captcha.js';
 import { getVerifConfig, getGuildConfig, setGuildConfig } from './store.js';
 import { sendLog, Colors } from './logger.js';
@@ -259,7 +259,35 @@ export async function handleVerifyMessage(message) {
     pending.delete(message.author.id);
     clearKickTimer(message.author.id);
     await deleteCaptchaMessage(message.channel, record);
-    await member.roles.add(config.roleId).catch(() => {});
+
+    // Donne le rôle de vérifié — et signale clairement si le bot n'y arrive pas
+    // (rôle au-dessus du bot, ou permission « Gérer les rôles » manquante).
+    const role = message.guild.roles.cache.get(config.roleId);
+    const me = message.guild.members.me;
+    const canGive = role && me?.permissions.has(PermissionFlagsBits.ManageRoles) && role.position < me.roles.highest.position;
+    const given = canGive && (await member.roles.add(role, 'Vérification réussie').then(() => true).catch(() => false));
+
+    if (!given) {
+      const why = !role
+        ? 'le rôle de vérification n’existe plus'
+        : !me?.permissions.has(PermissionFlagsBits.ManageRoles)
+          ? 'il me manque la permission « Gérer les rôles »'
+          : `le rôle ${role} est au-dessus de mon rôle le plus haut`;
+      const warn = await message.channel.send(
+        `⚠️ ${member}, ta réponse est bonne mais je n’ai pas pu te donner le rôle : **${why}**. Un admin doit corriger ça (puis \`/configverif\`).`,
+      );
+      setTimeout(() => warn.delete().catch(() => {}), 15000);
+      await sendLog(
+        message.guild,
+        new EmbedBuilder()
+          .setColor(Colors.leave)
+          .setAuthor({ name: '⚠️ Vérification : rôle non donné' })
+          .setDescription(`${member} a réussi le captcha mais je n’ai pas pu lui donner le rôle de vérifié : ${why}.`)
+          .setTimestamp(),
+      );
+      return;
+    }
+
     await ghostMention(message.guild, config.successMentionChannelId, member.id).catch(() => {});
     const ok = await message.channel.send(`✅ ${member}, vérification réussie ! Bienvenue 🎉`);
     setTimeout(() => ok.delete().catch(() => {}), 6000);
