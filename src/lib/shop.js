@@ -5,7 +5,14 @@ import {
   EmbedBuilder,
   StringSelectMenuBuilder,
 } from 'discord.js';
-import { getMoney, addMoney, getShopItems, getShopItem, addPurchase, getPurchases } from './store.js';
+import { getMoney, addMoney, getShopItems, getShopItem, addPurchase, getPurchases, getShopConfig } from './store.js';
+
+// Couleur par défaut de la boutique, et parseur de couleur hex pour /configshop.
+const DEFAULT_COLOR = 0x2ecc71;
+export function parseColor(input) {
+  const h = (input ?? '').trim().replace(/^#/, '');
+  return /^[0-9a-fA-F]{6}$/.test(h) ? parseInt(h, 16) : null;
+}
 
 // Boutique : objets virtuels achetés avec l'argent gagné en montant de niveau.
 // L'état (page + tri) est encodé dans les customId des boutons : shop_* .
@@ -34,21 +41,25 @@ export function shopPayload(guild, userId, { page = 0, sort = 'prix_asc' } = {})
   const current = Math.min(Math.max(0, page), pages - 1);
   const slice = items.slice(current * PER_PAGE, current * PER_PAGE + PER_PAGE);
   const balance = getMoney(guild.id, userId);
+  const cfg = getShopConfig(guild.id);
 
   const embed = new EmbedBuilder()
-    .setColor(0x2ecc71)
-    .setAuthor({ name: `🛒 Boutique — ${guild.name}`, iconURL: guild.iconURL() ?? undefined })
+    .setColor(cfg.color ?? DEFAULT_COLOR)
+    .setAuthor({ name: cfg.title || `🛒 Boutique — ${guild.name}`, iconURL: guild.iconURL() ?? undefined })
     .setFooter({ text: `Tu as ${formatMoney(balance)} ${COIN}  ·  Tri : ${(SORTS[sort] ?? SORTS.prix_asc).label}` });
 
+  // Description personnalisée (/configshop) affichée en tête, puis la page d'objets.
+  const intro = cfg.description ? `${cfg.description}\n\n` : '';
   if (!items.length) {
-    embed.setDescription('La boutique est vide pour le moment.\n-# Un admin peut ajouter des objets avec `/add-item`.');
+    embed.setDescription(`${intro}La boutique est vide pour le moment.\n-# Un admin peut ajouter des objets avec \`/add-item\`.`);
     return { embeds: [embed], components: [], allowedMentions: { parse: [] } };
   }
 
   embed.setDescription(
-    slice
-      .map((it) => `**${it.name}** — ${COIN} **${formatMoney(it.price)}**\n${it.description ?? '*Aucune description.*'}`)
-      .join('\n\n'),
+    intro +
+      slice
+        .map((it) => `**${it.name}** — ${COIN} **${formatMoney(it.price)}**\n${it.description ?? '*Aucune description.*'}`)
+        .join('\n\n'),
   );
 
   const state = `${current}:${sort}`;

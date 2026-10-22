@@ -1059,6 +1059,21 @@ export function setMoney(guildId, userId, amount) {
   return g.money[userId];
 }
 
+// Apparence de la boutique (/configshop) : { title, description, color }.
+export function getShopConfig(guildId) {
+  return getGuildConfig(guildId).shop?.config ?? {};
+}
+
+export function setShopConfig(guildId, patch) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.shop = g.shop ?? { items: {}, purchases: [] };
+  g.shop.config = { ...(g.shop.config ?? {}), ...patch };
+  data[guildId] = g;
+  save(data, guildId);
+  return g.shop.config;
+}
+
 export function getShopItems(guildId) {
   return getGuildConfig(guildId).shop?.items ?? {};
 }
