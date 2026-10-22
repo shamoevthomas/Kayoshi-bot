@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getStatusRoleConfig, setStatusRoleConfig } from '../../lib/store.js';
 import { sweepAutoRolesGuild, reconcileAutoRoles } from '../../lib/autoroles.js';
+import { lastPresenceSeen } from '../../events/presenceUpdate.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -70,6 +71,13 @@ export default {
       checks.push(member.presence ? `✅ Présence vue par le bot : **${member.presence.status}** (appareil : ${clientStatus})` : '❌ Présence **invisible** : le membre est hors ligne/invisible, ou l’intent Présence est coupé');
       checks.push(seen ? `📄 Statut personnalisé lu : \`${seen}\`` : '❌ **Aucun statut personnalisé** lu — le texte est peut-être dans la bio « À propos de moi » (illisible par les bots), ou le statut n’est pas synchronisé');
       checks.push(`🧩 Activités reçues (${activities.length}) : ${raw}`);
+      // Dernier changement de présence reçu en direct (prouve que le circuit presenceUpdate marche).
+      const last = lastPresenceSeen.get(`${interaction.guild.id}:${targetId}`);
+      checks.push(
+        last
+          ? `📡 Dernier changement de présence reçu <t:${Math.floor(last.at / 1000)}:R> (${last.count} activité(s)${last.text ? `, texte : \`${last.text}\`` : ''})`
+          : '📡 **Aucun changement de présence reçu** depuis le démarrage du bot pour ce membre — Discord n’envoie pas ses mises à jour de statut au bot',
+      );
       checks.push(matches ? '✅ Le statut **contient** le texte configuré' : '❌ Le statut ne contient pas le texte configuré');
       if (!role) checks.push('❌ Le rôle configuré n’existe plus — refais `/statut-role activer`');
       else {
