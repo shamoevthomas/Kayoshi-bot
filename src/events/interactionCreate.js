@@ -9,6 +9,7 @@ import { handleLoveInteraction } from '../lib/lovecalc.js';
 import { handleGuessFlagInteraction } from '../lib/guessflag.js';
 import { handleWouldYouRatherInteraction } from '../lib/wouldyourather.js';
 import { handleFamilyInteraction } from '../lib/family.js';
+import { openShop, handleShopInteraction } from '../lib/shop.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -27,6 +28,8 @@ export default {
         if (cid.startsWith('gf_')) return void (await handleGuessFlagInteraction(interaction));
         if (cid.startsWith('tp_')) return void (await handleWouldYouRatherInteraction(interaction));
         if (cid.startsWith('fam_')) return void (await handleFamilyInteraction(interaction));
+        if (cid === 'shop_open') return void (await openShop(interaction));
+        if (cid.startsWith('shop_')) return void (await handleShopInteraction(interaction));
       } catch (err) {
         console.error(err);
         if (!interaction.replied && !interaction.deferred) {

@@ -4,7 +4,10 @@
 import { AttachmentBuilder } from 'discord.js';
 import { createCanvas } from '@napi-rs/canvas';
 import { font, fetchImage } from './fonts.js';
-import { addXp, levelUpChannelId, getLevelRewards, getLevelUpMessage, getLevelsEnabled } from './store.js';
+import { addXp, levelUpChannelId, getLevelRewards, getLevelUpMessage, getLevelsEnabled, addMoney } from './store.js';
+
+// Argent gagné pour chaque niveau franchi (dépensable dans /shop).
+export const MONEY_PER_LEVEL = 200;
 
 // Message texte par défaut au-dessus de la carte (modifiable via /configniveau).
 const DEFAULT_LEVELUP = 'bien joué {user} tu viens de passer au niveau {level} !';
@@ -116,7 +119,11 @@ export async function grantMessageXp(message) {
     const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
     if (member) await syncLevelRoles(member, newLevel).catch(() => {});
   }
-  if (newLevel > oldLevel) await announceLevelUp(message, newLevel).catch((err) => console.error('[levels]', err));
+  if (newLevel > oldLevel) {
+    // Récompense en argent pour chaque niveau gagné.
+    addMoney(message.guild.id, message.author.id, MONEY_PER_LEVEL * (newLevel - oldLevel));
+    await announceLevelUp(message, newLevel).catch((err) => console.error('[levels]', err));
+  }
 }
 
 // Rôles-récompenses cumulatifs selon le niveau atteint.

@@ -1031,6 +1031,82 @@ export function removeLevelReward(guildId, level) {
   return true;
 }
 
+// --- Monnaie & boutique (/shop, /add-item…) ---
+// data[guildId].money = { userId: solde }
+// data[guildId].shop = { items: { itemId: { name, price, description, role, createdAt } }, purchases: [ { id, userId, itemId, name, price, at } ] }
+export function getMoney(guildId, userId) {
+  return getGuildConfig(guildId).money?.[userId] ?? 0;
+}
+
+export function addMoney(guildId, userId, delta) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.money = g.money ?? {};
+  const after = Math.max(0, Math.round((g.money[userId] ?? 0) + delta));
+  g.money[userId] = after;
+  data[guildId] = g;
+  save(data, guildId);
+  return after;
+}
+
+export function setMoney(guildId, userId, amount) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.money = g.money ?? {};
+  g.money[userId] = Math.max(0, Math.round(amount));
+  data[guildId] = g;
+  save(data, guildId);
+  return g.money[userId];
+}
+
+export function getShopItems(guildId) {
+  return getGuildConfig(guildId).shop?.items ?? {};
+}
+
+export function getShopItem(guildId, itemId) {
+  return getGuildConfig(guildId).shop?.items?.[itemId] ?? null;
+}
+
+export function addShopItem(guildId, item) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.shop = g.shop ?? { items: {}, purchases: [] };
+  g.shop.items = g.shop.items ?? {};
+  const id = `it${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+  g.shop.items[id] = { ...item, createdAt: Date.now() };
+  data[guildId] = g;
+  save(data, guildId);
+  return { id, ...g.shop.items[id] };
+}
+
+export function removeShopItem(guildId, itemId) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  if (!g.shop?.items?.[itemId]) return null;
+  const removed = g.shop.items[itemId];
+  delete g.shop.items[itemId];
+  data[guildId] = g;
+  save(data, guildId);
+  return removed;
+}
+
+const MAX_PURCHASES = 500;
+
+export function addPurchase(guildId, record) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.shop = g.shop ?? { items: {}, purchases: [] };
+  g.shop.purchases = [{ id: `p${Date.now().toString(36)}`, at: Date.now(), ...record }, ...(g.shop.purchases ?? [])].slice(0, MAX_PURCHASES);
+  data[guildId] = g;
+  save(data, guildId);
+}
+
+// Historique des achats, le plus récent d'abord, filtré par membre si userId fourni.
+export function getPurchases(guildId, userId = null) {
+  const all = getGuildConfig(guildId).shop?.purchases ?? [];
+  return userId ? all.filter((p) => p.userId === userId) : all;
+}
+
 // --- Rôle de quarantaine persistant (ex-blacklist) ---
 // data[guildId].serverBlacklist = { quarantineRoleId, sticky:[userIds] }
 // Le rôle est conservé : si un membre l'a en partant, il le retrouve au retour.

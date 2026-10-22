@@ -278,7 +278,7 @@ function targetLabel(target) {
 }
 
 // État de l'aperçu : rôle du mode partenariat, role-react, cible modifiée et motifs du panneau de tickets.
-function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, motifs = [] }) {
+function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, motifs = [], shop = false }) {
   const edit = (section, label) =>
     new ButtonBuilder().setCustomId(`emb_edit:${section}`).setLabel(label).setStyle(ButtonStyle.Secondary);
   const editRow = new ActionRowBuilder().addComponents(
@@ -291,6 +291,11 @@ function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, m
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('emb_rr').setLabel('role-react : bouton').setStyle(ButtonStyle.Primary).setEmoji('🎭'),
       new ButtonBuilder().setCustomId('emb_rs').setLabel('role-react : sélecteur').setStyle(ButtonStyle.Primary).setEmoji('📋'),
+      new ButtonBuilder()
+        .setCustomId('emb_shop')
+        .setLabel(shop ? 'Boutique : activée' : 'Ajouter un bouton Boutique')
+        .setStyle(shop ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setEmoji('🛒'),
     ),
     ...roleReactRows(rr, 'preview'),
   ];
@@ -373,6 +378,8 @@ function currentState(interaction) {
     rr: readRoleReact(components, 'emb_rrdel:', 'emb_rsdel'),
     target: components.find((c) => c.customId?.startsWith('emb_save:'))?.customId.slice('emb_save:'.length) ?? null,
     motifs: selectOptions(components, 'emb_tmotif'),
+    // Le bouton bascule « emb_shop » garde l'état activé/désactivé dans son libellé.
+    shop: components.some((c) => c.customId === 'emb_shop' && /activé/.test(c.label ?? '')),
   };
 }
 
@@ -586,11 +593,17 @@ function partnerBase(interaction, roleId) {
   return { embed: currentEmbed(interaction), roleId };
 }
 
-// Message envoyé : templates remplacés, heure d'envoi, role-react, et mention du rôle en mode partenariat.
-async function outgoing(interaction, embed, roleId, rr) {
+// Bouton « 🛒 Boutique » ajouté sous un embed envoyé (ouvre /shop au clic).
+const shopButtonRow = () =>
+  new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('shop_open').setLabel('Boutique').setStyle(ButtonStyle.Success).setEmoji('🛒'),
+  );
+
+// Message envoyé : templates remplacés, heure d'envoi, role-react, bouton boutique, et mention du rôle (partenariat).
+async function outgoing(interaction, embed, roleId, rr, shop = false) {
   const rendered = await renderEmbedFor(interaction.guild, interaction.user, embed);
   if (rendered.timestamp) rendered.timestamp = new Date().toISOString();
-  const components = roleReactRows(rr, 'live');
+  const components = [...roleReactRows(rr, 'live'), ...(shop ? [shopButtonRow()] : [])];
   if (!roleId) return { embeds: [rendered], components };
   return { content: `<@&${roleId}>`, embeds: [rendered], components, allowedMentions: { roles: [roleId] } };
 }
@@ -938,6 +951,13 @@ export async function handleEmbedBuilderInteraction(interaction) {
   const { role, rr } = state;
 
   // --- Role-react : formulaire → bouton ou option ajouté à l'aperçu ---
+  // Bouton « Boutique » : bascule l'ajout d'un bouton 🛒 sous l'embed envoyé.
+  if (interaction.isButton() && action === 'emb_shop') {
+    const shop = !state.shop;
+    const note = shop ? '🛒 Un bouton **Boutique** sera ajouté sous l’embed à l’envoi.' : '🛒 Bouton Boutique retiré.';
+    return interaction.update(builderPayload(currentEmbed(interaction), note, { ...state, shop }));
+  }
+
   if (interaction.isButton() && (action === 'emb_rr' || action === 'emb_rs')) {
     return interaction.showModal(roleReactModal(ROLE_REACT_KIND[action]));
   }
@@ -1093,7 +1113,7 @@ export async function handleEmbedBuilderInteraction(interaction) {
   // --- Envoyer l'embed dans le salon ---
   if (interaction.isButton() && action === 'emb_send') {
     const embed = currentEmbed(interaction);
-    const sent = await interaction.channel.send(await outgoing(interaction, embed, role, rr)).catch(() => null);
+    const sent = await interaction.channel.send(await outgoing(interaction, embed, role, rr, state.shop)).catch(() => null);
     if (sent) trackSentEmbed(sent, embed);
     if (!sent) return errorReply(interaction, 'Impossible d’envoyer l’embed ici (permissions ?).');
     return interaction.update(builderPayload(embed, '✅ Embed envoyé dans ce salon.', state));
@@ -1127,7 +1147,7 @@ export async function handleEmbedBuilderInteraction(interaction) {
     if (!channel?.permissionsFor(interaction.member)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
       return errorReply(interaction, 'Tu ne peux pas écrire dans ce salon.');
     }
-    const sent = await channel.send(await outgoing(interaction, embed, role, rr)).catch(() => null);
+    const sent = await channel.send(await outgoing(interaction, embed, role, rr, state.shop)).catch(() => null);
     if (sent) trackSentEmbed(sent, embed);
     if (!sent) return errorReply(interaction, `Impossible d’envoyer l’embed dans ${channel} (permissions ?).`);
     return interaction.update(builderPayload(embed, `✅ Embed envoyé dans ${channel}.`, state));
