@@ -43,17 +43,9 @@ export default {
       }
       await interaction.deferReply({ ephemeral: true });
       const targetId = interaction.options.getUser('membre').id;
-      // withPresences redemande la présence fraîche à Discord, mais peut être lent/sans réponse :
-      // on la borne à 4 s, puis on retombe sur la version en cache.
-      const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), 4000));
-      const fresh = await Promise.race([
-        interaction.guild.members.fetch({ user: targetId, withPresences: true }).catch(() => 'error'),
-        timeout,
-      ]);
+      // La présence est tenue à jour en direct par l'événement presenceUpdate : on lit le cache.
       const member =
-        (fresh && fresh !== 'timeout' && fresh !== 'error' ? fresh : null) ??
-        interaction.guild.members.cache.get(targetId) ??
-        (await interaction.guild.members.fetch(targetId).catch(() => null));
+        interaction.guild.members.cache.get(targetId) ?? (await interaction.guild.members.fetch(targetId).catch(() => null));
       if (!member) return interaction.editReply({ content: '❌ Membre introuvable sur le serveur.' });
 
       // Ce que le bot lit du statut (statut personnalisé uniquement — pas la bio « À propos de moi »).
@@ -72,9 +64,10 @@ export default {
       const me = interaction.guild.members.me;
       const hasRole = member.roles.cache.has(config.roleId);
 
+      const clientStatus = member.presence?.clientStatus ? Object.keys(member.presence.clientStatus).join(', ') : 'aucun';
       const checks = [];
       checks.push(`• Texte configuré : \`${config.text}\` → rôle ${role ?? '`(rôle supprimé)`'}`);
-      checks.push(member.presence ? '✅ Présence visible par le bot' : '❌ Présence **invisible** : le membre est hors ligne/invisible, ou l’intent Présence est coupé');
+      checks.push(member.presence ? `✅ Présence vue par le bot : **${member.presence.status}** (appareil : ${clientStatus})` : '❌ Présence **invisible** : le membre est hors ligne/invisible, ou l’intent Présence est coupé');
       checks.push(seen ? `📄 Statut personnalisé lu : \`${seen}\`` : '❌ **Aucun statut personnalisé** lu — le texte est peut-être dans la bio « À propos de moi » (illisible par les bots), ou le statut n’est pas synchronisé');
       checks.push(`🧩 Activités reçues (${activities.length}) : ${raw}`);
       checks.push(matches ? '✅ Le statut **contient** le texte configuré' : '❌ Le statut ne contient pas le texte configuré');
