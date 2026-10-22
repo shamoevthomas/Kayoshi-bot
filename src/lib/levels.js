@@ -4,7 +4,7 @@
 import { AttachmentBuilder } from 'discord.js';
 import { createCanvas } from '@napi-rs/canvas';
 import { font, fetchImage } from './fonts.js';
-import { addXp, levelUpChannelId, getLevelRewards, getLevelUpMessage } from './store.js';
+import { addXp, levelUpChannelId, getLevelRewards, getLevelUpMessage, getLevelsEnabled } from './store.js';
 
 // Message texte par défaut au-dessus de la carte (modifiable via /configniveau).
 const DEFAULT_LEVELUP = 'bien joué {user} tu viens de passer au niveau {level} !';
@@ -100,6 +100,7 @@ export async function renderLevelUpCard(user, member, level) {
 // À chaque message : crédite l'XP et annonce un éventuel passage de niveau.
 export async function grantMessageXp(message) {
   if (!message.guild || message.author?.bot) return;
+  if (!getLevelsEnabled(message.guild.id)) return; // système désactivé via /configniveau
   const gain = xpForMessage((message.content ?? '').trim().length);
   if (!gain) return;
 

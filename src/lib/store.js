@@ -987,6 +987,15 @@ export function getLevelRank(guildId, userId) {
   return rank;
 }
 
+// Système d'XP actif ? Activé par défaut (false seulement si désactivé explicitement).
+export function getLevelsEnabled(guildId) {
+  return getGuildConfig(guildId).levelsEnabled !== false;
+}
+
+export function setLevelsEnabled(guildId, enabled) {
+  return setGuildConfig(guildId, { levelsEnabled: enabled });
+}
+
 export function levelUpChannelId(guildId) {
   return getGuildConfig(guildId).levelUpChannelId ?? null;
 }
