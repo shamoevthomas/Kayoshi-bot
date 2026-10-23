@@ -1,10 +1,28 @@
 // Système de niveaux (XP).
 // - Gain automatique à chaque message, selon la longueur du message.
 // - Courbe : XP cumulée pour ATTEINDRE le niveau n = 20n² + 80n.
-import { AttachmentBuilder } from 'discord.js';
-import { createCanvas } from '@napi-rs/canvas';
+import { AttachmentBuilder, EmbedBuilder } from 'discord.js';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { font, fetchImage } from './fonts.js';
 import { addXp, levelUpChannelId, getLevelRewards, getLevelUpMessage, getLevelsEnabled, addMoney } from './store.js';
+
+// Image de fond de la carte de niveau (embarquée dans le projet : un lien Discord expire).
+const BG_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets', 'levelup-bg.jpg');
+let bgImage;
+let bgLoaded = false;
+async function levelBackground() {
+  if (bgLoaded) return bgImage;
+  bgLoaded = true;
+  try {
+    bgImage = await loadImage(readFileSync(BG_PATH));
+  } catch {
+    bgImage = null;
+  }
+  return bgImage;
+}
 
 // Argent gagné pour chaque niveau franchi (dépensable dans /shop).
 export const MONEY_PER_LEVEL = 200;
@@ -89,11 +107,28 @@ export async function renderLevelUpCard(user, member, level) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
 
-  // Fond arrondi sombre.
-  ctx.fillStyle = '#1e1f22';
+  // Fond arrondi : image de fond (recadrée pour couvrir), sinon couleur sombre.
+  ctx.save();
   ctx.beginPath();
   ctx.roundRect(0, 0, W, H, 18);
-  ctx.fill();
+  ctx.clip();
+  const bg = await levelBackground();
+  if (bg) {
+    const scale = Math.max(W / bg.width, H / bg.height);
+    const dw = bg.width * scale;
+    const dh = bg.height * scale;
+    ctx.drawImage(bg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    // Voile sombre dégradé (gauche → droite) pour garder le texte lisible.
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, 'rgba(0,0,0,0.75)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.35)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    ctx.fillStyle = '#1e1f22';
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
 
   // Avatar rond à gauche.
   const img = await fetchImage((member ?? user).displayAvatarURL({ extension: 'png', size: 128 }));
@@ -111,19 +146,22 @@ export async function renderLevelUpCard(user, member, level) {
   }
   ctx.restore();
 
-  // Textes.
+  // Textes (légère ombre pour rester lisibles par-dessus l'image).
   const x = 176;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 6;
   ctx.fillStyle = '#ffffff';
   ctx.font = font(46, { bold: true });
   ctx.fillText('Félicitations !', x, 78);
-  ctx.fillStyle = '#b5bac1';
+  ctx.fillStyle = '#e3e5e8';
   ctx.font = font(26);
   ctx.fillText('vous avez atteint', x, 112);
   ctx.fillStyle = '#ffffff';
   ctx.font = font(30, { bold: true });
   ctx.fillText(`le niveau ${level}`, x, 146);
+  ctx.shadowBlur = 0;
 
   return new AttachmentBuilder(await canvas.encode('png'), { name: 'levelup.png' });
 }
@@ -165,7 +203,7 @@ export async function syncLevelRoles(member, level = 0) {
   }
 }
 
-// Annonce : message texte + carte image, dans le salon dédié ou celui du message.
+// Annonce : embed (message + carte image en fond), dans le salon dédié ou celui du message.
 async function announceLevelUp(message, level) {
   const dedicatedId = levelUpChannelId(message.guild.id);
   let channel = message.channel;
@@ -176,5 +214,15 @@ async function announceLevelUp(message, level) {
   const template = getLevelUpMessage(message.guild.id) ?? DEFAULT_LEVELUP;
   const content = formatLevelUp(template, { user: message.author, level, guild: message.guild });
   const card = await renderLevelUpCard(message.author, message.member, level).catch(() => null);
-  await channel.send({ content, files: card ? [card] : [], allowedMentions: { users: [message.author.id] } });
+
+  const embed = new EmbedBuilder().setColor(0x5865f2).setDescription(content);
+  if (card) embed.setImage('attachment://levelup.png');
+
+  // La mention reste dans le contenu pour notifier le membre (un embed ne ping pas).
+  await channel.send({
+    content: `<@${message.author.id}>`,
+    embeds: [embed],
+    files: card ? [card] : [],
+    allowedMentions: { users: [message.author.id] },
+  });
 }
