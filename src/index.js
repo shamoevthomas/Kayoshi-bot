@@ -5,7 +5,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import { loadCommands } from './lib/commands.js';
 import { initStore, flushStore } from './lib/store.js';
-import { migrateShopOldToNew } from './lib/migrate-shop.js';
 import { startKeepAlive } from './keepalive.js';
 
 // Garde-fous : une erreur asynchrone non gérée ne doit JAMAIS tuer le process
@@ -22,7 +21,6 @@ startKeepAlive();
 
 // Charge les données depuis Supabase AVANT de se connecter à Discord.
 await initStore();
-migrateShopOldToNew();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
