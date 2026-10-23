@@ -117,7 +117,7 @@ function roleReactRows({ buttons, options, reacts = [] }, mode) {
               : `${live ? 'emb_react' : 'emb_reactdel'}:${b.id}`;
           const button = new ButtonBuilder()
             .setCustomId(customId)
-            .setStyle(b.kind === 'react' ? ButtonStyle.Primary : ButtonStyle.Secondary)
+            .setStyle(ButtonStyle.Secondary)
             .setDisabled(disabled);
           if (b.emoji) button.setEmoji(b.emoji);
           if (b.label) button.setLabel(b.label);
