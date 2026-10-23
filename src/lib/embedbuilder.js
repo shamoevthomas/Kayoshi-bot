@@ -669,10 +669,8 @@ export function embedEditorChoices(interaction) {
     for (const [type, emoji] of [['welcome', '👋'], ['leave', '🚪']]) {
       if (getGreetEmbed(guild.id, type)?.embed) choices.push({ name: `${emoji} Embed de ${GREET_LABEL[type]}`, value: `greet.${type}` });
     }
-    for (const slot of [1, 2]) {
-      if (getTicketConfig(guild.id, TICKET_KEY[slot])?.motifs?.length) {
-        choices.push({ name: `🎫 Ouverture de ticket — panneau et sélecteur (système ${slot})`, value: `ticket.${slot}` });
-      }
+    if (getTicketConfig(guild.id, TICKET_KEY[1])?.motifs?.length) {
+      choices.push({ name: '🎫 Ouverture de ticket — panneau et sélecteur', value: 'ticket.1' });
     }
   }
   const sent = Object.entries(getSentEmbeds(guild.id)).sort(([, a], [, b]) => b.ts - a.ts);

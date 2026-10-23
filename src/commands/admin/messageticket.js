@@ -22,13 +22,7 @@ export default {
     .setName('messageticket')
     .setDescription('Définir le premier message envoyé dans un ticket, pour un motif ([@] = mention de l’auteur).')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .setDMPermission(false)
-    .addIntegerOption((o) =>
-      o
-        .setName('systeme')
-        .setDescription('Système de tickets concerné (1 par défaut)')
-        .addChoices({ name: 'Système 1', value: 1 }, { name: 'Système 2', value: 2 }),
-    ),
+    .setDMPermission(false),
 
   async execute(interaction) {
     const slot = interaction.options.getInteger('systeme') ?? 1;

@@ -83,12 +83,6 @@ export default {
     .setDescription('Changer l’embed d’ouverture d’un ticket : GIF, miniature, couleur, titre et texte de chaque motif.')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)
-    .addIntegerOption((o) =>
-      o
-        .setName('systeme')
-        .setDescription('Système de tickets concerné (1 par défaut)')
-        .addChoices({ name: 'Système 1', value: 1 }, { name: 'Système 2', value: 2 }),
-    )
     .addStringOption((o) =>
       o.setName('motif').setDescription('Motif à modifier (vide = l’apparence de tous les motifs)').setAutocomplete(true),
     )

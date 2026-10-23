@@ -14,13 +14,7 @@ export default {
     .setDescription('Ajouter un rôle qui voit les tickets et est mentionné dès leur ouverture.')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)
-    .addRoleOption((o) => o.setName('role').setDescription('Le rôle à ajouter au staff des tickets').setRequired(true))
-    .addIntegerOption((o) =>
-      o
-        .setName('systeme')
-        .setDescription('Système de tickets concerné (1 par défaut)')
-        .addChoices({ name: 'Système 1', value: 1 }, { name: 'Système 2', value: 2 }),
-    ),
+    .addRoleOption((o) => o.setName('role').setDescription('Le rôle à ajouter au staff des tickets').setRequired(true)),
 
   async execute(interaction) {
     const slot = interaction.options.getInteger('systeme') ?? 1;

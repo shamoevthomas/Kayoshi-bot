@@ -168,8 +168,8 @@ async function fulfill(interaction, item) {
     return { note: `🎖️ Tu as reçu le rôle ${role}.` };
   }
 
-  // personnalisé : ouvre un ticket du système 2 avec le motif choisi.
-  const result = await openTicketFor(guild, user, 2, item.motifId);
+  // personnalisé : ouvre un ticket (système 1) avec le motif choisi.
+  const result = await openTicketFor(guild, user, 1, item.motifId);
   if (result.error) return { error: result.error };
   return {
     note: result.already

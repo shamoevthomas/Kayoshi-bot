@@ -21,14 +21,14 @@ export default {
     .addStringOption((o) => o.setName('type').setDescription('Type d’objet').setRequired(true).addChoices(...TYPES))
     .addStringOption((o) => o.setName('description').setDescription('Description affichée dans la boutique').setMaxLength(300))
     .addStringOption((o) =>
-      o.setName('motif').setDescription('Type « personnalisé » : motif du ticket (système 2) ouvert à l’achat').setAutocomplete(true),
+      o.setName('motif').setDescription('Type « personnalisé » : motif du ticket ouvert à l’achat').setAutocomplete(true),
     )
     .addRoleOption((o) => o.setName('role').setDescription('Type « rôle » : le rôle donné à l’achat'))
     .addStringOption((o) => o.setName('duree').setDescription('Type « rôle temporaire » : durée, ex 2h, 7d, 2 jours')),
 
   async autocomplete(interaction) {
     const query = interaction.options.getFocused().toLowerCase();
-    const motifs = getTicketConfig(interaction.guild.id, 'ticketConfig2')?.motifs ?? [];
+    const motifs = getTicketConfig(interaction.guild.id, 'ticketConfig')?.motifs ?? [];
     await interaction.respond(
       motifs
         .filter((m) => m.label.toLowerCase().includes(query))
@@ -46,15 +46,15 @@ export default {
 
     if (type === 'personnalise') {
       const motifId = interaction.options.getString('motif');
-      const config = getTicketConfig(interaction.guild.id, 'ticketConfig2');
+      const config = getTicketConfig(interaction.guild.id, 'ticketConfig');
       if (!config?.motifs?.length) {
-        return interaction.reply({ content: '❌ Le système de tickets 2 n’est pas configuré. Lance `/configticket2` d’abord.', ephemeral: true });
+        return interaction.reply({ content: '❌ Le système de tickets n’est pas configuré. Lance `/configticket` d’abord.', ephemeral: true });
       }
       const motif = motifId && config.motifs.find((m) => m.id === motifId);
       if (!motif) return interaction.reply({ content: '❌ Choisis un **motif** dans la liste (option `motif`).', ephemeral: true });
       const item = addShopItem(interaction.guild.id, { ...base, motifId: motif.id });
       return interaction.reply({
-        content: `✅ Objet **${item.name}** ajouté (💰 ${formatMoney(price)}) : ouvre un **ticket système 2** avec le motif **${motif.label}** à l’achat.`,
+        content: `✅ Objet **${item.name}** ajouté (💰 ${formatMoney(price)}) : ouvre un **ticket** avec le motif **${motif.label}** à l’achat.`,
         ephemeral: true,
       });
     }
