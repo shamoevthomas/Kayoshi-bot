@@ -51,7 +51,7 @@ const CATEGORIES = [
   {
     title: '🎫 Tickets',
     lines: [
-      ['/configticket', 'Configurer le système de tickets (assistant guidé) — un ticket sans message depuis 3 jours est fermé automatiquement (MP au membre)'],
+      ['/configticket', 'Configurer le système de tickets (assistant guidé) — un ticket sans message depuis 3 jours : le bot mentionne le staff et demande s’il faut le fermer'],
       ['/ajouterroleticket', 'Ajouter un rôle au staff des tickets (accès + mention à l’ouverture)'],
       ['/retirerroleticket', 'Retirer un rôle du staff des tickets'],
       ['/modifiermotifticket', 'Changer le titre et/ou la description (menu déroulant) d’un motif de ticket'],

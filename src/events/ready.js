@@ -73,7 +73,7 @@ export default {
     // Rappels de bump Disboard (/bremind) arrivés à échéance, toutes les 30 s.
     processBumpReminders(client).catch(() => {});
     setInterval(() => processBumpReminders(client).catch(() => {}), 30_000);
-    // Tickets sans message depuis 3 jours : fermés automatiquement (vérifié toutes les heures).
+    // Tickets sans message depuis 3 jours : le staff est mentionné et on lui demande s'il faut les fermer (vérifié toutes les heures).
     setTimeout(() => closeInactiveTickets(client).catch((err) => console.error('[tickets]', err)), 120_000);
     setInterval(() => closeInactiveTickets(client).catch((err) => console.error('[tickets]', err)), 3_600_000);
     // Reprend les giveaways en cours (replanifie leur fin après un redémarrage).
