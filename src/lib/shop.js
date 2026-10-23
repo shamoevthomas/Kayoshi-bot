@@ -68,7 +68,7 @@ export function shopPayload(guild, userId, { page = 0, sort = 'prix_asc' } = {})
     container.addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`**${it.name}**\n${it.description ?? '*Aucune description.*'}`),
+          new TextDisplayBuilder().setContent(it.description ? `**${it.name}**\n${it.description}` : `**${it.name}**`),
         )
         .setButtonAccessory(
           new ButtonBuilder()

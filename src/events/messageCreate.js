@@ -11,7 +11,7 @@ import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
 import { handleLoveCommand } from '../lib/lovecalc.js';
 import { handleAvatarCommand } from '../lib/avatarcommand.js';
-import { grantMessageXp } from '../lib/levels.js';
+import { grantMessageXp, grantMessageMoney } from '../lib/levels.js';
 import { handleGuessFlagMessage } from '../lib/guessflag.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
@@ -62,6 +62,12 @@ export default {
     await handleAvatarCommand(message).catch((err) => console.error('[avatar]', err));
     // XP : gain par message + annonce de passage de niveau.
     await grantMessageXp(message).catch((err) => console.error('[levels]', err));
+    // Argent : gain par message (5$, ou 25$ si > 125 caractères).
+    try {
+      grantMessageMoney(message);
+    } catch (err) {
+      console.error('[money]', err);
+    }
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));

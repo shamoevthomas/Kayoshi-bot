@@ -23,6 +23,34 @@ export function formatLevelUp(template, { user, level, guild }) {
 const XP_COOLDOWN_MS = 5000;
 const lastGain = new Map();
 
+// --- Argent gagné par message ---
+// 5$ par message, 25$ si le message fait plus de 125 caractères.
+const MONEY_PER_MESSAGE = 5;
+const MONEY_LONG_MESSAGE = 25;
+const LONG_MESSAGE_LEN = 125;
+const MONEY_COOLDOWN_MS = 5000;
+const lastMoneyGain = new Map();
+
+export function moneyForMessage(len) {
+  if (len > LONG_MESSAGE_LEN) return MONEY_LONG_MESSAGE;
+  if (len >= 1) return MONEY_PER_MESSAGE;
+  return 0;
+}
+
+// À chaque message : crédite l'argent (indépendant du système d'XP).
+export function grantMessageMoney(message) {
+  if (!message.guild || message.author?.bot) return;
+  const gain = moneyForMessage((message.content ?? '').trim().length);
+  if (!gain) return;
+
+  const key = `${message.guild.id}:${message.author.id}`;
+  const now = Date.now();
+  if (now - (lastMoneyGain.get(key) ?? 0) < MONEY_COOLDOWN_MS) return;
+  lastMoneyGain.set(key, now);
+
+  addMoney(message.guild.id, message.author.id, gain);
+}
+
 export function xpForMessage(len) {
   if (len >= 120) return 60;
   if (len >= 60) return 30;
