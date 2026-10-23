@@ -31,6 +31,29 @@ function emojiChoices(interaction) {
     .map((e) => ({ name: `${e.animated ? '[gif] ' : ''}:${e.name}:`.slice(0, 100), value: e.id }));
 }
 
+// Autocomplétion de /emoji delete : complète le DERNIER emoji en gardant ceux déjà choisis,
+// pour pouvoir en sélectionner plusieurs d'affilée (dans la limite des 100 caractères Discord).
+function multiEmojiChoices(interaction) {
+  const raw = interaction.options.getFocused();
+  const parts = raw.split(/[\s,]+/).filter(Boolean);
+  // Si le texte finit par un séparateur, le dernier emoji est déjà « validé » : on repart d'une saisie vide.
+  const endsSep = /[\s,]$/.test(raw) || raw === '';
+  const last = endsSep ? '' : (parts.pop() ?? '');
+  const chosenIds = new Set(parts.map((p) => guildEmoji(interaction.guild, p)?.id).filter(Boolean));
+  const prefix = parts.join(' ');
+  const query = last.toLowerCase().replace(/^:|:$/g, '');
+  return [...interaction.guild.emojis.cache.values()]
+    .filter((e) => !chosenIds.has(e.id) && e.name.toLowerCase().includes(query))
+    .slice(0, 25)
+    .map((e) => {
+      const value = (prefix ? `${prefix} ` : '') + e.id;
+      return {
+        name: `${prefix ? `(${chosenIds.size + 1}) ` : ''}${e.animated ? '[gif] ' : ''}:${e.name}:`.slice(0, 100),
+        value: value.slice(0, 100),
+      };
+    });
+}
+
 const emojiOption = (o, desc) => o.setName('emoji').setDescription(desc).setRequired(true).setAutocomplete(true);
 
 export default {
@@ -49,8 +72,8 @@ export default {
     .addSubcommand((sub) =>
       sub
         .setName('delete')
-        .setDescription('Supprimer un emoji du serveur.')
-        .addStringOption((o) => emojiOption(o, 'L’emoji à supprimer')),
+        .setDescription('Supprimer un ou plusieurs emojis du serveur.')
+        .addStringOption((o) => emojiOption(o, 'Le ou les emojis à supprimer (choisis-en plusieurs, ou sépare-les par un espace)')),
     )
     .addSubcommand((sub) =>
       sub
@@ -60,7 +83,8 @@ export default {
     ),
 
   async autocomplete(interaction) {
-    await interaction.respond(emojiChoices(interaction));
+    const sub = interaction.options.getSubcommand();
+    await interaction.respond(sub === 'delete' ? multiEmojiChoices(interaction) : emojiChoices(interaction));
   },
 
   async execute(interaction) {
@@ -83,27 +107,60 @@ export default {
       return interaction.reply({ embeds: [embed] });
     }
 
-    // --- rename / delete : seulement un emoji DU serveur ---
-    const emoji = guildEmoji(interaction.guild, input);
-    if (!emoji) {
-      return interaction.reply({ content: '❌ Cet emoji n’est pas sur ce serveur. Choisis-en un dans la liste.', ephemeral: true });
-    }
     if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageGuildExpressions)) {
       return interaction.reply({ content: '❌ Il me manque la permission **Gérer les emojis et stickers**.', ephemeral: true });
     }
 
+    // --- delete : un ou plusieurs emojis DU serveur ---
     if (sub === 'delete') {
-      const tag = `\`:${emoji.name}:\``;
-      const ok = await emoji.delete(`/emoji delete par ${interaction.user.tag}`).then(() => true).catch(() => false);
-      if (!ok) return interaction.reply({ content: `❌ Impossible de supprimer ${tag}.`, ephemeral: true });
-      await sendLog(
-        interaction.guild,
-        new EmbedBuilder().setColor(Colors.delete).setAuthor({ name: '🗑️ Emoji supprimé' }).setDescription(`${tag} (\`${emoji.id}\`)`).addFields({ name: 'Par', value: `${interaction.user}`, inline: true }).setTimestamp(),
-      );
-      return interaction.reply({ content: `✅ Emoji ${tag} supprimé.`, ephemeral: true });
+      const tokens = input.split(/[\s,]+/).filter(Boolean);
+      const seen = new Set();
+      const targets = [];
+      const unknown = [];
+      for (const t of tokens) {
+        const e = guildEmoji(interaction.guild, t);
+        if (!e) unknown.push(t);
+        else if (!seen.has(e.id)) {
+          seen.add(e.id);
+          targets.push(e);
+        }
+      }
+      if (!targets.length) {
+        return interaction.reply({ content: '❌ Aucun emoji de ce serveur trouvé. Choisis-en dans la liste.', ephemeral: true });
+      }
+
+      const deleted = [];
+      const failed = [];
+      for (const e of targets) {
+        const info = { name: e.name, id: e.id };
+        const ok = await e.delete(`/emoji delete par ${interaction.user.tag}`).then(() => true).catch(() => false);
+        (ok ? deleted : failed).push(info);
+      }
+
+      if (deleted.length) {
+        await sendLog(
+          interaction.guild,
+          new EmbedBuilder()
+            .setColor(Colors.delete)
+            .setAuthor({ name: `🗑️ ${deleted.length} emoji(s) supprimé(s)` })
+            .setDescription(deleted.map((e) => `\`:${e.name}:\` (\`${e.id}\`)`).join('\n'))
+            .addFields({ name: 'Par', value: `${interaction.user}`, inline: true })
+            .setTimestamp(),
+        );
+      }
+
+      const lines = [];
+      if (deleted.length) lines.push(`✅ ${deleted.length} emoji(s) supprimé(s) : ${deleted.map((e) => `\`:${e.name}:\``).join(' ')}`);
+      if (failed.length) lines.push(`❌ Échec pour : ${failed.map((e) => `\`:${e.name}:\``).join(' ')}`);
+      if (unknown.length) lines.push(`⚠️ Introuvables sur le serveur : ${unknown.map((t) => `\`${t}\``).join(' ')}`);
+      return interaction.reply({ content: lines.join('\n'), ephemeral: true });
     }
 
-    // rename
+    // --- rename : un seul emoji DU serveur ---
+    const emoji = guildEmoji(interaction.guild, input);
+    if (!emoji) {
+      return interaction.reply({ content: '❌ Cet emoji n’est pas sur ce serveur. Choisis-en un dans la liste.', ephemeral: true });
+    }
     const newName = interaction.options.getString('nom', true).trim();
     if (!validName(newName)) {
       return interaction.reply({ content: '❌ Nom invalide : 2 à 32 caractères, uniquement lettres, chiffres et `_`.', ephemeral: true });
