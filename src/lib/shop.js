@@ -24,7 +24,7 @@ export function parseColor(input) {
 // Boutique : objets virtuels achetés avec l'argent gagné en montant de niveau.
 // L'état (page + tri) est encodé dans les customId des boutons : shop_* .
 
-const PER_PAGE = 5;
+const PER_PAGE = 7;
 const COIN = '💰';
 
 export const formatMoney = (n) => n.toLocaleString('fr-FR').replace(/[  ]/g, ' ');
