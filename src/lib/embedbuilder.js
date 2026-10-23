@@ -24,6 +24,8 @@ import {
   getSentEmbeds,
   recordSentEmbed,
   removeSentEmbed,
+  addReactButton,
+  getReactButtonText,
 } from './store.js';
 import { TEMPLATE_HELP, renderEmbedFor } from './greetings.js';
 import {
@@ -69,11 +71,14 @@ const UNSAFE_PERMS = [
   PermissionFlagsBits.ManageMessages,
 ];
 
-const NO_ROLE_REACT = { buttons: [], options: [] };
+const NO_ROLE_REACT = { buttons: [], options: [], reacts: [] };
 const MAX_OPTIONS = 25;
 // 2 rangées sur les 5 du message (les 3 autres servent à l'aperçu) : le sélecteur en prend une entière.
+// Les boutons de rôle et les boutons « react » partagent ces rangées (5 par rangée).
 const maxRoleButtons = (rr) => (rr.options.length ? 5 : 10);
+const countButtons = (rr) => rr.buttons.length + (rr.reacts?.length ?? 0);
 const hasRoleReact = (rr) => rr.buttons.length > 0 || rr.options.length > 0;
+const hasReacts = (rr) => (rr.reacts?.length ?? 0) > 0;
 
 function cleanEmoji(emoji) {
   if (!emoji) return undefined;
@@ -82,7 +87,7 @@ function cleanEmoji(emoji) {
 }
 
 // mode : 'preview' (un clic retire), 'disabled' (aperçu inactif) ou 'live' (message envoyé).
-function roleReactRows({ buttons, options }, mode) {
+function roleReactRows({ buttons, options, reacts = [] }, mode) {
   const live = mode === 'live';
   const disabled = mode === 'disabled';
   const rows = [];
@@ -97,16 +102,25 @@ function roleReactRows({ buttons, options }, mode) {
       ),
     );
   }
-  for (let i = 0; i < buttons.length; i += 5) {
+  // Boutons de rôle (gris) + boutons « react » (bleus) dans les mêmes rangées, 5 par rangée.
+  const all = [
+    ...buttons.map((b) => ({ ...b, kind: 'role' })),
+    ...reacts.map((r) => ({ ...r, kind: 'react' })),
+  ];
+  for (let i = 0; i < all.length; i += 5) {
     rows.push(
       new ActionRowBuilder().addComponents(
-        buttons.slice(i, i + 5).map(({ roleId, emoji, label }) => {
+        all.slice(i, i + 5).map((b) => {
+          const customId =
+            b.kind === 'role'
+              ? `${live ? 'emb_role' : 'emb_rrdel'}:${b.roleId}`
+              : `${live ? 'emb_react' : 'emb_reactdel'}:${b.id}`;
           const button = new ButtonBuilder()
-            .setCustomId(`${live ? 'emb_role' : 'emb_rrdel'}:${roleId}`)
-            .setStyle(ButtonStyle.Secondary)
+            .setCustomId(customId)
+            .setStyle(b.kind === 'react' ? ButtonStyle.Primary : ButtonStyle.Secondary)
             .setDisabled(disabled);
-          if (emoji) button.setEmoji(emoji);
-          if (label) button.setLabel(label);
+          if (b.emoji) button.setEmoji(b.emoji);
+          if (b.label) button.setLabel(b.label);
           return button;
         }),
       ),
@@ -126,11 +140,16 @@ const selectOptions = (components, customId) => (components.find((c) => c.custom
 
 // Boutons et sélecteur de rôles d'une liste de composants : l'aperçu ("emb_rrdel:" / "emb_rsdel")
 // ou un message envoyé ("emb_role:" / "emb_rsel").
-function readRoleReact(components, buttonPrefix, selectId) {
+function readRoleReact(components, buttonPrefix, selectId, reactPrefix) {
   const buttons = components
     .filter((c) => c.customId?.startsWith(buttonPrefix))
     .map((c) => ({ roleId: c.customId.slice(buttonPrefix.length), emoji: cleanEmoji(c.emoji), label: c.label ?? undefined }));
-  return { buttons, options: selectOptions(components, selectId) };
+  const reacts = reactPrefix
+    ? components
+        .filter((c) => c.customId?.startsWith(reactPrefix))
+        .map((c) => ({ id: c.customId.slice(reactPrefix.length), emoji: cleanEmoji(c.emoji), label: c.label ?? undefined }))
+    : [];
+  return { buttons, options: selectOptions(components, selectId), reacts };
 }
 
 // "<:nom:id>" / "<a:nom:id>" ou l'emoji unicode, comme les motifs de tickets le stockent.
@@ -262,6 +281,58 @@ function applyRoleReactModal(interaction, kind, rr) {
   return { ...rr, options: upsert(rr.options, index, option) };
 }
 
+// --- Bouton « react » : comme un bouton role-react, mais il ne donne pas de rôle.
+// Au clic, il affiche un texte (choisi ici) en message éphémère. ---
+const MAX_REACT_TEXT = 1500;
+
+function reactButtonModal() {
+  const short = (id, required, max, placeholder) =>
+    new TextInputBuilder().setCustomId(id).setStyle(TextInputStyle.Short).setRequired(required).setMaxLength(max).setPlaceholder(placeholder);
+  return new ModalBuilder()
+    .setCustomId('emb_reactmodal')
+    .setTitle('Bouton react')
+    .addLabelComponents(
+      new LabelBuilder().setLabel('Emoji (optionnel)').setDescription(EMOJI_HELP).setTextInputComponent(short('emoji', false, 100, '✅')),
+      new LabelBuilder()
+        .setLabel('Texte du bouton (optionnel si emoji)')
+        .setTextInputComponent(short('label', false, 80, 'Clique ici')),
+      new LabelBuilder()
+        .setLabel('Message affiché au clic')
+        .setDescription('Ce que la personne verra (elle seule) après avoir cliqué')
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId('text')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setMaxLength(MAX_REACT_TEXT)
+            .setPlaceholder('Merci d’avoir cliqué ! Voici les infos…'),
+        ),
+    );
+}
+
+// Enregistre le texte en base et ajoute le bouton react à l'aperçu.
+function applyReactModal(interaction, rr) {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)) {
+    throw new Error('Il te faut la permission « Gérer les messages » pour ajouter un bouton react.');
+  }
+  const get = (k) => interaction.fields.getTextInputValue(k)?.trim() ?? '';
+  const emojiInput = get('emoji');
+  const label = get('label');
+  const text = get('text');
+  if (!emojiInput && !label) throw new Error('Mets au moins un emoji ou un texte de bouton.');
+  if (!text) throw new Error('Le message affiché au clic ne peut pas être vide.');
+
+  const reacts = rr.reacts ?? [];
+  const max = maxRoleButtons(rr);
+  if (countButtons(rr) >= max) {
+    throw new Error(`${max} boutons maximum${rr.options.length ? ' avec un sélecteur' : ''} (role-react + react) : retires-en un d’abord.`);
+  }
+  const id = addReactButton(interaction.guild.id, text);
+  const react = { id, label: label || undefined };
+  if (emojiInput) react.emoji = emojiFromInput(interaction, emojiInput);
+  return { ...rr, reacts: [...reacts, react] };
+}
+
 // --- Modification d'un embed existant (/modifierembed) ---
 // La cible est gardée dans l'id du bouton 💾 ("emb_save:<cible>") :
 //   m.<salon>.<message>  embed envoyé par le bot (role-react possible)
@@ -291,6 +362,7 @@ function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, m
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('emb_rr').setLabel('role-react : bouton').setStyle(ButtonStyle.Primary).setEmoji('🎭'),
       new ButtonBuilder().setCustomId('emb_rs').setLabel('role-react : sélecteur').setStyle(ButtonStyle.Primary).setEmoji('📋'),
+      new ButtonBuilder().setCustomId('emb_addreact').setLabel('bouton react (texte)').setStyle(ButtonStyle.Primary).setEmoji('💬'),
       new ButtonBuilder()
         .setCustomId('emb_shop')
         .setLabel(shop ? 'Boutique : activée' : 'Ajouter un bouton Boutique')
@@ -375,7 +447,7 @@ function currentState(interaction) {
   const components = (interaction.message?.components ?? []).flatMap((row) => row.components ?? []);
   return {
     role: interaction.message?.content?.match(/<@&(\d+)>/)?.[1] ?? null,
-    rr: readRoleReact(components, 'emb_rrdel:', 'emb_rsdel'),
+    rr: readRoleReact(components, 'emb_rrdel:', 'emb_rsdel', 'emb_reactdel:'),
     target: components.find((c) => c.customId?.startsWith('emb_save:'))?.customId.slice('emb_save:'.length) ?? null,
     motifs: selectOptions(components, 'emb_tmotif'),
     // Le bouton bascule « emb_shop » garde l'état activé/désactivé dans son libellé.
@@ -398,6 +470,12 @@ export function builderPayload(embed, note = '', state = {}) {
     hints.push(
       `🎭 **Role-react** — ajouté sous l’embed ${target ? 'à l’enregistrement (💾)' : 'à l’envoi (📨 / 📁)'} : choisir un rôle le donne, le rechoisir le retire.\n` +
         '-# Clique sur un bouton ou une option de l’aperçu pour le retirer. Pas de role-react sur les messages de bienvenue / départ.',
+    );
+  }
+  if (hasReacts(rr)) {
+    hints.push(
+      `💬 **Bouton react** — ajouté sous l’embed ${target ? 'à l’enregistrement (💾)' : 'à l’envoi (📨 / 📁)'} : au clic, il affiche un message (visible par la personne seule), sans donner de rôle.\n` +
+        '-# Clique sur un bouton react de l’aperçu pour le retirer.',
     );
   }
   if (type === 'ticket') {
@@ -701,9 +779,11 @@ async function loadTarget(interaction, value) {
     } else {
       const embed = cleanEmbed(message.embeds[0].toJSON());
       const components = message.components.flatMap((row) => row.components ?? []);
-      const roleReactOnly = components.every((c) => c.customId?.startsWith('emb_role:') || c.customId === 'emb_rsel');
+      const roleReactOnly = components.every(
+        (c) => c.customId?.startsWith('emb_role:') || c.customId === 'emb_rsel' || c.customId?.startsWith('emb_react:'),
+      );
       if (!roleReactOnly) return { embed, state: { target: `e.${a}.${b}` } };
-      return { embed, state: { target: `m.${a}.${b}`, rr: readRoleReact(components, 'emb_role:', 'emb_rsel') } };
+      return { embed, state: { target: `m.${a}.${b}`, rr: readRoleReact(components, 'emb_role:', 'emb_rsel', 'emb_react:') } };
     }
   }
 
@@ -938,6 +1018,16 @@ export async function handleEmbedBuilderInteraction(interaction) {
     return interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
   }
 
+  // --- Bouton react d'un embed envoyé : affiche le texte configuré (visible par la personne seule) ---
+  if (interaction.isButton() && action === 'emb_react') {
+    const text = getReactButtonText(interaction.guild.id, arg);
+    return interaction.reply({
+      content: text ?? '❌ Ce bouton n’a plus de message associé.',
+      ephemeral: true,
+      allowedMentions: { parse: [] },
+    });
+  }
+
   if (interaction.isStringSelectMenu() && action === 'emb_rsel') {
     // Remet le sélecteur à zéro : rechoisir la même option retire le rôle.
     await interaction.update({ components: interaction.message.components });
@@ -977,6 +1067,28 @@ export async function handleEmbedBuilderInteraction(interaction) {
   if (interaction.isButton() && action === 'emb_rrdel') {
     const next = { ...rr, buttons: rr.buttons.filter((b) => b.roleId !== arg) };
     return interaction.update(builderPayload(currentEmbed(interaction), '🗑️ Bouton de rôle retiré.', { ...state, rr: next }));
+  }
+
+  // --- Bouton react : formulaire → bouton ajouté à l'aperçu ---
+  if (interaction.isButton() && action === 'emb_addreact') {
+    return interaction.showModal(reactButtonModal());
+  }
+
+  if (interaction.isModalSubmit() && action === 'emb_reactmodal') {
+    let next;
+    try {
+      next = applyReactModal(interaction, rr);
+    } catch (err) {
+      return errorReply(interaction, err.message);
+    }
+    return interaction
+      .update(builderPayload(currentEmbed(interaction), '✅ Bouton react enregistré.', { ...state, rr: next }))
+      .catch((err) => errorReply(interaction, `Discord a refusé le bouton (emoji invalide ?) : ${err.message}`));
+  }
+
+  if (interaction.isButton() && action === 'emb_reactdel') {
+    const next = { ...rr, reacts: (rr.reacts ?? []).filter((r) => r.id !== arg) };
+    return interaction.update(builderPayload(currentEmbed(interaction), '🗑️ Bouton react retiré.', { ...state, rr: next }));
   }
 
   if (interaction.isStringSelectMenu() && action === 'emb_rsdel') {

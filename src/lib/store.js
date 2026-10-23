@@ -1116,6 +1116,23 @@ export function removeShopItem(guildId, itemId) {
   return removed;
 }
 
+// --- Boutons « react » d'un embed (/embed) : un bouton qui affiche juste un texte ---
+// Le texte (potentiellement long) est stocké ici, référencé par un id court dans le customId.
+export function addReactButton(guildId, text) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.reactButtons = g.reactButtons ?? {};
+  const id = `rb${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+  g.reactButtons[id] = text;
+  data[guildId] = g;
+  save(data, guildId);
+  return id;
+}
+
+export function getReactButtonText(guildId, id) {
+  return getGuildConfig(guildId).reactButtons?.[id] ?? null;
+}
+
 const MAX_PURCHASES = 500;
 
 export function addPurchase(guildId, record) {
