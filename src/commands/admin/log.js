@@ -9,6 +9,7 @@ import {
   ComponentType,
 } from 'discord.js';
 import { setGuildConfig, getGuildConfig } from '../../lib/store.js';
+import { ensureVoiceLogChannel } from '../../lib/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -74,8 +75,9 @@ export default {
         ],
       });
       setGuildConfig(interaction.guild.id, { logChannelId: channel.id });
+      const voc = await ensureVoiceLogChannel(interaction.guild).catch(() => null);
       return choice.update({
-        content: `✅ Salon de logs créé : <#${channel.id}>\nTous les événements seront enregistrés ici.`,
+        content: `✅ Salon de logs créé : <#${channel.id}>\nTous les événements seront enregistrés ici.${voc ? `\n🔊 Logs vocaux dans <#${voc.id}>.` : ''}`,
         components: [],
       });
     }
@@ -102,8 +104,9 @@ export default {
 
     const channelId = selection.values[0];
     setGuildConfig(interaction.guild.id, { logChannelId: channelId });
+    const voc = await ensureVoiceLogChannel(interaction.guild).catch(() => null);
     return selection.update({
-      content: `✅ Salon de logs configuré : <#${channelId}>\nTous les événements seront enregistrés ici.`,
+      content: `✅ Salon de logs configuré : <#${channelId}>\nTous les événements seront enregistrés ici.${voc ? `\n🔊 Logs vocaux dans <#${voc.id}>.` : ''}`,
       components: [],
     });
   },
