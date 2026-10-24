@@ -721,41 +721,44 @@ function migrateGreetEmbeds() {
   if (dirty.size) scheduleFlush();
 }
 
-// --- Famille virtuelle (/marry, /divorce, /adopt, /family) ---
-// family = { spouse: { userId: conjointId } (symétrique),
+// --- Famille virtuelle (/marry, /divorce, /adopt, /renier, /fuguer, /family) ---
+// family = { spouses: { userId: [conjointIds] } (symétrique, plusieurs mariages possibles),
 //            parent: { enfantId: parentId }, children: { parentId: [enfantIds] },
 //            since: { "a-b": timestamp } (date de mariage, clé triée) }
+// Ancien format (un seul conjoint) : spouse: { userId: conjointId }, converti à la lecture.
 export function getFamily(guildId) {
   const f = getGuildConfig(guildId).family ?? {};
-  return { spouse: f.spouse ?? {}, parent: f.parent ?? {}, children: f.children ?? {}, since: f.since ?? {} };
+  const spouses = f.spouses ?? Object.fromEntries(Object.entries(f.spouse ?? {}).map(([id, other]) => [id, [other]]));
+  return { spouses, parent: f.parent ?? {}, children: f.children ?? {}, since: f.since ?? {} };
 }
 
 const pairKey = (a, b) => [a, b].sort().join('-');
 
-// Relations d'un membre : conjoint, parent adoptif, enfants adoptés.
+// Relations d'un membre : conjoints, parent adoptif, enfants adoptés.
 export function getRelations(guildId, userId) {
   const f = getFamily(guildId);
-  return { spouse: f.spouse[userId] ?? null, parent: f.parent[userId] ?? null, children: f.children[userId] ?? [], since: f.since };
+  return { spouses: f.spouses[userId] ?? [], parent: f.parent[userId] ?? null, children: f.children[userId] ?? [], since: f.since };
 }
 
 export function marry(guildId, a, b) {
   const f = getFamily(guildId);
-  f.spouse[a] = b;
-  f.spouse[b] = a;
+  f.spouses[a] = [...(f.spouses[a] ?? []).filter((id) => id !== b), b];
+  f.spouses[b] = [...(f.spouses[b] ?? []).filter((id) => id !== a), a];
   f.since[pairKey(a, b)] = Date.now();
   setGuildConfig(guildId, { family: f });
 }
 
-// Annule le mariage de `userId`. Renvoie l'ex-conjoint, ou null s'il n'était pas marié.
-export function divorce(guildId, userId) {
+// Annule le mariage entre `userId` et `spouseId`. Renvoie true s'ils étaient mariés.
+export function divorce(guildId, userId, spouseId) {
   const f = getFamily(guildId);
-  const spouse = f.spouse[userId];
-  if (!spouse) return null;
-  delete f.spouse[userId];
-  delete f.spouse[spouse];
-  delete f.since[pairKey(userId, spouse)];
+  if (!(f.spouses[userId] ?? []).includes(spouseId)) return false;
+  for (const [a, b] of [[userId, spouseId], [spouseId, userId]]) {
+    f.spouses[a] = (f.spouses[a] ?? []).filter((id) => id !== b);
+    if (!f.spouses[a].length) delete f.spouses[a];
+  }
+  delete f.since[pairKey(userId, spouseId)];
   setGuildConfig(guildId, { family: f });
-  return spouse;
+  return true;
 }
 
 export function adopt(guildId, parentId, childId) {
@@ -1008,15 +1011,24 @@ export function setLevelUpConfig(guildId, { message, channelId }) {
   return setGuildConfig(guildId, { levelUpMessage: message, levelUpChannelId: channelId });
 }
 
+// Rôles-récompenses : levelRewards = { niveau: roleId }, levelRewardModes = { niveau: 'evolutif' }
+// (absent = « addition » : le rôle est gardé aux niveaux suivants).
 export function getLevelRewards(guildId) {
   return getGuildConfig(guildId).levelRewards ?? {};
 }
 
-export function setLevelReward(guildId, level, roleId) {
+export function getLevelRewardModes(guildId) {
+  return getGuildConfig(guildId).levelRewardModes ?? {};
+}
+
+export function setLevelReward(guildId, level, roleId, mode = 'addition') {
   const data = load();
   const g = data[guildId] ?? {};
   g.levelRewards = g.levelRewards ?? {};
   g.levelRewards[level] = roleId;
+  g.levelRewardModes = g.levelRewardModes ?? {};
+  if (mode === 'evolutif') g.levelRewardModes[level] = 'evolutif';
+  else delete g.levelRewardModes[level];
   data[guildId] = g;
   save(data, guildId);
 }
@@ -1026,6 +1038,7 @@ export function removeLevelReward(guildId, level) {
   const g = data[guildId] ?? {};
   if (!g.levelRewards || !(level in g.levelRewards)) return false;
   delete g.levelRewards[level];
+  if (g.levelRewardModes) delete g.levelRewardModes[level];
   data[guildId] = g;
   save(data, guildId);
   return true;

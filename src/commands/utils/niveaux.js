@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getLevelLeaderboard } from '../../lib/store.js';
-import { levelFromXp } from '../../lib/levels.js';
-import { Colors } from '../../lib/logger.js';
+import { levelFromXp, LEVEL_COLOR } from '../../lib/levels.js';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -23,7 +22,7 @@ export default {
       : '_Personne n’a encore d’XP._';
 
     const embed = new EmbedBuilder()
-      .setColor(Colors.role)
+      .setColor(LEVEL_COLOR)
       .setTitle('🏆 Classement des niveaux')
       .setDescription(lines)
       .setFooter({ text: `${interaction.guild.name}` })

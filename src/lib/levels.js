@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { font, fetchImage } from './fonts.js';
-import { addXp, levelUpChannelId, getLevelRewards, getLevelUpMessage, getLevelsEnabled, addMoney } from './store.js';
+import { addXp, levelUpChannelId, getLevelRewards, getLevelRewardModes, getLevelUpMessage, getLevelsEnabled, addMoney } from './store.js';
 
 // Image de fond de la carte de niveau (embarquée dans le projet : un lien Discord expire).
 const BG_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets', 'levelup-bg.jpg');
@@ -26,6 +26,9 @@ async function levelBackground() {
 
 // Argent gagné pour chaque niveau franchi (dépensable dans /shop).
 export const MONEY_PER_LEVEL = 200;
+
+// Couleur des embeds du système de niveaux (annonce, /niveau, /niveaux, récompenses).
+export const LEVEL_COLOR = 0xffffff;
 
 // Message texte par défaut au-dessus de la carte (modifiable via /configniveau).
 const DEFAULT_LEVELUP = 'bien joué {user} tu viens de passer au niveau {level} !';
@@ -192,14 +195,23 @@ export async function grantMessageXp(message) {
   }
 }
 
-// Rôles-récompenses cumulatifs selon le niveau atteint.
+// Rôles-récompenses selon le niveau atteint. « addition » : gardé dès le palier atteint ;
+// « évolutif » : seul le rôle du plus haut palier évolutif atteint est gardé (il remplace les précédents).
 export async function syncLevelRoles(member, level = 0) {
-  const rewards = getLevelRewards(member.guild.id);
-  for (const [lvlStr, roleId] of Object.entries(rewards)) {
-    const lvl = Number(lvlStr);
+  const rewards = Object.entries(getLevelRewards(member.guild.id)).map(([lvl, roleId]) => [Number(lvl), roleId]);
+  const modes = getLevelRewardModes(member.guild.id);
+  const topEvolving = Math.max(-1, ...rewards.filter(([lvl]) => modes[lvl] === 'evolutif' && level >= lvl).map(([lvl]) => lvl));
+  // Un même rôle peut servir à plusieurs paliers : il est gardé si l'un d'eux le donne.
+  const wanted = new Map();
+  for (const [lvl, roleId] of rewards) {
+    const keep = modes[lvl] === 'evolutif' ? lvl === topEvolving : level >= lvl;
+    if (keep) wanted.set(roleId, lvl);
+    else if (!wanted.has(roleId)) wanted.set(roleId, null);
+  }
+  for (const [roleId, lvl] of wanted) {
     const has = member.roles.cache.has(roleId);
-    if (level >= lvl && !has) await member.roles.add(roleId, `Récompense de niveau ${lvl}`).catch(() => {});
-    else if (level < lvl && has) await member.roles.remove(roleId, `Niveau ${lvl} non atteint`).catch(() => {});
+    if (lvl !== null && !has) await member.roles.add(roleId, `Récompense de niveau ${lvl}`).catch(() => {});
+    else if (lvl === null && has) await member.roles.remove(roleId, 'Palier de niveau non atteint ou remplacé').catch(() => {});
   }
 }
 
@@ -215,7 +227,7 @@ async function announceLevelUp(message, level) {
   const content = formatLevelUp(template, { user: message.author, level, guild: message.guild });
   const card = await renderLevelUpCard(message.author, message.member, level).catch(() => null);
 
-  const embed = new EmbedBuilder().setColor(0x5865f2).setDescription(content);
+  const embed = new EmbedBuilder().setColor(LEVEL_COLOR).setDescription(content);
   if (card) embed.setImage('attachment://levelup.png');
 
   // La mention reste dans le contenu pour notifier le membre (un embed ne ping pas).

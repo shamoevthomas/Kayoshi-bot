@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getXp, getLevelRank } from '../../lib/store.js';
-import { levelInfo } from '../../lib/levels.js';
-import { Colors } from '../../lib/logger.js';
+import { levelInfo, LEVEL_COLOR } from '../../lib/levels.js';
 
 function progressBar(into, span, size = 14) {
   const ratio = span > 0 ? Math.min(1, into / span) : 0;
@@ -27,7 +26,7 @@ export default {
     const rank = getLevelRank(interaction.guild.id, user.id);
 
     const embed = new EmbedBuilder()
-      .setColor(Colors.role)
+      .setColor(LEVEL_COLOR)
       .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
       .setTitle(`🎚️ Niveau ${info.level}`)
       .setDescription(

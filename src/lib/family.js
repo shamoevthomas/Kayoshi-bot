@@ -3,10 +3,12 @@ import { createCanvas } from '@napi-rs/canvas';
 import { font, fetchImage } from './fonts.js';
 import { getRelations, marry, divorce, adopt, removeAdoption, getFamily } from './store.js';
 
-// Famille virtuelle : /marry (mariage), /divorce, /adopt (adoption), /family (arbre en image).
+// Famille virtuelle : /marry (mariage, plusieurs possibles), /divorce, /adopt (adoption),
+// /renier (abandonner un enfant), /fuguer (quitter son parent), /family (arbre en image).
 // Les demandes de mariage et d'adoption attendent l'accord du membre visé (boutons).
 
 const PROPOSE_TIMEOUT = 5 * 60_000;
+const MAX_SPOUSES = 10;
 
 // --- Vérifications ---
 
@@ -26,8 +28,9 @@ export function marriageProblem(guildId, proposerId, targetId, target) {
   if (target.bot) return 'On ne peut pas se marier avec un bot.';
   if (proposerId === targetId) return 'Tu ne peux pas te marier avec toi-même.';
   const me = getRelations(guildId, proposerId);
-  if (me.spouse) return me.spouse === targetId ? 'Vous êtes déjà mariés tous les deux.' : 'Tu es déjà marié(e). Fais `/divorce` d’abord.';
-  if (getRelations(guildId, targetId).spouse) return 'Cette personne est déjà mariée.';
+  if (me.spouses.includes(targetId)) return 'Vous êtes déjà mariés tous les deux.';
+  if (me.spouses.length >= MAX_SPOUSES) return `Tu as déjà ${MAX_SPOUSES} conjoints (le maximum). Fais \`/divorce\` d’abord.`;
+  if (getRelations(guildId, targetId).spouses.length >= MAX_SPOUSES) return `Cette personne a déjà ${MAX_SPOUSES} conjoints (le maximum).`;
   if (me.parent === targetId || me.children.includes(targetId)) return 'On ne peut pas se marier avec son parent ou son enfant adoptif.';
   return null;
 }
@@ -38,7 +41,7 @@ export function adoptionProblem(guildId, parentId, childId, child) {
   if (parentId === childId) return 'Tu ne peux pas t’adopter toi-même.';
   const childRel = getRelations(guildId, childId);
   if (childRel.parent) return childRel.parent === parentId ? 'Tu as déjà adopté cette personne.' : 'Cette personne a déjà un parent adoptif.';
-  if (getRelations(guildId, parentId).spouse === childId) return 'On ne peut pas adopter son conjoint.';
+  if (getRelations(guildId, parentId).spouses.includes(childId)) return 'On ne peut pas adopter son conjoint.';
   if (ancestors(guildId, parentId).has(childId)) return 'On ne peut pas adopter un de ses parents ou grands-parents.';
   return null;
 }
@@ -157,11 +160,38 @@ async function resolve(guild, id) {
   return { member, user };
 }
 
+// Enfants affichés dans la famille d'un membre : les siens, puis ceux de chacun de ses
+// conjoints (sans lui-même ni ses conjoints, s'ils en font partie).
+function familyChildren(rel, guildId, userId) {
+  const seen = new Set([userId, ...rel.spouses]);
+  const out = [];
+  for (const parentId of [userId, ...rel.spouses]) {
+    const children = parentId === userId ? rel.children : getRelations(guildId, parentId).children;
+    for (const id of children) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({ id, parentId });
+    }
+  }
+  return out;
+}
+
 export async function renderFamilyCard(guild, userId) {
   const rel = getRelations(guild.id, userId);
   const AV = 96;
   const ROW = AV + 78; // avatar + ses deux lignes de texte + espace pour le trait
-  const W = Math.max(640, 80 + Math.max(rel.children.length, rel.spouse ? 2 : 1) * 175);
+  const GAP = 175;
+
+  // Rangée du couple : le membre au milieu, ses conjoints à tour de rôle à sa droite et à sa gauche.
+  const right = rel.spouses.filter((_, i) => i % 2 === 0);
+  const left = rel.spouses.filter((_, i) => i % 2 === 1).reverse();
+  const coupleRow = [...left, userId, ...right];
+  // Enfants rangés dans l'ordre de leur parent sur la rangée du couple.
+  const kids = familyChildren(rel, guild.id, userId).sort((a, b) => coupleRow.indexOf(a.parentId) - coupleRow.indexOf(b.parentId));
+
+  const W = Math.max(640, 80 + Math.max(kids.length, coupleRow.length) * GAP);
+  const xOf = (id) => W / 2 + (coupleRow.indexOf(id) - (coupleRow.length - 1) / 2) * GAP;
+  const selfX = xOf(userId);
 
   // Rangées empilées du haut vers le bas : parent (option) → couple → enfants (option).
   let cursor = 72; // sous le titre
@@ -169,8 +199,9 @@ export async function renderFamilyCard(guild, userId) {
   if (rel.parent) cursor += ROW;
   const coupleY = cursor + AV / 2;
   cursor += ROW;
-  const childY = rel.children.length ? cursor + AV / 2 : null;
-  if (rel.children.length) cursor += ROW;
+  if (kids.length) cursor += 24; // place pour le trait qui descend sous les noms
+  const childY = kids.length ? cursor + AV / 2 : null;
+  if (kids.length) cursor += ROW;
   const H = cursor + 6;
 
   const canvas = createCanvas(W, H);
@@ -187,37 +218,49 @@ export async function renderFamilyCard(guild, userId) {
   ctx.textBaseline = 'middle';
   ctx.fillText(`Famille de ${self?.displayName ?? selfUser?.username ?? 'ce membre'}`, W / 2, 40);
 
-  // Parent adoptif, relié au couple (trait tracé avant les avatars, donc derrière).
+  // Parent adoptif, au-dessus du membre (trait tracé avant les avatars, donc derrière).
   if (rel.parent) {
     const { member, user } = await resolve(guild, rel.parent);
-    line(ctx, W / 2, parentY + AV / 2, W / 2, coupleY - AV / 2);
-    await avatarNode(ctx, user, member, W / 2, parentY, AV, 'Parent', C.line);
+    line(ctx, selfX, parentY + AV / 2, selfX, coupleY - AV / 2);
+    await avatarNode(ctx, user, member, selfX, parentY, AV, 'Parent', C.line);
   }
 
-  // Le membre, et son conjoint à côté (cœur entre les deux).
-  if (rel.spouse) {
-    const { member, user } = await resolve(guild, rel.spouse);
-    const gap = 160;
-    ctx.font = font(34);
-    ctx.fillStyle = C.heart;
-    ctx.fillText('💗', W / 2, coupleY);
-    await avatarNode(ctx, selfUser, self, W / 2 - gap / 2, coupleY, AV, 'Toi', C.ring);
-    await avatarNode(ctx, user, member, W / 2 + gap / 2, coupleY, AV, 'Marié(e)', C.heart);
-  } else {
-    await avatarNode(ctx, selfUser, self, W / 2, coupleY, AV, 'Célibataire', C.ring);
+  // Le membre et ses conjoints, avec un cœur entre lui et ses voisins directs.
+  const names = new Map();
+  for (const id of coupleRow) {
+    if (id === userId) {
+      await avatarNode(ctx, selfUser, self, selfX, coupleY, AV, rel.spouses.length ? 'Toi' : 'Célibataire', C.ring);
+      continue;
+    }
+    const { member, user } = await resolve(guild, id);
+    names.set(id, member?.displayName ?? user?.username ?? 'Inconnu');
+    await avatarNode(ctx, user, member, xOf(id), coupleY, AV, 'Marié(e)', C.heart);
+  }
+  const selfIndex = coupleRow.indexOf(userId);
+  ctx.font = font(34);
+  ctx.fillStyle = C.heart;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const neighbour of [coupleRow[selfIndex - 1], coupleRow[selfIndex + 1]].filter(Boolean)) {
+    ctx.fillText('💗', (selfX + xOf(neighbour)) / 2, coupleY);
   }
 
-  // Enfants adoptés, reliés au couple par un trait en T.
-  if (rel.children.length) {
-    const spacing = W / (rel.children.length + 1);
+  // Enfants (les siens et ceux de ses conjoints), reliés au couple par un trait en T :
+  // depuis le cœur s'il n'a qu'un conjoint, sinon depuis le membre (sous son nom).
+  if (kids.length) {
+    const spacing = W / (kids.length + 1);
     const busY = childY - AV / 2 - 22;
-    line(ctx, W / 2, coupleY + AV / 2, W / 2, busY);
-    line(ctx, spacing, busY, W - spacing, busY);
-    for (const [i, childId] of rel.children.entries()) {
+    const [anchorX, anchorY] =
+      rel.spouses.length === 1 ? [(selfX + xOf(rel.spouses[0])) / 2, coupleY + 22] : [selfX, coupleY + AV / 2 + 58];
+    line(ctx, anchorX, anchorY, anchorX, busY);
+    line(ctx, Math.min(anchorX, spacing), busY, Math.max(anchorX, W - spacing), busY);
+    for (const [i, kid] of kids.entries()) {
       const x = spacing * (i + 1);
-      const { member, user } = await resolve(guild, childId);
+      const { member, user } = await resolve(guild, kid.id);
       line(ctx, x, busY, x, childY - AV / 2);
-      await avatarNode(ctx, user, member, x, childY, AV, 'Enfant', C.line);
+      const parentName = names.get(kid.parentId) ?? '';
+      const label = kid.parentId === userId ? 'Enfant' : `Enfant de ${parentName.length > 9 ? parentName.slice(0, 8) + '…' : parentName}`;
+      await avatarNode(ctx, user, member, x, childY, AV, label, C.line);
     }
   }
 
@@ -228,14 +271,19 @@ export async function renderFamilyCard(guild, userId) {
 export function familySummary(guild, userId) {
   const rel = getRelations(guild.id, userId);
   const lines = [];
-  if (rel.spouse) {
-    const key = [userId, rel.spouse].sort().join('-');
-    const since = rel.since[key];
-    lines.push(`💍 Marié(e) à <@${rel.spouse}>${since ? ` depuis <t:${Math.floor(since / 1000)}:D>` : ''}`);
-  } else lines.push('💍 Célibataire');
+  for (const spouse of rel.spouses) {
+    const since = rel.since[[userId, spouse].sort().join('-')];
+    lines.push(`💍 Marié(e) à <@${spouse}>${since ? ` depuis <t:${Math.floor(since / 1000)}:D>` : ''}`);
+  }
+  if (!rel.spouses.length) lines.push('💍 Célibataire');
   if (rel.parent) lines.push(`👤 Parent : <@${rel.parent}>`);
-  if (rel.children.length) lines.push(`🍼 Enfant(s) : ${rel.children.map((id) => `<@${id}>`).join(', ')}`);
+  const kids = familyChildren(rel, guild.id, userId);
+  for (const parentId of [userId, ...rel.spouses]) {
+    const ids = kids.filter((k) => k.parentId === parentId).map((k) => `<@${k.id}>`);
+    if (!ids.length) continue;
+    lines.push(parentId === userId ? `🍼 Enfant(s) : ${ids.join(', ')}` : `🍼 Enfant(s) de <@${parentId}> : ${ids.join(', ')}`);
+  }
   return new EmbedBuilder().setColor(0xeb459e).setDescription(lines.join('\n'));
 }
 
-export { removeAdoption, divorce, getFamily };
+export { removeAdoption, divorce, getFamily, getRelations };

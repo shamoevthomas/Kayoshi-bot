@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { getXp, setXp, addXp, getLevelRewards, setLevelReward, removeLevelReward } from '../../lib/store.js';
-import { levelFromXp, xpForLevel, xpDeltaForLevels, syncLevelRoles } from '../../lib/levels.js';
+import { getXp, setXp, addXp, getLevelRewards, getLevelRewardModes, setLevelReward, removeLevelReward } from '../../lib/store.js';
+import { levelFromXp, xpForLevel, xpDeltaForLevels, syncLevelRoles, LEVEL_COLOR } from '../../lib/levels.js';
 import { sendLog, Colors } from '../../lib/logger.js';
 
 // Refuse un rôle que le bot ne pourra pas attribuer.
@@ -78,7 +78,14 @@ export default {
             .setName('ajouter')
             .setDescription('Attribuer un rôle à partir d’un niveau.')
             .addIntegerOption((o) => o.setName('niveau').setDescription('Niveau requis').setRequired(true).setMinValue(1))
-            .addRoleOption((o) => o.setName('role').setDescription('Rôle à donner').setRequired(true)),
+            .addRoleOption((o) => o.setName('role').setDescription('Rôle à donner').setRequired(true))
+            .addStringOption((o) =>
+              o
+                .setName('mode')
+                .setDescription('Addition : le rôle est gardé. Évolutif : remplacé par le rôle du palier évolutif suivant.')
+                .setRequired(true)
+                .addChoices({ name: 'Addition', value: 'addition' }, { name: 'Évolutif', value: 'evolutif' }),
+            ),
         )
         .addSubcommand((s) =>
           s
@@ -168,9 +175,14 @@ async function handleRewards(interaction, guildId) {
     const problem = roleProblem(interaction.guild, role);
     if (problem) return interaction.reply({ content: `❌ ${problem}`, ephemeral: true });
 
-    setLevelReward(guildId, level, role.id);
+    const mode = interaction.options.getString('mode');
+    setLevelReward(guildId, level, role.id, mode);
+    const how =
+      mode === 'evolutif'
+        ? '**Évolutif** : il sera remplacé par le rôle du palier évolutif suivant.'
+        : '**Addition** : ils le gardent aux niveaux suivants.';
     return interaction.reply({
-      content: `✅ À partir du **niveau ${level}**, les membres reçoivent ${role}.\n_(appliqué automatiquement au prochain changement de niveau ; les membres déjà à ce niveau l’obtiendront quand leur niveau bougera)_`,
+      content: `✅ À partir du **niveau ${level}**, les membres reçoivent ${role}. ${how}\n_(appliqué automatiquement au prochain changement de niveau ; les membres déjà à ce niveau l’obtiendront quand leur niveau bougera)_`,
       ephemeral: true,
     });
   }
@@ -188,13 +200,14 @@ async function handleRewards(interaction, guildId) {
 
   // liste
   const rewards = getLevelRewards(guildId);
+  const modes = getLevelRewardModes(guildId);
   const entries = Object.entries(rewards).sort((a, b) => Number(a[0]) - Number(b[0]));
   const embed = new EmbedBuilder()
-    .setColor(Colors.role)
+    .setColor(LEVEL_COLOR)
     .setTitle('🏅 Rôles-récompenses par niveau')
     .setDescription(
       entries.length
-        ? entries.map(([lvl, roleId]) => `**Niveau ${lvl}** → <@&${roleId}>`).join('\n')
+        ? entries.map(([lvl, roleId]) => `**Niveau ${lvl}** → <@&${roleId}> · ${modes[lvl] === 'evolutif' ? 'évolutif' : 'addition'}`).join('\n')
         : '_Aucune récompense configurée._ Utilise `/xp recompense ajouter`.',
     );
   return interaction.reply({ embeds: [embed], ephemeral: true });
