@@ -271,8 +271,7 @@ export async function runTicketWizard(interaction, slot = 1) {
     setTicketConfig(guild.id, config, key);
     const panelChannel = guild.channels.cache.get(config.panelChannelId) ?? (await guild.channels.fetch(config.panelChannelId));
     const panelMsg = await panelChannel.send(buildTicketPanel(config, slot));
-    // On mémorise le message du panneau pour pouvoir le ré-éditer plus tard
-    // (ex. /modifiermotifticket).
+    // On mémorise le message du panneau pour pouvoir le ré-éditer plus tard.
     config.panelMessageId = panelMsg.id;
     setTicketConfig(guild.id, config, key);
 

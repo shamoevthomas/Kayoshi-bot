@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { font, fetchImage } from './fonts.js';
-import { addXp, levelUpChannelId, getLevelRewards, getLevelRewardModes, getLevelUpMessage, getLevelsEnabled, addMoney } from './store.js';
+import { addXp, getXp, levelUpChannelId, getLevelRewards, getLevelRewardModes, getLevelUpMessage, getLevelsEnabled, addMoney } from './store.js';
 
 // Image de fond de la carte de niveau (embarquée dans le projet : un lien Discord expire).
 const BG_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets', 'levelup-bg.jpg');
@@ -184,15 +184,22 @@ export async function grantMessageXp(message) {
   const { before, after } = addXp(message.guild.id, message.author.id, gain);
   const oldLevel = levelFromXp(before);
   const newLevel = levelFromXp(after);
-  if (newLevel !== oldLevel) {
-    const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
-    if (member) await syncLevelRoles(member, newLevel).catch(() => {});
-  }
+  // Rôles-récompenses remis à jour à chaque gain (pas seulement au changement de niveau) :
+  // un palier ajouté après coup ou celui du niveau 0 est donné dès le message suivant.
+  const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
+  if (member) await syncLevelRoles(member, newLevel).catch(() => {});
   if (newLevel > oldLevel) {
     // Récompense en argent pour chaque niveau gagné.
     addMoney(message.guild.id, message.author.id, MONEY_PER_LEVEL * (newLevel - oldLevel));
     await announceLevelUp(message, newLevel).catch((err) => console.error('[levels]', err));
   }
+}
+
+// À l'arrivée d'un membre : rôles-récompenses de son niveau (palier 0 pour un nouveau,
+// son ancien niveau s'il revient), si le système de niveaux est activé.
+export async function syncMemberLevelRoles(member) {
+  if (!getLevelsEnabled(member.guild.id)) return;
+  await syncLevelRoles(member, levelFromXp(getXp(member.guild.id, member.id)));
 }
 
 // Rôles-récompenses selon le niveau atteint. « addition » : gardé dès le palier atteint ;

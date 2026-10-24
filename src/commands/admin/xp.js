@@ -77,7 +77,7 @@ export default {
           s
             .setName('ajouter')
             .setDescription('Attribuer un rôle à partir d’un niveau.')
-            .addIntegerOption((o) => o.setName('niveau').setDescription('Niveau requis').setRequired(true).setMinValue(1))
+            .addIntegerOption((o) => o.setName('niveau').setDescription('Niveau requis (0 = dès l’arrivée)').setRequired(true).setMinValue(0))
             .addRoleOption((o) => o.setName('role').setDescription('Rôle à donner').setRequired(true))
             .addStringOption((o) =>
               o
@@ -91,7 +91,7 @@ export default {
           s
             .setName('retirer')
             .setDescription('Supprimer la récompense d’un niveau.')
-            .addIntegerOption((o) => o.setName('niveau').setDescription('Niveau concerné').setRequired(true).setMinValue(1)),
+            .addIntegerOption((o) => o.setName('niveau').setDescription('Niveau concerné').setRequired(true).setMinValue(0)),
         )
         .addSubcommand((s) => s.setName('liste').setDescription('Voir les rôles-récompenses configurés.')),
     ),
@@ -182,7 +182,7 @@ async function handleRewards(interaction, guildId) {
         ? '**Évolutif** : il sera remplacé par le rôle du palier évolutif suivant.'
         : '**Addition** : ils le gardent aux niveaux suivants.';
     return interaction.reply({
-      content: `✅ À partir du **niveau ${level}**, les membres reçoivent ${role}. ${how}\n_(appliqué automatiquement au prochain changement de niveau ; les membres déjà à ce niveau l’obtiendront quand leur niveau bougera)_`,
+      content: `✅ À partir du **niveau ${level}**, les membres reçoivent ${role}. ${how}\n_(appliqué automatiquement à l’arrivée des membres et à chaque message qui leur rapporte de l’XP : les membres déjà à ce niveau l’obtiendront à leur prochain message)_`,
       ephemeral: true,
     });
   }

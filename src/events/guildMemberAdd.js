@@ -10,6 +10,7 @@ import { reconcileAutoRoles } from '../lib/autoroles.js';
 import { applyNickLock } from '../lib/nicklock.js';
 import { restoreJailOnJoin } from '../lib/jail.js';
 import { kickIfRecentAccount } from '../lib/accountage.js';
+import { syncMemberLevelRoles } from '../lib/levels.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -40,6 +41,8 @@ export default {
     await applyNickLock(member).catch((err) => console.error(err));
     // Rôles automatiques (tag / statut) si le membre y est déjà éligible.
     await reconcileAutoRoles(member).catch(() => {});
+    // Rôles-récompenses de niveau (palier 0 pour un nouveau membre).
+    await syncMemberLevelRoles(member).catch((err) => console.error(err));
     // Vérification anti-bot (si configurée)
     await onMemberJoin(member).catch((err) => console.error(err));
     // Message de bienvenue (si configuré)
