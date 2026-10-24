@@ -571,33 +571,23 @@ export function removeNickLock(guildId, userId) {
   return true;
 }
 
-// --- Jail (/jailconfig, /jail, /unjail) ---
-// jailConfig = { addRoleId, removeRoleId }
-// jailed = { [userId]: { addRoleId, removeRoleId, hadRole, by, at, reason } } :
-// rôles figés au moment du jail, pour que /unjail rende exactement ce qui a été
-// retiré. Conservé si le membre quitte le serveur (jail remis à son retour).
-export function getJailConfig(guildId) {
-  return getGuildConfig(guildId).jailConfig ?? null;
+// --- Confessions anonymes (/configconfessions) ---
+// confessions = { channelId, count } : salon des confessions et dernier numéro attribué.
+// L'auteur d'une confession n'est jamais enregistré.
+export function getConfessionConfig(guildId) {
+  return getGuildConfig(guildId).confessions ?? null;
 }
 
-export function setJailConfig(guildId, jailConfig) {
-  return setGuildConfig(guildId, { jailConfig });
+export function setConfessionChannel(guildId, channelId) {
+  setGuildConfig(guildId, { confessions: { count: 0, ...getConfessionConfig(guildId), channelId } });
 }
 
-export function getJailRecord(guildId, userId) {
-  return getGuildConfig(guildId).jailed?.[userId] ?? null;
-}
-
-export function setJailRecord(guildId, userId, record) {
-  setGuildConfig(guildId, { jailed: { ...(getGuildConfig(guildId).jailed ?? {}), [userId]: record } });
-}
-
-export function removeJailRecord(guildId, userId) {
-  const jailed = { ...(getGuildConfig(guildId).jailed ?? {}) };
-  if (!jailed[userId]) return false;
-  delete jailed[userId];
-  setGuildConfig(guildId, { jailed });
-  return true;
+// Réserve le numéro de la prochaine confession.
+export function nextConfessionNumber(guildId) {
+  const cfg = getConfessionConfig(guildId) ?? {};
+  const number = (cfg.count ?? 0) + 1;
+  setGuildConfig(guildId, { confessions: { ...cfg, count: number } });
+  return number;
 }
 
 // --- Message GIF sans perm image (/messimage) ---
@@ -1033,12 +1023,29 @@ export function setLevelReward(guildId, level, roleId, mode = 'addition') {
   save(data, guildId);
 }
 
+// Argent donné en passant un niveau : levelMoneyRewards = { niveau: montant }.
+export function getLevelMoneyRewards(guildId) {
+  return getGuildConfig(guildId).levelMoneyRewards ?? {};
+}
+
+export function setLevelMoneyReward(guildId, level, amount) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.levelMoneyRewards = { ...(g.levelMoneyRewards ?? {}), [level]: amount };
+  data[guildId] = g;
+  save(data, guildId);
+}
+
+// Supprime toutes les récompenses d'un niveau (rôle et argent). Renvoie true s'il y en avait.
 export function removeLevelReward(guildId, level) {
   const data = load();
   const g = data[guildId] ?? {};
-  if (!g.levelRewards || !(level in g.levelRewards)) return false;
-  delete g.levelRewards[level];
+  const hadRole = Boolean(g.levelRewards && level in g.levelRewards);
+  const hadMoney = Boolean(g.levelMoneyRewards && level in g.levelMoneyRewards);
+  if (!hadRole && !hadMoney) return false;
+  if (hadRole) delete g.levelRewards[level];
   if (g.levelRewardModes) delete g.levelRewardModes[level];
+  if (hadMoney) delete g.levelMoneyRewards[level];
   data[guildId] = g;
   save(data, guildId);
   return true;

@@ -1,6 +1,17 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { getXp, setXp, addXp, getLevelRewards, getLevelRewardModes, setLevelReward, removeLevelReward } from '../../lib/store.js';
-import { levelFromXp, xpForLevel, xpDeltaForLevels, syncLevelRoles, LEVEL_COLOR } from '../../lib/levels.js';
+import {
+  getXp,
+  setXp,
+  addXp,
+  getLevelRewards,
+  getLevelRewardModes,
+  getLevelMoneyRewards,
+  setLevelReward,
+  setLevelMoneyReward,
+  removeLevelReward,
+} from '../../lib/store.js';
+import { formatMoney } from '../../lib/shop.js';
+import { levelFromXp, xpForLevel, xpDeltaForLevels, syncLevelRoles, LEVEL_COLOR, MONEY_PER_LEVEL } from '../../lib/levels.js';
 import { sendLog, Colors } from '../../lib/logger.js';
 
 // Refuse un rôle que le bot ne pourra pas attribuer.
@@ -78,13 +89,15 @@ export default {
             .setName('ajouter')
             .setDescription('Attribuer un rôle à partir d’un niveau.')
             .addIntegerOption((o) => o.setName('niveau').setDescription('Niveau requis (0 = dès l’arrivée)').setRequired(true).setMinValue(0))
-            .addRoleOption((o) => o.setName('role').setDescription('Rôle à donner').setRequired(true))
+            .addRoleOption((o) => o.setName('role').setDescription('Rôle à donner (facultatif si tu donnes de l’argent)'))
             .addStringOption((o) =>
               o
                 .setName('mode')
-                .setDescription('Addition : le rôle est gardé. Évolutif : remplacé par le rôle du palier évolutif suivant.')
-                .setRequired(true)
+                .setDescription('Pour le rôle. Addition (par défaut) : gardé. Évolutif : remplacé au palier évolutif suivant.')
                 .addChoices({ name: 'Addition', value: 'addition' }, { name: 'Évolutif', value: 'evolutif' }),
+            )
+            .addIntegerOption((o) =>
+              o.setName('argent').setDescription('Argent donné en passant ce niveau (à la place ou en plus du rôle)').setMinValue(1),
             ),
         )
         .addSubcommand((s) =>
@@ -172,19 +185,35 @@ async function handleRewards(interaction, guildId) {
   if (sub === 'ajouter') {
     const level = interaction.options.getInteger('niveau');
     const role = interaction.options.getRole('role');
-    const problem = roleProblem(interaction.guild, role);
+    const mode = interaction.options.getString('mode') ?? 'addition';
+    const money = interaction.options.getInteger('argent');
+    if (!role && !money) {
+      return interaction.reply({ content: '❌ Choisis au moins un rôle (`role`) ou une somme d’argent (`argent`) à donner.', ephemeral: true });
+    }
+    // L'argent est versé au passage d'un niveau : le niveau 0 (celui de départ) ne se passe jamais.
+    if (money && level === 0) {
+      return interaction.reply({ content: '❌ L’argent est donné en passant un niveau : choisis un niveau à partir de 1.', ephemeral: true });
+    }
+    const problem = role && roleProblem(interaction.guild, role);
     if (problem) return interaction.reply({ content: `❌ ${problem}`, ephemeral: true });
 
-    const mode = interaction.options.getString('mode');
-    setLevelReward(guildId, level, role.id, mode);
-    const how =
-      mode === 'evolutif'
-        ? '**Évolutif** : il sera remplacé par le rôle du palier évolutif suivant.'
-        : '**Addition** : ils le gardent aux niveaux suivants.';
-    return interaction.reply({
-      content: `✅ À partir du **niveau ${level}**, les membres reçoivent ${role}. ${how}\n_(appliqué automatiquement à l’arrivée des membres et à chaque message qui leur rapporte de l’XP : les membres déjà à ce niveau l’obtiendront à leur prochain message)_`,
-      ephemeral: true,
-    });
+    const lines = [];
+    if (role) {
+      setLevelReward(guildId, level, role.id, mode);
+      const how =
+        mode === 'evolutif'
+          ? '**Évolutif** : il sera remplacé par le rôle du palier évolutif suivant.'
+          : '**Addition** : ils le gardent aux niveaux suivants.';
+      lines.push(`✅ À partir du **niveau ${level}**, les membres reçoivent ${role}. ${how}`);
+    }
+    if (money) {
+      setLevelMoneyReward(guildId, level, money);
+      lines.push(`✅ En passant le **niveau ${level}**, les membres reçoivent 💰 **${formatMoney(money)}** (en plus des ${formatMoney(MONEY_PER_LEVEL)} habituels).`);
+    }
+    if (role) {
+      lines.push('_(rôle appliqué automatiquement à l’arrivée des membres et à chaque message qui leur rapporte de l’XP : les membres déjà à ce niveau l’obtiendront à leur prochain message)_');
+    }
+    return interaction.reply({ content: lines.join('\n'), ephemeral: true });
   }
 
   if (sub === 'retirer') {
@@ -192,7 +221,7 @@ async function handleRewards(interaction, guildId) {
     const removed = removeLevelReward(guildId, level);
     return interaction.reply({
       content: removed
-        ? `✅ Récompense du **niveau ${level}** supprimée. _(les membres gardent le rôle déjà obtenu)_`
+        ? `✅ Récompenses du **niveau ${level}** supprimées (rôle et argent). _(les membres gardent ce qu’ils ont déjà obtenu)_`
         : `ℹ️ Aucune récompense n’était configurée pour le niveau ${level}.`,
       ephemeral: true,
     });
@@ -201,13 +230,21 @@ async function handleRewards(interaction, guildId) {
   // liste
   const rewards = getLevelRewards(guildId);
   const modes = getLevelRewardModes(guildId);
-  const entries = Object.entries(rewards).sort((a, b) => Number(a[0]) - Number(b[0]));
+  const money = getLevelMoneyRewards(guildId);
+  const levels = [...new Set([...Object.keys(rewards), ...Object.keys(money)])].sort((a, b) => Number(a) - Number(b));
+  const describe = (lvl) =>
+    [
+      rewards[lvl] && `<@&${rewards[lvl]}> · ${modes[lvl] === 'evolutif' ? 'évolutif' : 'addition'}`,
+      money[lvl] && `💰 ${formatMoney(money[lvl])}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
   const embed = new EmbedBuilder()
     .setColor(LEVEL_COLOR)
-    .setTitle('🏅 Rôles-récompenses par niveau')
+    .setTitle('🏅 Récompenses par niveau')
     .setDescription(
-      entries.length
-        ? entries.map(([lvl, roleId]) => `**Niveau ${lvl}** → <@&${roleId}> · ${modes[lvl] === 'evolutif' ? 'évolutif' : 'addition'}`).join('\n')
+      levels.length
+        ? levels.map((lvl) => `**Niveau ${lvl}** → ${describe(lvl)}`).join('\n')
         : '_Aucune récompense configurée._ Utilise `/xp recompense ajouter`.',
     );
   return interaction.reply({ embeds: [embed], ephemeral: true });

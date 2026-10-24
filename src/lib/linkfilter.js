@@ -1,7 +1,7 @@
 import { EmbedBuilder } from 'discord.js';
-import { getLinkConfig, getJailConfig, getJailRecord } from './store.js';
-import { sendLog, Colors } from './logger.js';
-import { jailMember } from './jail.js';
+import { getLinkConfig } from './store.js';
+import { sendLog, sendSanctionLog, Colors } from './logger.js';
+import { dmSanction } from './sanctions.js';
 
 // Extrait tous les liens d'un message (http, www, invitations, domaine.tld). Les sous-domaines
 // sont gardés (music.youtube.com, et non youtube.com) pour juger le lien sur son vrai domaine.
@@ -68,12 +68,14 @@ async function isForeignInvite(url, guild) {
   return invite?.guild?.id !== guild.id;
 }
 
-// Messages avec un lien interdit, par membre : le 2ᵉ dans la même minute → jail
-// (rôles de /jailconfig). `${guildId}:${userId}` → horodatages.
+// Messages avec un lien interdit, par membre : le 2ᵉ dans la même minute → mute 3 h
+// (timeout Discord). `${guildId}:${userId}` → horodatages.
 const STRIKE_WINDOW = 60_000;
+const MUTE_MS = 3 * 3_600_000;
+const MUTE_REASON = 'Anti-liens : 2 liens interdits envoyés en moins d’une minute';
 const linkStrikes = new Map();
 
-async function jailRepeatOffender(message) {
+async function muteRepeatOffender(message) {
   const key = `${message.guild.id}:${message.author.id}`;
   const now = Date.now();
   const strikes = (linkStrikes.get(key) ?? []).filter((t) => now - t < STRIKE_WINDOW);
@@ -81,17 +83,33 @@ async function jailRepeatOffender(message) {
   linkStrikes.set(key, strikes);
   if (strikes.length < 2) return false;
 
-  if (!getJailConfig(message.guild.id) || getJailRecord(message.guild.id, message.author.id)) return false;
-  if (message.author.id === message.guild.ownerId) return false;
-  const res = await jailMember(message.member, {
-    by: message.client.user,
-    reason: 'Anti-liens : 2 liens interdits envoyés en moins d’une minute',
-  });
-  if (res.error) {
-    console.error('[linkfilter] jail impossible :', res.error);
-    return false;
-  }
+  const member = message.member;
+  if (member.id === message.guild.ownerId || !member.moderatable || member.isCommunicationDisabled()) return false;
+  const ok = await member
+    .timeout(MUTE_MS, MUTE_REASON)
+    .then(() => true)
+    .catch((err) => {
+      console.error('[linkfilter] mute impossible :', err.message);
+      return false;
+    });
+  if (!ok) return false;
   linkStrikes.delete(key);
+
+  // Le timeout donné par le bot n'est pas loggué par guildMemberUpdate : on le fait ici, comme /mute.
+  await dmSanction(message.author, message.guild, 'rendu muet', `${MUTE_REASON} (3 h)`, message.client.user, false);
+  await sendSanctionLog(
+    message.guild,
+    new EmbedBuilder()
+      .setColor(Colors.channel)
+      .setAuthor({ name: '🔇 Membre rendu muet' })
+      .setDescription(`${message.author.tag} (\`${message.author.id}\`)`)
+      .addFields(
+        { name: 'Durée', value: '3 h', inline: true },
+        { name: 'Raison', value: MUTE_REASON },
+        { name: 'Par', value: `${message.client.user} (automatique)`, inline: true },
+      )
+      .setTimestamp(),
+  );
   return true;
 }
 
@@ -128,7 +146,7 @@ export async function handleLinkFilter(message) {
   const forbidden = urls.filter((u) => !isAllowedLink(u));
   const allowed = urls.filter((u) => isAllowedLink(u) && !isGifLink(u));
 
-  // Le message est supprimé dès qu'un lien interdit est présent ; à la 2ᵉ fois dans la minute, jail.
+  // Le message est supprimé dès qu'un lien interdit est présent ; à la 2ᵉ fois dans la minute, mute 3 h.
   if (forbidden.length) await removeAndWarn(message, 'les liens ne sont pas autorisés ici.');
 
   // Rien à enregistrer : ni lien interdit, ni lien autorisé loggable (hors GIF)
@@ -137,12 +155,12 @@ export async function handleLinkFilter(message) {
   await logLinks(message, config, forbidden, allowed);
 }
 
-// Supprime le message et prévient le membre ; au 2ᵉ lien interdit dans la minute, jail.
+// Supprime le message et prévient le membre ; au 2ᵉ lien interdit dans la minute, mute 3 h.
 async function removeAndWarn(message, reason) {
   await message.delete().catch(() => {});
-  const jailed = await jailRepeatOffender(message);
+  const muted = await muteRepeatOffender(message);
   const warn = await message.channel
-    .send(jailed ? `⛓️ ${message.author} a été jail : liens envoyés à répétition.` : `❌ ${message.author}, ${reason}`)
+    .send(muted ? `🔇 ${message.author} a été mute 3 h : liens envoyés à répétition.` : `❌ ${message.author}, ${reason}`)
     .catch(() => null);
   if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
 }

@@ -7,7 +7,18 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { font, fetchImage } from './fonts.js';
-import { addXp, getXp, levelUpChannelId, getLevelRewards, getLevelRewardModes, getLevelUpMessage, getLevelsEnabled, addMoney } from './store.js';
+import {
+  addXp,
+  getXp,
+  levelUpChannelId,
+  getLevelRewards,
+  getLevelRewardModes,
+  getLevelMoneyRewards,
+  getLevelUpMessage,
+  getLevelsEnabled,
+  addMoney,
+} from './store.js';
+import { formatMoney } from './shop.js';
 
 // Image de fond de la carte de niveau (embarquée dans le projet : un lien Discord expire).
 const BG_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets', 'levelup-bg.jpg');
@@ -189,9 +200,12 @@ export async function grantMessageXp(message) {
   const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
   if (member) await syncLevelRoles(member, newLevel).catch(() => {});
   if (newLevel > oldLevel) {
-    // Récompense en argent pour chaque niveau gagné.
-    addMoney(message.guild.id, message.author.id, MONEY_PER_LEVEL * (newLevel - oldLevel));
-    await announceLevelUp(message, newLevel).catch((err) => console.error('[levels]', err));
+    // Récompense en argent pour chaque niveau gagné, plus celle des paliers franchis (/xp recompense).
+    const moneyRewards = getLevelMoneyRewards(message.guild.id);
+    let bonus = 0;
+    for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) bonus += moneyRewards[lvl] ?? 0;
+    addMoney(message.guild.id, message.author.id, MONEY_PER_LEVEL * (newLevel - oldLevel) + bonus);
+    await announceLevelUp(message, newLevel, bonus).catch((err) => console.error('[levels]', err));
   }
 }
 
@@ -223,7 +237,7 @@ export async function syncLevelRoles(member, level = 0) {
 }
 
 // Annonce : embed (message + carte image en fond), dans le salon dédié ou celui du message.
-async function announceLevelUp(message, level) {
+async function announceLevelUp(message, level, bonus = 0) {
   const dedicatedId = levelUpChannelId(message.guild.id);
   let channel = message.channel;
   if (dedicatedId) {
@@ -234,7 +248,8 @@ async function announceLevelUp(message, level) {
   const content = formatLevelUp(template, { user: message.author, level, guild: message.guild });
   const card = await renderLevelUpCard(message.author, message.member, level).catch(() => null);
 
-  const embed = new EmbedBuilder().setColor(LEVEL_COLOR).setDescription(content);
+  const reward = bonus ? `\n💰 Récompense du palier : **${formatMoney(bonus)}**` : '';
+  const embed = new EmbedBuilder().setColor(LEVEL_COLOR).setDescription(content + reward);
   if (card) embed.setImage('attachment://levelup.png');
 
   // La mention reste dans le contenu pour notifier le membre (un embed ne ping pas).
