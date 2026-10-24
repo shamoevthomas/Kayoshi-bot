@@ -1,6 +1,9 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, RateLimitError } from 'discord.js';
 
 const MAX_EMOJIS = 25; // au-delà, les limites de Discord rendent l'ajout très long
+
+// Serveurs où une copie est en cours : une seule à la fois (sinon doublons et attente partagée).
+const running = new Set();
 
 // Emoji collé tel quel (Nitro) : <:nom:id> ou <a:nom:id>
 const MENTION_RE = /<(a?):(\w{2,32}):(\d{17,21})>/g;
@@ -84,38 +87,68 @@ export default {
       return interaction.reply({ content: '❌ Il me manque la permission **Gérer les expressions**.', ephemeral: true });
     }
 
-    await interaction.deferReply({ ephemeral: true });
-
-    const added = [];
-    const already = [];
-    const failed = [];
-    for (const [i, e] of emojis.entries()) {
-      if (guild.emojis.cache.has(e.id)) {
-        already.push(guild.emojis.cache.get(e.id));
-        continue;
-      }
-      if (emojis.length > 1) {
-        await interaction.editReply(`⏳ Ajout des emojis… (${i + 1}/${emojis.length})`).catch(() => {});
-      }
-      try {
-        const res = await fetch(`https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? 'gif' : 'png'}`);
-        if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { code: 'FETCH' });
-        const emoji = await guild.emojis.create({
-          attachment: Buffer.from(await res.arrayBuffer()),
-          name: freeName(guild, e.name),
-          reason: `/copyemoji par ${interaction.user.tag}`,
-        });
-        added.push(emoji);
-      } catch (err) {
-        console.error(`[copyemoji] ${e.name} (${e.id}) :`, err?.message ?? err);
-        failed.push(`\`:${e.name}:\` — ${errorText(err)}`);
-      }
+    if (running.has(guild.id)) {
+      return interaction.reply({
+        content: '⏳ Une copie d’emojis est déjà en cours sur ce serveur : attends son récapitulatif avant d’en relancer une.',
+        ephemeral: true,
+      });
     }
-
-    const lines = [];
-    if (added.length) lines.push(`✅ **${added.length}** emoji(s) ajouté(s) : ${added.map((x) => `${x}`).join(' ')}`);
-    if (already.length) lines.push(`↪️ Déjà sur le serveur : ${already.map((x) => `${x}`).join(' ')}`);
-    if (failed.length) lines.push(`⚠️ **${failed.length}** échec(s) :\n${failed.map((f) => `• ${f}`).join('\n')}`);
-    return interaction.editReply({ content: lines.join('\n').slice(0, 2000) }).catch(() => {});
+    running.add(guild.id);
+    try {
+      await interaction.deferReply({ ephemeral: true });
+      await copyEmojis(interaction, emojis);
+    } finally {
+      running.delete(guild.id);
+    }
   },
 };
+
+async function copyEmojis(interaction, emojis) {
+  const guild = interaction.guild;
+  // Noms présents AVANT la copie : un emoji du même nom est considéré comme déjà copié.
+  const namesBefore = new Map(guild.emojis.cache.map((x) => [x.name, x]));
+  const added = [];
+  const already = [];
+  const failed = [];
+  let blocked = null;
+  for (const [i, e] of emojis.entries()) {
+    const existing = guild.emojis.cache.get(e.id) ?? namesBefore.get(e.name);
+    if (existing) {
+      already.push(existing);
+      continue;
+    }
+    if (emojis.length > 1) {
+      await interaction.editReply(`⏳ Ajout des emojis… (${i + 1}/${emojis.length})`).catch(() => {});
+    }
+    try {
+      const res = await fetch(`https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? 'gif' : 'png'}`);
+      if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { code: 'FETCH' });
+      const emoji = await guild.emojis.create({
+        attachment: Buffer.from(await res.arrayBuffer()),
+        name: freeName(guild, e.name),
+        reason: `/copyemoji par ${interaction.user.tag}`,
+      });
+      added.push(emoji);
+    } catch (err) {
+      // Longue attente imposée par Discord (voir rejectOnRateLimit dans index.js) : on s'arrête là.
+      if (err instanceof RateLimitError) {
+        blocked = { minutes: Math.ceil(Math.max(err.retryAfter, err.timeToReset) / 60_000), rest: emojis.slice(i) };
+        break;
+      }
+      console.error(`[copyemoji] ${e.name} (${e.id}) :`, err?.message ?? err);
+      failed.push(`\`:${e.name}:\` — ${errorText(err)}`);
+    }
+  }
+
+  const lines = [];
+  if (added.length) lines.push(`✅ **${added.length}** emoji(s) ajouté(s) : ${added.map((x) => `${x}`).join(' ')}`);
+  if (already.length) lines.push(`↪️ Déjà sur le serveur : ${already.map((x) => `${x}`).join(' ')}`);
+  if (failed.length) lines.push(`⚠️ **${failed.length}** échec(s) :\n${failed.map((f) => `• ${f}`).join('\n')}`);
+  if (blocked) {
+    lines.push(
+      `⏸️ Discord limite le nombre d’emojis ajoutés d’affilée : réessaie dans **${blocked.minutes} min** environ. ` +
+        `Pas encore ajoutés : ${blocked.rest.map((e) => `\`:${e.name}:\``).join(' ')}`,
+    );
+  }
+  return interaction.editReply({ content: lines.join('\n').slice(0, 2000) }).catch(() => {});
+}
