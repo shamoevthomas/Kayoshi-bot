@@ -130,7 +130,7 @@ const CATEGORIES = [
       ['/xp', '`ajouter` `retirer` `definir` `recompense` — gérer XP, niveaux & rôles-récompenses en addition ou évolutifs (admin)'],
       ['/configniveau', '`activer` `desactiver` `voir` `message` — activer/désactiver le système de niveaux et personnaliser le message (admin)'],
       ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
-      ['kayo pp', 'Écrire `kayo pp @membre` : affiche la photo de profil du membre (ou la tienne)'],
+      ['kayo pp · kayo banner', 'Écrire `kayo pp @membre` ou `kayo banner @membre` : affiche la photo de profil ou la bannière du membre (ou la tienne) ; `kayo pp server` / `kayo banner server` : celles du serveur'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, rôle à mentionner facultatif, vote A/B, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indice : 8 / 2 h, passer : 4 / 2 h, classement)'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
