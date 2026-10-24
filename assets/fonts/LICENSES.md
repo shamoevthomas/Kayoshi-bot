@@ -2,6 +2,8 @@
 
 - `NotoSans-*.ttf`, `NotoSansSymbols2-Regular.ttf` — Noto Sans / Noto Sans Symbols 2,
   © The Noto Project Authors, licence SIL Open Font License 1.1 (https://openfontlicense.org).
+- `NotoSerif-Bold.ttf` — Noto Serif (citations en serif gras), © The Noto Project Authors,
+  licence SIL Open Font License 1.1.
 - `NotoSansJP-Brackets.ttf` — extrait de Noto Sans JP (ponctuation CJK et formes pleine
   chasse seulement), © The Noto Project Authors, licence SIL Open Font License 1.1.
 - `Twemoji.Mozilla.ttf` — Twemoji (https://github.com/mozilla/twemoji-colr), graphismes

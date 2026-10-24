@@ -4,7 +4,7 @@ import { font, fetchImage } from './fonts.js';
 
 // Citation en image (comme « Make it a Quote ») : répondre à un message en mentionnant le bot.
 // Avatar de l'auteur à gauche (noir et blanc, fondu dans le fond), texte centré à droite.
-// Boutons : thème clair/sombre, avatar en couleur, texte en gras, supprimer.
+// Boutons : thème clair/sombre, avatar en couleur, texte en gras ou en serif gras, supprimer.
 
 const W = 1200;
 const H = 630;
@@ -15,9 +15,16 @@ const THEMES = {
   light: { bg: '#ffffff', text: '#111111', author: '#333333', muted: '#777777' },
 };
 
-// État des options, gardé dans les boutons : l = clair, c = couleur, b = gras.
-const parseFlags = (flags) => ({ light: flags.includes('l'), color: flags.includes('c'), bold: flags.includes('b') });
-const flagString = (s) => `${s.light ? 'l' : ''}${s.color ? 'c' : ''}${s.bold ? 'b' : ''}` || '-';
+// État des options, gardé dans les boutons : l = clair, c = couleur, b = gras, s = serif gras.
+const parseFlags = (flags) => ({
+  light: flags.includes('l'),
+  color: flags.includes('c'),
+  bold: flags.includes('b'),
+  serif: flags.includes('s'),
+});
+const flagString = (s) => `${s.light ? 'l' : ''}${s.color ? 'c' : ''}${s.bold ? 'b' : ''}${s.serif ? 's' : ''}` || '-';
+// Police du texte cité : normale, gras, ou serif (toujours en gras).
+const textFont = (size, state) => font(size, { bold: state.bold || state.serif, serif: state.serif });
 
 // Texte cité : mentions remplacées par les noms, emojis personnalisés par :nom:.
 function quoteText(message) {
@@ -53,16 +60,16 @@ function wrap(ctx, text, maxWidth) {
 }
 
 // Plus grande taille de police où tout le texte tient ; sinon taille minimale et texte coupé « … ».
-function fitText(ctx, text, bold, maxWidth, maxHeight) {
+function fitText(ctx, text, state, maxWidth, maxHeight) {
   let size = 64;
   let lines;
   for (; size >= 24; size -= 2) {
-    ctx.font = font(size, { bold });
+    ctx.font = textFont(size, state);
     lines = wrap(ctx, text, maxWidth);
     if (lines.length * size * 1.25 <= maxHeight) return { size, lines };
   }
   size = 24;
-  ctx.font = font(size, { bold });
+  ctx.font = textFont(size, state);
   lines = lines.slice(0, Math.floor(maxHeight / (size * 1.25)));
   let last = [...lines.at(-1)];
   while (last.length && ctx.measureText(`${last.join('')}…`).width > maxWidth) last.pop();
@@ -93,14 +100,14 @@ async function renderQuote(message, state) {
 
   // Texte, puis « - Nom » et « @pseudo », le tout centré verticalement.
   const cx = (TEXT_LEFT + TEXT_RIGHT) / 2;
-  const { size, lines } = fitText(ctx, quoteText(message), state.bold, TEXT_RIGHT - TEXT_LEFT, H - 250);
+  const { size, lines } = fitText(ctx, quoteText(message), state, TEXT_RIGHT - TEXT_LEFT, H - 250);
   const lineHeight = size * 1.25;
   const blockHeight = lines.length * lineHeight + 24 + 34 + 30;
   let y = (H - blockHeight) / 2 + lineHeight / 2;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = theme.text;
-  ctx.font = font(size, { bold: state.bold });
+  ctx.font = textFont(size, state);
   for (const line of lines) {
     ctx.fillText(line, cx, y, TEXT_RIGHT - TEXT_LEFT);
     y += lineHeight;
@@ -131,6 +138,7 @@ function quoteButtons(state, messageId, requesterId) {
     new ButtonBuilder().setCustomId(id('light')).setEmoji('☀️').setStyle(style(state.light)),
     new ButtonBuilder().setCustomId(id('color')).setEmoji('🎨').setStyle(style(state.color)),
     new ButtonBuilder().setCustomId(id('bold')).setLabel('B').setStyle(style(state.bold)),
+    new ButtonBuilder().setCustomId(id('serif')).setLabel('𝐒𝐞𝐫𝐢𝐟').setStyle(style(state.serif)),
     new ButtonBuilder().setCustomId(id('del')).setEmoji('🗑️').setLabel('Supprimer').setStyle(ButtonStyle.Secondary),
   );
 }
@@ -157,7 +165,7 @@ export async function handleQuoteCommand(message) {
     await answer('❌ Ce message n’a pas de texte à citer.');
     return true;
   }
-  const state = { light: false, color: false, bold: false };
+  const state = { light: false, color: false, bold: false, serif: false };
   const image = await renderQuote(original, state).catch((err) => {
     console.error('[quote] image impossible :', err);
     return null;
@@ -197,6 +205,9 @@ export async function handleQuoteInteraction(interaction) {
   const state = parseFlags(flags);
   if (!(action in state)) return;
   state[action] = !state[action];
+  // Gras et serif gras s'excluent : activer l'un désactive l'autre.
+  if (action === 'bold' && state.bold) state.serif = false;
+  if (action === 'serif' && state.serif) state.bold = false;
   await interaction.deferUpdate();
   const image = await renderQuote(original, state);
   await interaction.editReply({ files: [image], attachments: [], components: [quoteButtons(state, messageId, requesterId)] });

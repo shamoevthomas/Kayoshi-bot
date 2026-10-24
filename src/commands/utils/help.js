@@ -131,7 +131,7 @@ const CATEGORIES = [
       ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
       ['kayo pp · kayo banner', 'Écrire `kayo pp @membre` ou `kayo banner @membre` : affiche la photo de profil ou la bannière du membre (ou la tienne) ; `kayo pp server` / `kayo banner server` : celles du serveur'],
       ['/gif', 'Transforme une image (fichier ou lien) en GIF, pour l’ajouter à tes GIF favoris'],
-      ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : il en fait une citation en image (boutons : thème clair, avatar en couleur, gras, supprimer)'],
+      ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : il en fait une citation en image (boutons : thème clair, avatar en couleur, gras, serif gras, supprimer)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, rôle à mentionner facultatif, vote A/B, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indice : 8 / 2 h, passer : 4 / 2 h, classement)'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],

@@ -9,6 +9,7 @@ for (const [file, family] of [
   ['NotoSans-Regular.ttf', 'Kayoshi Sans'],
   ['NotoSans-Bold.ttf', 'Kayoshi Sans'],
   ['NotoSans-Italic.ttf', 'Kayoshi Sans'],
+  ['NotoSerif-Bold.ttf', 'Kayoshi Serif'],
   ['NotoSansSymbols2-Regular.ttf', 'Kayoshi Symbols'],
   ['NotoSansJP-Brackets.ttf', 'Kayoshi CJK'],
   ['Twemoji.Mozilla.ttf', 'Kayoshi Emoji'],
@@ -18,7 +19,9 @@ for (const [file, family] of [
 
 // Texte : lettres, puis symboles (✧), crochets 『』, et emojis en couleur.
 const FAMILIES = '"Kayoshi Sans", "Kayoshi Symbols", "Kayoshi CJK", "Kayoshi Emoji"';
-export const font = (size, { bold = false, italic = false } = {}) => `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${size}px ${FAMILIES}`;
+// serif : Noto Serif (gras seulement), les autres polices prenant le relais pour les caractères qu'elle n'a pas.
+export const font = (size, { bold = false, italic = false, serif = false } = {}) =>
+  `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${size}px ${serif ? '"Kayoshi Serif", ' : ''}${FAMILIES}`;
 // Pictogrammes monochromes (🏆 🔊 📈 🗘) : symboles seulement, pas les emojis en couleur.
 export const iconFont = (size) => `${size}px "Kayoshi Symbols"`;
 
