@@ -139,19 +139,39 @@ function quoteButtons(state, messageId, requesterId) {
 export async function handleQuoteCommand(message) {
   if (!message.guild || message.author.bot || !message.reference?.messageId) return false;
   if (message.reference.type === MessageReferenceType.Forward) return false;
-  // Mention écrite dans le message (la mention automatique d'une réponse au bot ne compte pas).
-  if (!new RegExp(`<@!?${message.client.user.id}>`).test(message.content)) return false;
+  // Mention écrite dans le message : le bot, ou son rôle (« @Kayoshi » propose les deux).
+  // La mention automatique d'une réponse à un message du bot ne compte pas.
+  // (Le rôle est lu dans le texte : un rôle non mentionnable n'apparaît pas dans message.mentions.)
+  const botId = message.client.user.id;
+  const botRoleId = message.guild.members.me?.roles.botRole?.id;
+  const mentioned =
+    new RegExp(`<@!?${botId}>`).test(message.content) || Boolean(botRoleId && message.content.includes(`<@&${botRoleId}>`));
+  if (!mentioned) return false;
+  const answer = (content) => message.reply({ content, allowedMentions: { repliedUser: false } }).catch(() => {});
   const original = await message.fetchReference().catch(() => null);
-  if (!original) return false;
+  if (!original) {
+    await answer('❌ Je n’arrive pas à lire le message auquel tu réponds.');
+    return true;
+  }
   if (!quoteText(original)) {
-    await message.reply({ content: '❌ Ce message n’a pas de texte à citer.', allowedMentions: { repliedUser: false } }).catch(() => {});
+    await answer('❌ Ce message n’a pas de texte à citer.');
     return true;
   }
   const state = { light: false, color: false, bold: false };
-  const image = await renderQuote(original, state);
+  const image = await renderQuote(original, state).catch((err) => {
+    console.error('[quote] image impossible :', err);
+    return null;
+  });
+  if (!image) {
+    await answer('❌ Je n’ai pas réussi à créer la citation.');
+    return true;
+  }
   await message
     .reply({ files: [image], components: [quoteButtons(state, original.id, message.author.id)], allowedMentions: { repliedUser: false } })
-    .catch((err) => console.error('[quote] envoi impossible :', err.message));
+    .catch(async (err) => {
+      console.error('[quote] envoi impossible :', err.message);
+      await answer('❌ Je n’ai pas pu envoyer la citation ici (il me faut la permission **Joindre des fichiers**).');
+    });
   return true;
 }
 
