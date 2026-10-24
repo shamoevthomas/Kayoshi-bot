@@ -13,8 +13,9 @@ import {
 import { getConfessionConfig, nextConfessionNumber } from './store.js';
 
 // Confessions anonymes (/configconfessions) : un formulaire (texte et/ou image) publie la
-// confession dans le salon configuré, sans jamais dire qui l'a écrite. Sous chaque confession :
+// confession dans le salon configuré, sans dire aux membres qui l'a écrite. Sous chaque confession :
 // « Soumettre une confession ! » et « Répondre » (réponse anonyme dans un fil sous la confession).
+// L'auteur de chaque confession et réponse est envoyé dans le salon des logs (staff).
 
 const COLOR = 0x97bfa6;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // limite d'envoi d'un bot sur un serveur sans boost
@@ -36,7 +37,10 @@ export function confessionPanel() {
       new EmbedBuilder()
         .setColor(COLOR)
         .setTitle('💌 Confessions anonymes')
-        .setDescription('Clique sur le bouton ci-dessous pour envoyer une confession **anonyme** (texte et/ou image). Personne ne saura que c’est toi.'),
+        .setDescription(
+          'Clique sur le bouton ci-dessous pour envoyer une confession **anonyme** (texte et/ou image). ' +
+            'Les membres ne sauront pas que c’est toi ; seul le staff peut voir l’auteur, en cas d’abus.',
+        ),
     ],
     components: [new ActionRowBuilder().addComponents(submitButton())],
   };
@@ -85,6 +89,29 @@ function buildPost(title, { text, image }, components) {
   return { embeds: [embed], files, components, allowedMentions: { parse: [] } };
 }
 
+// Log staff : qui a écrit quoi, avec le lien vers le message publié.
+async function logConfession(interaction, title, form, url) {
+  const { guild, user } = interaction;
+  const logChannelId = getConfessionConfig(guild.id)?.logChannelId;
+  const channel = logChannelId && (guild.channels.cache.get(logChannelId) ?? (await guild.channels.fetch(logChannelId).catch(() => null)));
+  if (!channel?.isTextBased?.()) return;
+  const embed = new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(title)
+    .setURL(url)
+    .addFields({ name: 'Auteur', value: `${user} (${user.tag} · \`${user.id}\`)` })
+    .setTimestamp();
+  if (form.text) embed.setDescription(form.text);
+  const files = [];
+  if (form.image) {
+    files.push(new AttachmentBuilder(form.image.buffer, { name: form.image.name }));
+    embed.setImage(`attachment://${form.image.name}`);
+  }
+  await channel.send({ embeds: [embed], files, allowedMentions: { parse: [] } }).catch((err) => {
+    console.error('[confessions] log impossible :', err.message);
+  });
+}
+
 async function submitConfession(interaction) {
   await interaction.deferReply({ ephemeral: true });
   const { guild } = interaction;
@@ -102,6 +129,7 @@ async function submitConfession(interaction) {
     return null;
   });
   if (!sent) return interaction.editReply('❌ Je n’ai pas pu publier la confession (permissions du salon ?).');
+  await logConfession(interaction, `📝 Confession #${number}`, form, sent.url);
   return interaction.editReply(`✅ Ta confession anonyme est publiée : ${sent.url}`);
 }
 
@@ -130,6 +158,7 @@ async function submitReply(interaction, messageId) {
     return null;
   });
   if (!sent) return interaction.editReply('❌ Je n’ai pas pu publier ta réponse (permissions du fil ?).');
+  await logConfession(interaction, `💬 Réponse à la confession${number ? ` #${number}` : ''}`, form, sent.url);
   return interaction.editReply(`✅ Ta réponse anonyme est publiée : ${sent.url}`);
 }
 

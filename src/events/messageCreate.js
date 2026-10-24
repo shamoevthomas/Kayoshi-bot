@@ -11,6 +11,7 @@ import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
 import { handleLoveCommand } from '../lib/lovecalc.js';
 import { handleAvatarCommand } from '../lib/avatarcommand.js';
+import { handleQuoteCommand } from '../lib/quote.js';
 import { grantMessageXp, grantMessageMoney } from '../lib/levels.js';
 import { handleGuessFlagMessage } from '../lib/guessflag.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
@@ -60,6 +61,8 @@ export default {
     await handleLoveCommand(message).catch((err) => console.error('[lovecalc]', err));
     // « kayo pp [@membre] » : photo de profil du membre.
     await handleAvatarCommand(message).catch((err) => console.error('[avatar]', err));
+    // Réponse à un message en mentionnant le bot : citation du message en image.
+    await handleQuoteCommand(message).catch((err) => console.error('[quote]', err));
     // XP : gain par message + annonce de passage de niveau.
     await grantMessageXp(message).catch((err) => console.error('[levels]', err));
     // Argent : gain par message (5$, ou 25$ si > 125 caractères).

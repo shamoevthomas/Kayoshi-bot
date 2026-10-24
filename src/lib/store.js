@@ -572,14 +572,14 @@ export function removeNickLock(guildId, userId) {
 }
 
 // --- Confessions anonymes (/configconfessions) ---
-// confessions = { channelId, count } : salon des confessions et dernier numéro attribué.
-// L'auteur d'une confession n'est jamais enregistré.
+// confessions = { channelId, logChannelId, count } : salon des confessions, salon des logs
+// (auteur visible du staff) et dernier numéro attribué. L'auteur n'est pas stocké, seulement loggué.
 export function getConfessionConfig(guildId) {
   return getGuildConfig(guildId).confessions ?? null;
 }
 
-export function setConfessionChannel(guildId, channelId) {
-  setGuildConfig(guildId, { confessions: { count: 0, ...getConfessionConfig(guildId), channelId } });
+export function setConfessionChannels(guildId, channelId, logChannelId) {
+  setGuildConfig(guildId, { confessions: { count: 0, ...getConfessionConfig(guildId), channelId, logChannelId } });
 }
 
 // Réserve le numéro de la prochaine confession.
