@@ -10,12 +10,13 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { getConfessionConfig, nextConfessionNumber } from './store.js';
+import { getConfessionConfig, nextConfessionNumber, getConfessionAuthor, setConfessionAuthor } from './store.js';
 
 // Confessions anonymes (/configconfessions) : un formulaire (texte et/ou image) publie la
 // confession dans le salon configuré, sans dire aux membres qui l'a écrite. Sous chaque confession :
 // « Soumettre une confession ! » et « Répondre » (réponse anonyme dans un fil sous la confession).
-// L'auteur de chaque confession et réponse est envoyé dans le salon des logs (staff).
+// L'auteur de chaque confession et réponse est envoyé dans le salon des logs (staff) ; l'auteur
+// d'une confession est prévenu en MP quand quelqu'un d'autre y répond.
 
 const COLOR = 0x97bfa6;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // limite d'envoi d'un bot sur un serveur sans boost
@@ -112,6 +113,15 @@ async function logConfession(interaction, title, form, url) {
   });
 }
 
+// MP à l'auteur de la confession quand quelqu'un d'autre y répond (MP fermés : tant pis).
+// Les confessions publiées avant l'enregistrement des auteurs n'ont personne à prévenir.
+async function notifyAuthor(interaction, confession) {
+  const authorId = getConfessionAuthor(interaction.guild.id, confession.id);
+  if (!authorId || authorId === interaction.user.id) return;
+  const author = await interaction.client.users.fetch(authorId).catch(() => null);
+  await author?.send(`💬 Quelqu’un vous a répondu par rapport à votre confession : ${confession.url}`).catch(() => {});
+}
+
 async function submitConfession(interaction) {
   await interaction.deferReply({ ephemeral: true });
   const { guild } = interaction;
@@ -129,6 +139,7 @@ async function submitConfession(interaction) {
     return null;
   });
   if (!sent) return interaction.editReply('❌ Je n’ai pas pu publier la confession (permissions du salon ?).');
+  setConfessionAuthor(guild.id, sent.id, interaction.user.id);
   await logConfession(interaction, `📝 Confession #${number}`, form, sent.url);
   return interaction.editReply(`✅ Ta confession anonyme est publiée : ${sent.url}`);
 }
@@ -159,6 +170,7 @@ async function submitReply(interaction, messageId) {
   });
   if (!sent) return interaction.editReply('❌ Je n’ai pas pu publier ta réponse (permissions du fil ?).');
   await logConfession(interaction, `💬 Réponse à la confession${number ? ` #${number}` : ''}`, form, sent.url);
+  await notifyAuthor(interaction, confession);
   return interaction.editReply(`✅ Ta réponse anonyme est publiée : ${sent.url}`);
 }
 

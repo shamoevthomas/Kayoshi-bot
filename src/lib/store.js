@@ -572,10 +572,25 @@ export function removeNickLock(guildId, userId) {
 }
 
 // --- Confessions anonymes (/configconfessions) ---
-// confessions = { channelId, logChannelId, count } : salon des confessions, salon des logs
-// (auteur visible du staff) et dernier numéro attribué. L'auteur n'est pas stocké, seulement loggué.
+// confessions = { channelId, logChannelId, count, authors } : salon des confessions, salon des logs
+// (auteur visible du staff), dernier numéro attribué, et auteur de chaque confession
+// ({ messageId: userId }, jamais affiché aux membres) pour le prévenir en MP quand on lui répond.
+const MAX_CONFESSION_AUTHORS = 1000;
+
 export function getConfessionConfig(guildId) {
   return getGuildConfig(guildId).confessions ?? null;
+}
+
+export function getConfessionAuthor(guildId, messageId) {
+  return getConfessionConfig(guildId)?.authors?.[messageId] ?? null;
+}
+
+// Garde les 1000 dernières confessions (les plus anciennes sont oubliées).
+export function setConfessionAuthor(guildId, messageId, userId) {
+  const cfg = getConfessionConfig(guildId) ?? {};
+  const authors = { ...(cfg.authors ?? {}), [messageId]: userId };
+  for (const old of Object.keys(authors).slice(0, -MAX_CONFESSION_AUTHORS)) delete authors[old];
+  setGuildConfig(guildId, { confessions: { ...cfg, authors } });
 }
 
 export function setConfessionChannels(guildId, channelId, logChannelId) {
