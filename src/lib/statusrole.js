@@ -1,5 +1,5 @@
 // Rôle automatique selon le statut personnalisé d'un membre.
-// Ex : quelqu'un met « .gg/ichima » dans son statut → il reçoit un rôle,
+// Ex : quelqu'un met « .gg/hanami » dans son statut → il reçoit un rôle,
 // et le perd dès qu'il l'enlève.
 
 // Concatène tout le texte visible de la présence (statut perso + activités).

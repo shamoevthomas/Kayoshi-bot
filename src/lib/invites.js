@@ -16,7 +16,7 @@ async function fetchInviteMap(guild) {
   } catch {
     // Le bot n'a pas la permission "Gérer le serveur" : suivi indisponible.
   }
-  // Lien personnalisé (vanity) éventuel, ex. discord.gg/ichima.
+  // Lien personnalisé (vanity) éventuel, ex. discord.gg/hanami.
   if (guild.vanityURLCode) {
     const vanity = await guild.fetchVanityData().catch(() => null);
     if (vanity) map.set(guild.vanityURLCode, { uses: vanity.uses ?? 0, inviter: null, vanity: true });

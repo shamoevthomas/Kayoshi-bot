@@ -54,7 +54,7 @@ export default {
             .setMinValue(1),
         )
         .addStringOption((o) =>
-          o.setName('statut_requis').setDescription('(Facultatif) texte requis dans le statut (ex: /ichima)'),
+          o.setName('statut_requis').setDescription('(Facultatif) texte requis dans le statut (ex: /hanami)'),
         ),
     )
     .addSubcommand((sub) =>
