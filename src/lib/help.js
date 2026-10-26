@@ -58,10 +58,12 @@ const CATEGORIES = [
     key: 'arrivals',
     emoji: '🛡️',
     name: 'Arrivées & vérification',
-    summary: 'Captcha anti-bot, bienvenue, départs, MP d’arrivée',
+    summary: 'Captcha anti-bot, bienvenue, départs, MP d’arrivée, invitations',
     about:
       'À son arrivée, un membre passe la vérification anti-bot (captcha) si elle est configurée, reçoit le message ' +
-      'de bienvenue et, si activé, un MP. Les comptes créés il y a moins de 2 jours sont expulsés automatiquement.',
+      'de bienvenue et, si activé, un MP. Les comptes créés il y a moins de 2 jours sont expulsés automatiquement. ' +
+      'Le bot repère aussi quelle invitation chaque nouveau membre a utilisée et la compte à son parrain, ' +
+      'en suivant ceux qui sont repartis.',
     lines: [
       ['/configverif', 'Configurer la vérification anti-bot (captcha)'],
       ['/passer-verif', 'Valider manuellement la vérification d’un membre, ou de tous les non-vérifiés avec `tout` (administrateurs)'],
@@ -69,6 +71,10 @@ const CATEGORIES = [
       ['/quitte', 'Configurer le message de départ'],
       ['/dmjoin', 'Message privé envoyé à chaque membre qui rejoint le serveur (vide = désactivé)'],
       ['/bilan', 'Bilan des arrivées et départs sur une période'],
+      ['/inviteconfig', '`salon` `desactiver` — salon de suivi des invitations'],
+      ['/invitations', 'Suivi des invitations d’un membre (total, détail, palier)'],
+      ['/inviteleaderboard', 'Classement des meilleurs parrains'],
+      ['/invitrank', '`ajouter` `liste` `retirer` — paliers de rôles selon les invitations'],
     ],
   },
   {
@@ -87,19 +93,6 @@ const CATEGORIES = [
       ['/messageticket', 'Premier message envoyé dans un ticket, pour un motif (`[@]` = mention de l’auteur)'],
       ['/modifierembedticket', 'Changer l’embed d’ouverture d’un ticket (GIF, miniature, couleur, titre — pour tous les motifs ou un seul) et le texte de chaque motif'],
       ['/avisticket', '`activer` `desactiver` `voir` — avis (⭐) à la fermeture (ticket 1, 2 ou les deux)'],
-    ],
-  },
-  {
-    key: 'invites',
-    emoji: '📨',
-    name: 'Invitations',
-    summary: 'Suivi des parrains, classement, paliers de rôles',
-    about: 'Le bot repère quelle invitation chaque nouveau membre a utilisée et la compte à son parrain, en suivant aussi ceux qui sont repartis.',
-    lines: [
-      ['/inviteconfig', '`salon` `desactiver` — salon de suivi des invitations'],
-      ['/invitations', 'Suivi des invitations d’un membre (total, détail, palier)'],
-      ['/inviteleaderboard', 'Classement des meilleurs parrains'],
-      ['/invitrank', '`ajouter` `liste` `retirer` — paliers de rôles selon les invitations'],
     ],
   },
   {

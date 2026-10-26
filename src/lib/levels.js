@@ -114,8 +114,9 @@ export function xpDeltaForLevels(currentXp, deltaLevels) {
   return xpForLevel(target) - xpForLevel(lvl);
 }
 
-// --- Carte de passage de niveau (style Draftbot) ---
-export async function renderLevelUpCard(user, member, level) {
+// --- Cartes en image (style Draftbot) : fond, avatar rond à gauche, trois lignes de texte ---
+// lines = [{ text, size, bold, color, y }] ; le texte trop long est resserré pour tenir dans la carte.
+async function renderCard(user, member, lines, name) {
   const W = 620;
   const H = 180;
   const canvas = createCanvas(W, H);
@@ -166,18 +167,57 @@ export async function renderLevelUpCard(user, member, level) {
   ctx.textBaseline = 'alphabetic';
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 6;
-  ctx.fillStyle = '#ffffff';
-  ctx.font = font(46, { bold: true });
-  ctx.fillText('Félicitations !', x, 78);
-  ctx.fillStyle = '#e3e5e8';
-  ctx.font = font(26);
-  ctx.fillText('vous avez atteint', x, 112);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = font(30, { bold: true });
-  ctx.fillText(`le niveau ${level}`, x, 146);
+  for (const line of lines) {
+    ctx.fillStyle = line.color;
+    ctx.font = font(line.size, { bold: line.bold });
+    ctx.fillText(line.text, x, line.y, W - x - 24);
+  }
   ctx.shadowBlur = 0;
 
-  return new AttachmentBuilder(await canvas.encode('png'), { name: 'levelup.png' });
+  return new AttachmentBuilder(await canvas.encode('png'), { name });
+}
+
+// Passage de niveau.
+export function renderLevelUpCard(user, member, level) {
+  return renderCard(
+    user,
+    member,
+    [
+      { text: 'Félicitations !', size: 46, bold: true, color: '#ffffff', y: 78 },
+      { text: 'vous avez atteint', size: 26, color: '#e3e5e8', y: 112 },
+      { text: `le niveau ${level}`, size: 30, bold: true, color: '#ffffff', y: 146 },
+    ],
+    'levelup.png',
+  );
+}
+
+// Rôle(s)-récompense obtenu(s) en passant un palier : nom du rôle dans sa couleur.
+function renderRoleRewardCard(user, member, roles) {
+  const colored = roles.find((r) => r.color);
+  return renderCard(
+    user,
+    member,
+    [
+      { text: 'Félicitations !', size: 46, bold: true, color: '#ffffff', y: 78 },
+      { text: roles.length > 1 ? 'nouveaux rôles débloqués' : 'nouveau rôle débloqué', size: 26, color: '#e3e5e8', y: 112 },
+      { text: roles.map((r) => `@${r.name}`).join(', '), size: 30, bold: true, color: colored ? colored.hexColor : '#ffffff', y: 146 },
+    ],
+    'role.png',
+  );
+}
+
+// Argent gagné en passant un palier (« salaire »).
+function renderSalaryCard(user, member, amount) {
+  return renderCard(
+    user,
+    member,
+    [
+      { text: 'Salaire', size: 30, bold: true, color: '#e3e5e8', y: 66 },
+      { text: `+${formatMoney(amount)} 💰`, size: 50, bold: true, color: '#f5c542', y: 122 },
+      { text: 'ajouté à ton solde', size: 24, color: '#e3e5e8', y: 156 },
+    ],
+    'salaire.png',
+  );
 }
 
 // À chaque message : crédite l'XP et annonce un éventuel passage de niveau.
@@ -198,14 +238,24 @@ export async function grantMessageXp(message) {
   // Rôles-récompenses remis à jour à chaque gain (pas seulement au changement de niveau) :
   // un palier ajouté après coup ou celui du niveau 0 est donné dès le message suivant.
   const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
-  if (member) await syncLevelRoles(member, newLevel).catch(() => {});
+  const added = member ? await syncLevelRoles(member, newLevel).catch(() => []) : [];
   if (newLevel > oldLevel) {
     // Récompense en argent pour chaque niveau gagné, plus celle des paliers franchis (/xp recompense).
     const moneyRewards = getLevelMoneyRewards(message.guild.id);
     let bonus = 0;
     for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) bonus += moneyRewards[lvl] ?? 0;
     addMoney(message.guild.id, message.author.id, MONEY_PER_LEVEL * (newLevel - oldLevel) + bonus);
-    await announceLevelUp(message, newLevel, bonus).catch((err) => console.error('[levels]', err));
+
+    const channel = await levelChannel(message);
+    if (!channel) return;
+    await announceLevelUp(channel, message, newLevel).catch((err) => console.error('[levels]', err));
+    // Rôles des paliers franchis par ce message (pas ceux remis après un retrait à la main).
+    const roles = added
+      .filter((r) => r.lvl > oldLevel && r.lvl <= newLevel)
+      .map((r) => message.guild.roles.cache.get(r.roleId))
+      .filter(Boolean);
+    if (roles.length) await announceRoleRewards(channel, message, roles).catch((err) => console.error('[levels]', err));
+    if (bonus) await announceSalary(channel, message, bonus).catch((err) => console.error('[levels]', err));
   }
 }
 
@@ -218,6 +268,7 @@ export async function syncMemberLevelRoles(member) {
 
 // Rôles-récompenses selon le niveau atteint. « addition » : gardé dès le palier atteint ;
 // « évolutif » : seul le rôle du plus haut palier évolutif atteint est gardé (il remplace les précédents).
+// Renvoie les rôles ajoutés : [{ roleId, lvl }].
 export async function syncLevelRoles(member, level = 0) {
   const rewards = Object.entries(getLevelRewards(member.guild.id)).map(([lvl, roleId]) => [Number(lvl), roleId]);
   const modes = getLevelRewardModes(member.guild.id);
@@ -229,34 +280,58 @@ export async function syncLevelRoles(member, level = 0) {
     if (keep) wanted.set(roleId, lvl);
     else if (!wanted.has(roleId)) wanted.set(roleId, null);
   }
+  const added = [];
   for (const [roleId, lvl] of wanted) {
     const has = member.roles.cache.has(roleId);
-    if (lvl !== null && !has) await member.roles.add(roleId, `Récompense de niveau ${lvl}`).catch(() => {});
-    else if (lvl === null && has) await member.roles.remove(roleId, 'Palier de niveau non atteint ou remplacé').catch(() => {});
+    if (lvl !== null && !has) {
+      const ok = await member.roles
+        .add(roleId, `Récompense de niveau ${lvl}`)
+        .then(() => true)
+        .catch(() => false);
+      if (ok) added.push({ roleId, lvl });
+    } else if (lvl === null && has) await member.roles.remove(roleId, 'Palier de niveau non atteint ou remplacé').catch(() => {});
   }
+  return added;
 }
 
-// Annonce : embed (message + carte image en fond), dans le salon dédié ou celui du message.
-async function announceLevelUp(message, level, bonus = 0) {
+// Salon des annonces de niveau : celui de /configniveau, sinon celui du message.
+async function levelChannel(message) {
   const dedicatedId = levelUpChannelId(message.guild.id);
-  let channel = message.channel;
-  if (dedicatedId) {
-    channel = message.guild.channels.cache.get(dedicatedId) ?? (await message.guild.channels.fetch(dedicatedId).catch(() => null));
-    if (!channel?.isTextBased()) return;
-  }
+  if (!dedicatedId) return message.channel;
+  const channel = message.guild.channels.cache.get(dedicatedId) ?? (await message.guild.channels.fetch(dedicatedId).catch(() => null));
+  return channel?.isTextBased() ? channel : null;
+}
+
+// Embed (texte + carte en image) envoyé dans le salon des annonces de niveau.
+async function sendCard(channel, text, card, ping = null) {
+  const embed = new EmbedBuilder().setColor(LEVEL_COLOR).setDescription(text);
+  if (card) embed.setImage(`attachment://${card.name}`);
+  await channel.send({
+    content: ping ? `<@${ping}>` : undefined,
+    embeds: [embed],
+    files: card ? [card] : [],
+    allowedMentions: { users: ping ? [ping] : [] },
+  });
+}
+
+// Passage de niveau. La mention reste dans le contenu pour notifier le membre (un embed ne ping pas).
+async function announceLevelUp(channel, message, level) {
   const template = getLevelUpMessage(message.guild.id) ?? DEFAULT_LEVELUP;
   const content = formatLevelUp(template, { user: message.author, level, guild: message.guild });
   const card = await renderLevelUpCard(message.author, message.member, level).catch(() => null);
+  await sendCard(channel, content, card, message.author.id);
+}
 
-  const reward = bonus ? `\n💰 Récompense du palier : **${formatMoney(bonus)}**` : '';
-  const embed = new EmbedBuilder().setColor(LEVEL_COLOR).setDescription(content + reward);
-  if (card) embed.setImage('attachment://levelup.png');
+// Rôle(s) gagné(s) en passant un palier (déjà notifié par l'annonce du niveau : pas de nouveau ping).
+async function announceRoleRewards(channel, message, roles) {
+  const list = roles.map((r) => `${r}`).join(', ');
+  const text = roles.length > 1 ? `🎉 Félicitations ${message.author}, tu as gagné les rôles ${list} !` : `🎉 Félicitations ${message.author}, tu as gagné le rôle ${list} !`;
+  const card = await renderRoleRewardCard(message.author, message.member, roles).catch(() => null);
+  await sendCard(channel, text, card);
+}
 
-  // La mention reste dans le contenu pour notifier le membre (un embed ne ping pas).
-  await channel.send({
-    content: `<@${message.author.id}>`,
-    embeds: [embed],
-    files: card ? [card] : [],
-    allowedMentions: { users: [message.author.id] },
-  });
+// Argent d'un palier (/xp recompense … argent).
+async function announceSalary(channel, message, amount) {
+  const card = await renderSalaryCard(message.author, message.member, amount).catch(() => null);
+  await sendCard(channel, `💸 Voici ton salaire ${message.author} : 💰 **+${formatMoney(amount)}**`, card);
 }
