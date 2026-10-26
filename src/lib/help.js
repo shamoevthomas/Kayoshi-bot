@@ -25,7 +25,7 @@ const CATEGORIES = [
       ['/casier', 'Sanctions d’un membre, ou de tout le serveur sans membre (avertissements avec leur numéro, mutes, kicks, bans, deranks), avec dates et modérateurs ; option `sanction` pour un seul type'],
       ['/sanction', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
       ['/purge', 'Supprimer des messages dans ce salon (par lots)'],
-      ['/lock · /unlock', 'Verrouiller / déverrouiller l’écriture dans ce salon'],
+      ['/lock · /unlock', 'Verrouiller / déverrouiller l’écriture dans ce salon pour le rôle Membre'],
       ['/slowmode', 'Régler le mode lent du salon (0 = off)'],
       ['/nick', 'Changer ou réinitialiser le pseudo d’un membre'],
       ['/lockpseudo · /unlockpseudo', 'Imposer un pseudo à un membre (il ne peut plus se renommer, sauf staff) / le libérer'],
@@ -245,6 +245,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/lock', 'verrouille pour le rôle Membre au lieu de @everyone (pareil pour /unlock)'],
   ['/save', 'une seule commande : emplacement save1 à save5, enregistrer ou envoyer'],
   ['/delwarn', 'option `tout` : retirer tous les avertissements'],
   ['/casier', 'numéro des avertissements affiché'],
@@ -254,7 +255,6 @@ const RECENT_CHANGES = [
   ['/gw', 'gain en argent ou prix personnalisé'],
   ['/passer-verif', 'option `tout` (ex-/verif-all)'],
   ['/role', 'respecte la hiérarchie, gère les rôles temporaires'],
-  ['/unban', 'option `tout` : débannir tout le monde'],
 ];
 
 const HOME = 'home';

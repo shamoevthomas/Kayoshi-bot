@@ -2,9 +2,10 @@ import { EmbedBuilder } from 'discord.js';
 import { getDueTempRoles, removeTempRole } from './store.js';
 import { sendLog, Colors } from './logger.js';
 
-// Rôle verrouillé par /lock et /unlock (celui des membres) ; @everyone sur un serveur qui ne l'a pas.
-const LOCK_ROLE_ID = '1272125126149673051';
-export const lockRole = (guild) => guild.roles.cache.get(LOCK_ROLE_ID) ?? guild.roles.everyone;
+// Rôle verrouillé par /lock et /unlock (celui des membres) : « Membre » sur Hanami, celui de l'ancien
+// serveur Ichima ; @everyone sur un serveur qui n'a aucun des deux.
+const LOCK_ROLE_IDS = ['1563160648345591818', '1272125126149673051'];
+export const lockRole = (guild) => LOCK_ROLE_IDS.map((id) => guild.roles.cache.get(id)).find(Boolean) ?? guild.roles.everyone;
 
 // Raison pour laquelle l'auteur de la commande ne peut pas donner / retirer ce rôle via le bot
 // (/role, /roletempo…), ou null.
