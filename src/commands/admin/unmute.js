@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
+import { recordSanction } from '../../lib/sanctions.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -18,6 +19,7 @@ export default {
     }
 
     await member.timeout(null, `Démuté par ${interaction.user.tag}`);
+    recordSanction(interaction.guild.id, target.id, 'unmute', { by: interaction.user.id });
 
     await sendSanctionLog(
       interaction.guild,

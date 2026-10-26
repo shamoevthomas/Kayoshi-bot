@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
-import { dmSanction, dmNote } from '../../lib/sanctions.js';
+import { dmSanction, dmNote, recordSanction } from '../../lib/sanctions.js';
 
 const MAX_TIMEOUT = 28 * 86_400_000; // Discord : max 28 jours
 
@@ -40,6 +40,7 @@ export default {
     if (!member.moderatable) return interaction.reply({ content: '❌ Je ne peux pas rendre ce membre muet (rôle trop haut).', ephemeral: true });
 
     await member.timeout(dur.ms, `${reason} — par ${interaction.user.tag}`);
+    recordSanction(interaction.guild.id, target.id, 'mute', { reason, by: interaction.user.id, durationMs: dur.ms });
     const dmSent = await dmSanction(target, interaction.guild, 'rendu muet', reason, interaction.user, showMod);
 
     await sendSanctionLog(

@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import { removeTempBan } from '../../lib/store.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
+import { recordSanction } from '../../lib/sanctions.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -24,6 +25,7 @@ export default {
     }
     await interaction.guild.bans.remove(userId, `Débanni par ${interaction.user.tag}`);
     removeTempBan(interaction.guild.id, userId);
+    recordSanction(interaction.guild.id, userId, 'unban', { by: interaction.user.id });
 
     await sendSanctionLog(
       interaction.guild,
@@ -91,6 +93,7 @@ async function unbanAll(interaction) {
     if (ok) {
       done++;
       removeTempBan(guild.id, ban.user.id);
+      recordSanction(guild.id, ban.user.id, 'unban', { reason: 'Débannissement général', by: interaction.user.id });
     } else failed++;
     if ((i + 1) % 10 === 0) await interaction.editReply(`⏳ Débannissement… (${i + 1}/${bans.length})`).catch(() => {});
   }

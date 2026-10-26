@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { getRankConfig } from '../../lib/store.js';
+import { recordSanction } from '../../lib/sanctions.js';
 import { renderRankAnnouncement, listRoles, DEFAULT_DERANK_MESSAGE } from '../../lib/rank.js';
 
 const MAX_ROLES = 5;
@@ -72,6 +73,7 @@ export default {
 
     try {
       await member.roles.remove(toRemove, `Derank par ${interaction.user.tag} : ${reason}`);
+      recordSanction(interaction.guild.id, target.id, 'derank', { reason: `${reason} (${toRemove.map((r) => r.name).join(', ')})`, by: interaction.user.id });
     } catch (err) {
       console.error('[derank] échec :', err);
       return interaction.editReply({ content: `❌ Impossible de retirer ${toRemove.length > 1 ? 'les rôles' : 'le rôle'} : ${err?.message ?? 'erreur inconnue'}` });

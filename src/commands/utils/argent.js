@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getMoney, addMoney, getMoneyLeaderboard, getDaily, setDaily } from '../../lib/store.js';
 import { formatMoney } from '../../lib/shop.js';
+import { countQuestAction, checkQuests } from '../../lib/quests.js';
 
 // Économie des membres : récompense quotidienne (avec série de jours), dons entre membres, classement.
 // L'argent se gagne aussi en écrivant et en passant des niveaux, et se dépense dans /shop.
@@ -51,10 +52,12 @@ async function daily(interaction) {
   const balance = addMoney(guild.id, user.id, gain);
   const series = streak > 1 ? ` (série de **${streak}** jours 🔥)` : '';
   const hint = gain < DAILY_MAX ? 'Reviens demain : +10 par jour de série, jusqu’à 200.' : 'Bonus de série au maximum, garde le rythme !';
-  return interaction.reply({
+  await interaction.reply({
     content: `🎁 ${user} récupère son daily : 💰 **+${formatMoney(gain)}**${series}. Solde : 💰 **${formatMoney(balance)}**.\n-# ${hint}`,
     allowedMentions: { parse: [] },
   });
+  countQuestAction(guild.id, user.id, 'daily');
+  await checkQuests({ guild, author: user, member: interaction.member, channel: interaction.channel });
 }
 
 async function give(interaction) {

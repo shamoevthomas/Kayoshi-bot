@@ -1,5 +1,12 @@
 import { EmbedBuilder } from 'discord.js';
 import { Colors } from './logger.js';
+import { addSanction } from './store.js';
+
+// Casier (/casier) : trace de chaque sanction donnée par le bot. by = id du modérateur,
+// null pour une sanction automatique (anti-spam, anti-liens).
+export function recordSanction(guildId, userId, type, { reason = null, by = null, durationMs = null } = {}) {
+  addSanction(guildId, userId, { type, reason, by, at: Date.now(), duration: durationMs });
+}
 
 // Envoie un MP (embed) à la personne sanctionnée.
 // actionLabel : « averti », « rendu muet », « expulsé », « banni »…

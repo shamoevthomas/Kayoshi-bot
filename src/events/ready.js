@@ -16,6 +16,7 @@ import { startStatsTracking, backfillMessages } from '../lib/stats.js';
 import { closeInactiveTickets } from '../lib/tickets.js';
 import { reconcileWouldYouRather } from '../lib/wouldyourather.js';
 import { processTempRoles } from '../lib/roles.js';
+import { processWeeklyTop } from '../lib/weeklytop.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -50,6 +51,9 @@ export default {
     // Rôles temporaires (/roletempo) arrivés à échéance, toutes les 30 s.
     processTempRoles(client).catch((err) => console.error('[roletempo]', err));
     setInterval(() => processTempRoles(client).catch((err) => console.error('[roletempo]', err)), 30_000);
+    // Membres de la semaine : récompensés le lundi (vérifié toutes les heures).
+    setTimeout(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 90_000);
+    setInterval(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 3_600_000);
     // Reprogramme les kicks des membres non vérifiés.
     reconcileVerification(client);
     // Rappel des membres non vérifiés toutes les 5 h (ticker de contrôle : 30 min).

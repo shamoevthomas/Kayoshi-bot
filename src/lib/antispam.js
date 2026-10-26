@@ -1,6 +1,7 @@
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { getAntiSpamConfig } from './store.js';
 import { sendSanctionLog, Colors } from './logger.js';
+import { recordSanction } from './sanctions.js';
 
 // Fenêtres glissantes de messages par membre : `${guildId}:${userId}` -> [{ts,id,channelId}].
 const buckets = new Map();
@@ -77,6 +78,7 @@ export async function handleAntiSpam(message) {
       .then(() => true)
       .catch(() => false);
   }
+  if (muted) recordSanction(message.guild.id, message.author.id, 'mute', { reason: 'Anti-spam : messages trop rapides', durationMs: config.timeoutMs });
 
   const warn = await message.channel.send(`⚠️ ${message.author}, arrête le **spam** !`).catch(() => null);
   if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
@@ -141,6 +143,7 @@ async function handleMultiChannelSpam(message) {
       .then(() => true)
       .catch(() => false);
   }
+  if (muted) recordSanction(message.guild.id, message.author.id, 'mute', { reason: 'Anti-spam : messages dans plusieurs salons', durationMs: MULTI_TIMEOUT_MS });
 
   const warn = await message.channel
     .send(`⚠️ ${message.author}, pas de **spam dans plusieurs salons** !${muted ? ' Mute **1 h**.' : ''}`)

@@ -52,7 +52,7 @@ export function formatLevelUp(template, { user, level, guild }) {
     .replaceAll('{server}', guild?.name ?? '');
 }
 
-const XP_COOLDOWN_MS = 5000;
+const XP_COOLDOWN_MS = 3000;
 const lastGain = new Map();
 
 // --- Argent gagné par message ---
@@ -83,11 +83,13 @@ export function grantMessageMoney(message) {
   addMoney(message.guild.id, message.author.id, gain);
 }
 
+// XP selon la longueur du message (sans texte, ex. une image seule : rien).
 export function xpForMessage(len) {
-  if (len >= 120) return 60;
-  if (len >= 60) return 30;
-  if (len >= 30) return 20;
-  if (len >= 6) return 10;
+  if (len >= 120) return 75;
+  if (len >= 60) return 40;
+  if (len >= 30) return 30;
+  if (len >= 6) return 20;
+  if (len >= 1) return 3;
   return 0;
 }
 
@@ -233,30 +235,44 @@ export async function grantMessageXp(message) {
   lastGain.set(key, now);
 
   const { before, after } = addXp(message.guild.id, message.author.id, gain);
-  const oldLevel = levelFromXp(before);
-  const newLevel = levelFromXp(after);
-  // Rôles-récompenses remis à jour à chaque gain (pas seulement au changement de niveau) :
-  // un palier ajouté après coup ou celui du niveau 0 est donné dès le message suivant.
-  const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
-  const added = member ? await syncLevelRoles(member, newLevel).catch(() => []) : [];
-  if (newLevel > oldLevel) {
-    // Récompense en argent pour chaque niveau gagné, plus celle des paliers franchis (/xp recompense).
-    const moneyRewards = getLevelMoneyRewards(message.guild.id);
-    let bonus = 0;
-    for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) bonus += moneyRewards[lvl] ?? 0;
-    addMoney(message.guild.id, message.author.id, MONEY_PER_LEVEL * (newLevel - oldLevel) + bonus);
+  await afterXpChange(message, levelFromXp(before), levelFromXp(after));
+}
 
-    const channel = await levelChannel(message);
-    if (!channel) return;
-    await announceLevelUp(channel, message, newLevel).catch((err) => console.error('[levels]', err));
-    // Rôles des paliers franchis par ce message (pas ceux remis après un retrait à la main).
-    const roles = added
-      .filter((r) => r.lvl > oldLevel && r.lvl <= newLevel)
-      .map((r) => message.guild.roles.cache.get(r.roleId))
-      .filter(Boolean);
-    if (roles.length) await announceRoleRewards(channel, message, roles).catch((err) => console.error('[levels]', err));
-    if (bonus) await announceSalary(channel, message, bonus).catch((err) => console.error('[levels]', err));
-  }
+// Niveaux gagnés d'un coup (quêtes) : convertis en XP, puis traités comme un vrai passage de niveau.
+// Renvoie le nouveau niveau.
+export async function grantLevels(ctx, levels) {
+  const current = getXp(ctx.guild.id, ctx.author.id);
+  const { before, after } = addXp(ctx.guild.id, ctx.author.id, xpDeltaForLevels(current, levels));
+  await afterXpChange(ctx, levelFromXp(before), levelFromXp(after));
+  return levelFromXp(after);
+}
+
+// Après un gain d'XP. ctx = { guild, author, member, channel } (un message convient ; channel peut
+// être null). Rôles-récompenses remis à jour à chaque gain (pas seulement au changement de niveau) :
+// un palier ajouté après coup ou celui du niveau 0 est donné dès le message suivant.
+// En cas de passage de niveau : argent, annonce, rôles et salaire des paliers franchis.
+async function afterXpChange(ctx, oldLevel, newLevel) {
+  const member = ctx.member ?? (await ctx.guild.members.fetch(ctx.author.id).catch(() => null));
+  const added = member ? await syncLevelRoles(member, newLevel).catch(() => []) : [];
+  if (newLevel <= oldLevel) return;
+
+  // Récompense en argent pour chaque niveau gagné, plus celle des paliers franchis (/xp recompense).
+  const moneyRewards = getLevelMoneyRewards(ctx.guild.id);
+  let bonus = 0;
+  for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) bonus += moneyRewards[lvl] ?? 0;
+  addMoney(ctx.guild.id, ctx.author.id, MONEY_PER_LEVEL * (newLevel - oldLevel) + bonus);
+
+  const channel = await levelChannel(ctx);
+  if (channel) await announceLevelUp(channel, ctx, newLevel).catch((err) => console.error('[levels]', err));
+  // Récompenses : dans le salon où le membre vient d'agir. Rôles des paliers franchis
+  // par ce gain seulement (pas ceux remis après un retrait à la main).
+  if (!ctx.channel) return;
+  const roles = added
+    .filter((r) => r.lvl > oldLevel && r.lvl <= newLevel)
+    .map((r) => ctx.guild.roles.cache.get(r.roleId))
+    .filter(Boolean);
+  if (roles.length) await announceRoleRewards(ctx.channel, ctx, roles).catch((err) => console.error('[levels]', err));
+  if (bonus) await announceSalary(ctx.channel, ctx, bonus).catch((err) => console.error('[levels]', err));
 }
 
 // À l'arrivée d'un membre : rôles-récompenses de son niveau (palier 0 pour un nouveau,

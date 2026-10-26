@@ -2,7 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.
 import { addTempBan } from '../../lib/store.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
-import { dmSanction, dmNote } from '../../lib/sanctions.js';
+import { dmSanction, dmNote, recordSanction } from '../../lib/sanctions.js';
 
 // ID seul ou mention (<@id>) dans l'option « id ».
 const MENTION_OR_ID = /^(?:<@!?)?(\d{17,20})>?$/;
@@ -67,6 +67,7 @@ export default {
 
     // Ban temporaire = softban (débannissement automatique à la fin).
     const isTemp = !dur.permanent;
+    recordSanction(interaction.guild.id, target.id, isTemp ? 'softban' : 'ban', { reason, by: interaction.user.id, durationMs: dur.ms });
     let note = 'Bannissement **permanent**.';
     if (isTemp) {
       addTempBan(interaction.guild.id, target.id, Date.now() + dur.ms);

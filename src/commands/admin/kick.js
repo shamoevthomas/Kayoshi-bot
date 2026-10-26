@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
-import { dmSanction, dmNote } from '../../lib/sanctions.js';
+import { dmSanction, dmNote, recordSanction } from '../../lib/sanctions.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -31,6 +31,7 @@ export default {
     const dmSent = await dmSanction(target, interaction.guild, 'expulsé', reason, interaction.user, showMod);
 
     await member.kick(`${reason} — par ${interaction.user.tag}`);
+    recordSanction(interaction.guild.id, target.id, 'kick', { reason, by: interaction.user.id });
 
     await sendSanctionLog(
       interaction.guild,

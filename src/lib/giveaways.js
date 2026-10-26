@@ -6,6 +6,7 @@ import {
   removeGiveawayParticipant,
   getAllGiveaways,
   getInviteTotal,
+  addMoney,
 } from './store.js';
 
 // Texte visible de la présence (statut perso + activités), en minuscules.
@@ -134,12 +135,24 @@ async function announceWinners(channel, gw, winners, reroll = false) {
   const gagne = plural ? 'vous avez gagné' : 'tu as gagné';
   const votre = plural ? 'votre' : 'ton';
   const prefix = reroll ? '🔁 **Nouveau tirage !** ' : '';
+  // Argent : déjà crédité (voir payWinners) ; prix personnalisé : à réclamer à l'organisateur.
+  const next = gw.rewardMoney
+    ? plural
+      ? 'L’argent a été ajouté à vos soldes.'
+      : 'L’argent a été ajouté à ton solde.'
+    : `Va MP <@${gw.hostId}> pour recevoir ${votre} prix.`;
   await channel
     .send({
-      content: `${prefix}🎉 Bien joué ${mentions}, ${gagne} **${gw.prize}** ! Va MP <@${gw.hostId}> pour recevoir ${votre} prix.`,
+      content: `${prefix}🎉 Bien joué ${mentions}, ${gagne} **${gw.prize}** ! ${next}`,
       allowedMentions: { users: [...new Set([...winners, gw.hostId])] },
     })
     .catch(() => {});
+}
+
+// Giveaway d'argent : chaque gagnant reçoit le montant.
+function payWinners(gw, winners) {
+  if (!gw.rewardMoney) return;
+  for (const id of winners) addMoney(gw.guildId, id, gw.rewardMoney);
 }
 
 // Termine un giveaway maintenant : tire les gagnants, met à jour le message, annonce.
@@ -151,6 +164,7 @@ export async function endGiveawayNow(client, guildId, messageId) {
   const winners = pickWinners(gw, gw.winners);
   updateGiveaway(guildId, messageId, { ended: true, winnerIds: winners });
   clearTimer(messageId);
+  payWinners(gw, winners);
 
   const channel = await resolveChannel(client, gw);
   if (channel?.isTextBased()) {
@@ -179,6 +193,11 @@ export async function rerollGiveaway(client, guildId, messageId) {
   if (!winners.length) winners = pickWinners(gw, gw.winners); // repli : tout le monde
   if (!winners.length) return { ok: false, reason: 'no-eligible' };
 
+  // Giveaway d'argent : les anciens gagnants sont remplacés, leur gain leur est repris.
+  if (gw.rewardMoney) {
+    for (const id of gw.winnerIds ?? []) if (!winners.includes(id)) addMoney(guildId, id, -gw.rewardMoney);
+    payWinners(gw, winners.filter((id) => !(gw.winnerIds ?? []).includes(id)));
+  }
   updateGiveaway(guildId, messageId, { winnerIds: winners });
 
   const channel = await resolveChannel(client, gw);

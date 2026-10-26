@@ -13,6 +13,9 @@ import { handleLoveCommand } from '../lib/lovecalc.js';
 import { handleAvatarCommand } from '../lib/avatarcommand.js';
 import { handleQuoteCommand } from '../lib/quote.js';
 import { grantMessageXp, grantMessageMoney } from '../lib/levels.js';
+import { maybeDropMoney } from '../lib/moneydrops.js';
+import { checkQuests } from '../lib/quests.js';
+import { handleCountingMessage } from '../lib/counting.js';
 import { handleGuessFlagMessage } from '../lib/guessflag.js';
 import { bumpGiveawayMessages, bumpActivity, shouldDeleteOneMessage, getCoiffeurEnabled } from '../lib/store.js';
 
@@ -48,6 +51,9 @@ export default {
     });
     if (spam) return;
 
+    // Salon de comptage (/compteur) : 1, 2, 3… à tour de rôle.
+    await handleCountingMessage(message).catch((err) => console.error('[compteur]', err));
+
     // « +vc » : statistiques des salons vocaux.
     await handleVoiceStatsCommand(message).catch((err) => console.error(err));
     // Stats d'activité (messages par membre et par salon), puis s?u / s?t / s?m / s?v.
@@ -71,6 +77,10 @@ export default {
     } catch (err) {
       console.error('[money]', err);
     }
+    // Drop d'argent à ramasser, de temps en temps, dans les salons choisis (/configeconomie).
+    await maybeDropMoney(message).catch((err) => console.error('[drops]', err));
+    // Quêtes de la semaine : paie celles que ce message (ou le vocal d'avant) vient de terminer.
+    if (message.guild && !message.author.bot) await checkQuests(message).catch((err) => console.error('[quetes]', err));
 
     await handleVerifyMessage(message).catch((err) => console.error(err));
     await handleLinkFilter(message).catch((err) => console.error(err));

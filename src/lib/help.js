@@ -24,6 +24,7 @@ const CATEGORIES = [
       ['/warnings', 'Voir les avertissements d’un membre'],
       ['/delwarn', 'Retirer un avertissement précis'],
       ['/clearwarns', 'Effacer TOUS les avertissements d’un membre'],
+      ['/casier', 'Sanctions d’un membre, ou de tout le serveur sans membre (avertissements, mutes, kicks, bans, deranks), avec dates et modérateurs ; option `sanction` pour un seul type'],
       ['/sanction', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
       ['/purge', 'Supprimer des messages dans ce salon (par lots)'],
       ['/lock · /unlock', 'Verrouiller / déverrouiller l’écriture dans ce salon'],
@@ -101,7 +102,7 @@ const CATEGORIES = [
     name: 'Système de niveaux',
     summary: 'XP par message, classement, récompenses de palier',
     about:
-      'Chaque message rapporte de l’XP selon sa longueur (de 10 à 60 XP, au plus une fois toutes les 5 s). ' +
+      'Chaque message rapporte de l’XP selon sa longueur (de 3 à 75 XP, au plus une fois toutes les 3 s). ' +
       'Passer un niveau rapporte 💰 200, s’annonce avec une carte en image et met à jour les rôles-récompenses : ' +
       'en addition (gardés) ou évolutifs (remplacés au palier suivant), dès le niveau 0. Un palier peut aussi donner de l’argent.',
     lines: [
@@ -115,13 +116,16 @@ const CATEGORIES = [
     key: 'economy',
     emoji: '💰',
     name: 'Économie & boutique',
-    summary: 'Daily, dons, classement, boutique',
+    summary: 'Daily, dons, quêtes, drops, membres de la semaine, boutique',
     about:
-      'L’argent se gagne en écrivant (💰 5 par message, 25 au-delà de 125 caractères), en passant des niveaux (💰 200) ' +
-      'et avec le daily, puis se dépense dans la boutique : rôles, rôles temporaires, ou objets personnalisés qui ouvrent un ticket.',
+      'L’argent se gagne en écrivant (💰 5 par message, 25 au-delà de 125 caractères), en passant des niveaux (💰 200), ' +
+      'avec le daily, les drops d’argent à ramasser dans les salons et les récompenses des membres de la semaine (top 3 messages ' +
+      'et top 3 vocal, chaque lundi), puis se dépense dans la boutique : rôles, rôles temporaires, ou objets personnalisés qui ouvrent un ticket.',
     lines: [
       ['/argent', '`daily` (100, +10 par jour de série jusqu’à 200) · `donner` (à un membre) · `top` (les plus riches)'],
       ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire'],
+      ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
+      ['/configeconomie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
       ['/money', '`ajouter` `retirer` — donner / retirer de l’argent à un membre (admin)'],
       ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire (admin)'],
       ['/change-item', 'Modifier le nom, le prix ou la description d’un objet (admin)'],
@@ -133,7 +137,7 @@ const CATEGORIES = [
     key: 'fun',
     emoji: '🎮',
     name: 'Mini-jeux & fun',
-    summary: 'Tu préfères, drapeaux, love calc, citations, GIF',
+    summary: 'Tu préfères, drapeaux, comptage, love calc, citations, GIF',
     about: 'De quoi animer le serveur : jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
@@ -143,6 +147,7 @@ const CATEGORIES = [
       ['/gif', 'Transformer une image (fichier ou lien) en GIF, pour l’ajouter à tes GIF favoris'],
       ['kayo pp · kayo banner', 'Photo de profil ou bannière d’un membre (ou la tienne) ; `server` pour celles du serveur (`hana` marche aussi)'],
       ['/coiffeur', 'Répondre « feur » quand un message finit par « quoi »'],
+      ['/compteur', '`activer` `desactiver` `voir` — salon de comptage : 1, 2, 3… à tour de rôle, sans fin (une erreur remet à 1, record gardé)'],
     ],
   },
   {
@@ -169,7 +174,7 @@ const CATEGORIES = [
       ['/announce', 'Publier une annonce dans un salon précis'],
       ['/embed', 'Créer un embed (aperçu modifiable) : envoi, role-react (boutons ou sélecteur de rôle), partenariat, ou bienvenue / départ'],
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs)'],
-      ['/gw', '`start` `end` `reroll` `retirer-participant` — gérer les giveaways'],
+      ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants) ou prix personnalisé (ex : Nitro)'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
       ['/nump', 'Nombre de partenariats effectués par un membre (rang + total du serveur)'],
       ['/save', 'Messages sauvegardés (5 emplacements)'],
@@ -218,6 +223,26 @@ const CATEGORIES = [
   },
 ];
 
+// Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
+// À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
+const RECENT = [
+  ['/compteur', 'salon de comptage, sans fin'],
+  ['/quetes', 'quêtes de la semaine (argent, niveaux)'],
+  ['/configeconomie', 'drops d’argent et membres de la semaine'],
+  ['/casier', 'sanctions d’un membre ou du serveur'],
+  ['/argent', 'daily, dons et classement des plus riches'],
+  ['/profilbot', 'profil du bot sur ce serveur'],
+  ['/gif', 'transformer une image en GIF'],
+  ['/configconfessions', 'confessions anonymes'],
+  ['/renier', 'renier un enfant adopté'],
+  ['/fuguer', 'quitter son parent adoptif'],
+  ['/money', 'donner ou retirer de l’argent (admin)'],
+  ['/change-item', 'modifier un objet de la boutique'],
+  ['/configshop', 'apparence de la boutique'],
+  ['/shop', 'boutique et inventaire'],
+  ['/add-item', 'ajouter un objet à la boutique'],
+];
+
 const HOME = 'home';
 export const HELP_MENU_ID = 'help_menu';
 
@@ -229,8 +254,12 @@ function homeEmbed() {
       'Choisis une catégorie dans le menu ci-dessous pour voir son fonctionnement et toutes ses commandes.\n\n' +
         CATEGORIES.map((c) => `${c.emoji} **${c.name}** — ${c.summary}`).join('\n'),
     )
+    .addFields({ name: '🆕 Dernières commandes ajoutées', value: RECENT.map(([name, desc]) => `**${name}** — ${desc}`).join('\n') })
     .setFooter({ text: 'Astuce : tape « / » dans le champ de message pour voir les options de chaque commande.' });
 }
+
+// Pour les tests : commandes de la liste des nouveautés.
+export const recentEntries = () => RECENT.map(([name]) => name);
 
 function categoryEmbed(cat) {
   const commands = cat.lines.map(([name, desc]) => `**${name}** — ${desc}`).join('\n');

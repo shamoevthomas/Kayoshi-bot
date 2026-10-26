@@ -1,7 +1,7 @@
 import { EmbedBuilder } from 'discord.js';
 import { getLinkConfig } from './store.js';
 import { sendLog, sendSanctionLog, Colors } from './logger.js';
-import { dmSanction } from './sanctions.js';
+import { dmSanction, recordSanction } from './sanctions.js';
 
 // Extrait tous les liens d'un message (http, www, invitations, domaine.tld). Les sous-domaines
 // sont gardés (music.youtube.com, et non youtube.com) pour juger le lien sur son vrai domaine.
@@ -94,6 +94,7 @@ async function muteRepeatOffender(message) {
     });
   if (!ok) return false;
   linkStrikes.delete(key);
+  recordSanction(message.guild.id, message.author.id, 'mute', { reason: MUTE_REASON, durationMs: MUTE_MS });
 
   // Le timeout donné par le bot n'est pas loggué par guildMemberUpdate : on le fait ici, comme /mute.
   await dmSanction(message.author, message.guild, 'rendu muet', `${MUTE_REASON} (3 h)`, message.client.user, false);

@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { parseDuration } from '../../lib/time.js';
+import { formatMoney } from '../../lib/shop.js';
 import {
   getGiveaway,
   getGuildGiveaways,
@@ -35,12 +36,20 @@ export default {
         .setName('start')
         .setDescription('Lancer un giveaway.')
         .addRoleOption((o) => o.setName('role').setDescription('Rôle à mentionner').setRequired(true))
-        .addStringOption((o) => o.setName('prix').setDescription('Le prix (ex: Nitro Boost 1 mois)').setRequired(true))
         .addStringOption((o) => o.setName('duree').setDescription('Durée (ex: 1h, 30m, 2d)').setRequired(true))
         .addIntegerOption((o) =>
           o.setName('gagnants').setDescription('Nombre de gagnants').setRequired(true).setMinValue(1).setMaxValue(20),
         )
         .addUserOption((o) => o.setName('organisateur').setDescription('Organisé par').setRequired(true))
+        .addStringOption((o) =>
+          o
+            .setName('type')
+            .setDescription('Argent (crédité automatiquement aux gagnants) ou prix personnalisé (ex : Nitro)')
+            .setRequired(true)
+            .addChoices({ name: 'Argent', value: 'argent' }, { name: 'Personnalisé (ex : Nitro)', value: 'perso' }),
+        )
+        .addStringOption((o) => o.setName('prix').setDescription('Pour « Personnalisé » : le prix (ex : Nitro Boost 1 mois)'))
+        .addIntegerOption((o) => o.setName('montant').setDescription('Pour « Argent » : montant gagné par chaque gagnant').setMinValue(1))
         .addIntegerOption((o) =>
           o
             .setName('messages_requis')
@@ -89,7 +98,16 @@ export default {
 
   async start(interaction, guildId) {
     const role = interaction.options.getRole('role');
-    const prize = interaction.options.getString('prix').trim();
+    // Argent : crédité automatiquement à chaque gagnant ; personnalisé : à remettre par l'organisateur.
+    const isMoney = interaction.options.getString('type') === 'argent';
+    const rewardMoney = isMoney ? interaction.options.getInteger('montant') : null;
+    const prize = isMoney ? `💰 ${formatMoney(rewardMoney ?? 0)}` : interaction.options.getString('prix')?.trim();
+    if (isMoney && !rewardMoney) {
+      return interaction.reply({ content: '❌ Pour un giveaway d’argent, indique le `montant` gagné par chaque gagnant.', ephemeral: true });
+    }
+    if (!isMoney && !prize) {
+      return interaction.reply({ content: '❌ Pour un prix personnalisé, indique le `prix` (ex : Nitro Boost 1 mois).', ephemeral: true });
+    }
     const dureeStr = interaction.options.getString('duree');
     const winners = interaction.options.getInteger('gagnants');
     const host = interaction.options.getUser('organisateur');
@@ -114,6 +132,7 @@ export default {
     const gw = {
       channelId: interaction.channelId,
       prize,
+      rewardMoney,
       winners,
       endsAt,
       hostId: host.id,

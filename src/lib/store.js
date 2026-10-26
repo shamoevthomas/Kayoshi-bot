@@ -315,6 +315,79 @@ export function clearWarns(guildId, userId) {
   return count;
 }
 
+// --- Casier : sanctions données par le bot (/casier) ---
+// sanctions = { userId: [{ type, reason, by, at, duration }] } : 50 dernières par membre.
+// (Les avertissements restent dans warns.)
+export function getSanctions(guildId, userId) {
+  return getGuildConfig(guildId).sanctions?.[userId] ?? [];
+}
+
+// Sanctions et avertissements de tous les membres : { userId: [...] }.
+export function getAllSanctions(guildId) {
+  return getGuildConfig(guildId).sanctions ?? {};
+}
+
+export function getAllWarns(guildId) {
+  return getGuildConfig(guildId).warns ?? {};
+}
+
+export function addSanction(guildId, userId, record) {
+  const all = getGuildConfig(guildId).sanctions ?? {};
+  setGuildConfig(guildId, { sanctions: { ...all, [userId]: [...(all[userId] ?? []), record].slice(-50) } });
+}
+
+// --- Économie automatique (/configeconomie) ---
+// moneyDrops = { enabled, channelIds, min, max, everyMin } : argent à ramasser dans les salons actifs.
+// weeklyTop = { enabled, channelId, roleId, rewards: { m1, m2, m3, v1, v2, v3 }, lastWeek } :
+//   récompenses du lundi pour le top 3 messages et le top 3 vocal ; lastWeek = lundi de la
+//   dernière semaine récompensée (« 2026-10-19 »).
+export function getMoneyDrops(guildId) {
+  return getGuildConfig(guildId).moneyDrops ?? null;
+}
+
+export function setMoneyDrops(guildId, cfg) {
+  setGuildConfig(guildId, { moneyDrops: cfg });
+}
+
+export function getWeeklyTop(guildId) {
+  return getGuildConfig(guildId).weeklyTop ?? null;
+}
+
+export function setWeeklyTop(guildId, cfg) {
+  setGuildConfig(guildId, { weeklyTop: cfg });
+}
+
+// --- Quêtes de la semaine (/quetes) ---
+// quests = [{ id, type, target, money, levels }] (types : messages, vocal en minutes, drops, daily).
+// questWeek = { week, done: { userId: [questId] }, counts: { userId: { drops, daily } } } : semaine en
+// cours (lundi, « 2026-10-26 ») ; tout repart à zéro quand la semaine change.
+export function getQuests(guildId) {
+  return getGuildConfig(guildId).quests ?? [];
+}
+
+export function setQuests(guildId, quests) {
+  setGuildConfig(guildId, { quests });
+}
+
+export function getQuestWeek(guildId, week) {
+  const qw = getGuildConfig(guildId).questWeek;
+  return qw?.week === week ? qw : { week, done: {}, counts: {} };
+}
+
+export function setQuestWeek(guildId, questWeek) {
+  setGuildConfig(guildId, { questWeek });
+}
+
+// --- Comptage (/compteur) ---
+// counting = { channelId, current, record, lastUserId } ; nombres gardés en texte (sans limite de taille).
+export function getCounting(guildId) {
+  return getGuildConfig(guildId).counting ?? null;
+}
+
+export function setCounting(guildId, counting) {
+  setGuildConfig(guildId, { counting });
+}
+
 // --- Bans temporaires (déban programmé) ---
 export function addTempBan(guildId, userId, unbanAt) {
   const data = load();
