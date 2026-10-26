@@ -12,6 +12,7 @@ import { handleFamilyInteraction } from '../lib/family.js';
 import { openShop, handleShopInteraction } from '../lib/shop.js';
 import { handleConfessionInteraction } from '../lib/confessions.js';
 import { handleQuoteInteraction } from '../lib/quote.js';
+import { HELP_MENU_ID, handleHelpInteraction } from '../lib/help.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -32,6 +33,7 @@ export default {
         if (cid.startsWith('fam_')) return void (await handleFamilyInteraction(interaction));
         if (cid.startsWith('conf_')) return void (await handleConfessionInteraction(interaction));
         if (cid.startsWith('qt_')) return void (await handleQuoteInteraction(interaction));
+        if (cid === HELP_MENU_ID) return void (await handleHelpInteraction(interaction));
         if (cid === 'shop_open') return void (await openShop(interaction));
         if (cid.startsWith('shop_')) return void (await handleShopInteraction(interaction));
       } catch (err) {
