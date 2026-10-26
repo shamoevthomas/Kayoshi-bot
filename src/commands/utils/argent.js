@@ -2,8 +2,11 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getMoney, addMoney, getMoneyLeaderboard, getDaily, setDaily } from '../../lib/store.js';
 import { formatMoney } from '../../lib/shop.js';
 import { countQuestAction, checkQuests } from '../../lib/quests.js';
+import { boostedMoney, roleBoost } from '../../lib/levels.js';
+import { spinWheel } from '../../lib/wheel.js';
 
-// Économie des membres : récompense quotidienne (avec série de jours), dons entre membres, classement.
+// Économie des membres : récompense quotidienne (avec série de jours), dons entre membres, classement,
+// roue de la fortune (lib/wheel.js).
 // L'argent se gagne aussi en écrivant et en passant des niveaux, et se dépense dans /shop.
 const DAILY_BASE = 100;
 const DAILY_STREAK_BONUS = 10; // en plus par jour de série
@@ -14,7 +17,7 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 export default {
   data: new SlashCommandBuilder()
     .setName('argent')
-    .setDescription('Récompense quotidienne, dons entre membres et classement de l’argent.')
+    .setDescription('Récompense quotidienne, roue de la fortune, dons entre membres et classement de l’argent.')
     .addSubcommand((s) => s.setName('daily').setDescription('Récupérer ta récompense quotidienne (bonus si tu reviens chaque jour).'))
     .addSubcommand((s) =>
       s
@@ -24,12 +27,14 @@ export default {
         .addIntegerOption((o) => o.setName('montant').setDescription('Combien donner').setRequired(true).setMinValue(1)),
     )
     .addSubcommand((s) => s.setName('top').setDescription('Classement des membres les plus riches.'))
+    .addSubcommand((s) => s.setName('roue').setDescription('Tourner la roue de la fortune (une fois par jour) : argent, XP, booster… ou rien.'))
     .setDMPermission(false),
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'daily') return daily(interaction);
     if (sub === 'donner') return give(interaction);
+    if (sub === 'roue') return spinWheel(interaction);
     return top(interaction);
   },
 };
@@ -47,13 +52,16 @@ async function daily(interaction) {
     });
   }
   const streak = record && now - record.last < 2 * DAY ? record.streak + 1 : 1;
-  const gain = Math.min(DAILY_BASE + DAILY_STREAK_BONUS * (streak - 1), DAILY_MAX);
+  const base = Math.min(DAILY_BASE + DAILY_STREAK_BONUS * (streak - 1), DAILY_MAX);
+  const gain = boostedMoney(interaction.member, base); // rôle boosté (/boostrole)
+  const boost = roleBoost(interaction.member, 'money');
   setDaily(guild.id, user.id, { last: now, streak });
   const balance = addMoney(guild.id, user.id, gain);
   const series = streak > 1 ? ` (série de **${streak}** jours 🔥)` : '';
-  const hint = gain < DAILY_MAX ? 'Reviens demain : +10 par jour de série, jusqu’à 200.' : 'Bonus de série au maximum, garde le rythme !';
+  const boostNote = boost > 1 ? ` (bonus de rôle ×${boost.toLocaleString('fr-FR')})` : '';
+  const hint = base < DAILY_MAX ? 'Reviens demain : +10 par jour de série, jusqu’à 200.' : 'Bonus de série au maximum, garde le rythme !';
   await interaction.reply({
-    content: `🎁 ${user} récupère son daily : 💰 **+${formatMoney(gain)}**${series}. Solde : 💰 **${formatMoney(balance)}**.\n-# ${hint}`,
+    content: `🎁 ${user} récupère son daily : 💰 **+${formatMoney(gain)}**${boostNote}${series}. Solde : 💰 **${formatMoney(balance)}**.\n-# ${hint}`,
     allowedMentions: { parse: [] },
   });
   countQuestAction(guild.id, user.id, 'daily');

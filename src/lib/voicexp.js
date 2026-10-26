@@ -4,7 +4,7 @@ import { grantXp, xpMultiplier } from './levels.js';
 import { checkQuests } from './quests.js';
 
 // XP en vocal : chaque minute, les membres en conversation gagnent de l'XP (multipliée par
-// l'événement et le booster en cours). Comptés : pas en sourdine (casque coupé), pas dans le salon
+// l'événement, le booster en cours et le rôle boosté). Comptés : pas en sourdine (casque coupé), pas dans le salon
 // AFK, et au moins 2 personnes (hors bots) dans le salon. Les annonces (passage de niveau, quête)
 // vont dans le chat du salon vocal.
 export const VOICE_XP_PER_MINUTE = 5;
@@ -19,7 +19,7 @@ export async function grantVoiceXp(client) {
       for (const member of humans.values()) {
         if (member.voice.deaf) continue; // casque coupé (par lui ou par un modo)
         const ctx = { guild, author: member.user, member, channel: channel.isTextBased?.() ? channel : null };
-        const amount = Math.round(VOICE_XP_PER_MINUTE * xpMultiplier(guild.id, member.id));
+        const amount = Math.round(VOICE_XP_PER_MINUTE * xpMultiplier(guild.id, member.id, member));
         await grantXp(ctx, amount).catch((err) => console.error('[xp vocal]', err));
         await checkQuests(ctx).catch((err) => console.error('[quetes]', err));
       }

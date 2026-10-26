@@ -12,6 +12,7 @@ import { handleStatCommand } from '../lib/statcommands.js';
 import { handleLoveCommand } from '../lib/lovecalc.js';
 import { handleAvatarCommand } from '../lib/avatarcommand.js';
 import { handleQuoteCommand } from '../lib/quote.js';
+import { handleActionCommand } from '../lib/actions.js';
 import { grantMessageXp, grantMessageMoney } from '../lib/levels.js';
 import { maybeDropMoney } from '../lib/moneydrops.js';
 import { checkQuests } from '../lib/quests.js';
@@ -69,6 +70,8 @@ export default {
     await handleAvatarCommand(message).catch((err) => console.error('[avatar]', err));
     // Réponse à un message en mentionnant le bot : citation du message en image.
     await handleQuoteCommand(message).catch((err) => console.error('[quote]', err));
+    // « kayo hug / kiss / slap @membre » (ou « hana … ») : GIF d'anime.
+    await handleActionCommand(message).catch((err) => console.error('[actions]', err));
     // XP : gain par message + annonce de passage de niveau.
     await grantMessageXp(message).catch((err) => console.error('[levels]', err));
     // Argent : gain par message (5$, ou 25$ si > 125 caractères).

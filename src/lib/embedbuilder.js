@@ -1197,7 +1197,7 @@ export async function handleEmbedBuilderInteraction(interaction) {
     if (interaction.isButton() && action === 'emb_partneroff') {
       patchPartner(interaction.guild.id, { channelId: null, embed: null });
       return interaction.update(
-        builderPayload(embed, '🗑️ Envoi automatique désactivé.\n-# Le nombre de partenariats (`[nump]`, `/nump`) est conservé.', state),
+        builderPayload(embed, '🗑️ Envoi automatique désactivé.\n-# Le nombre de partenariats (`[nump]`) est conservé.', state),
       );
     }
     if (interaction.isChannelSelectMenu()) {

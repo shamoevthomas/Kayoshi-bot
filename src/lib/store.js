@@ -397,6 +397,25 @@ export function setXpBoost(guildId, userId, boost) {
   setGuildConfig(guildId, { xpBoosts: { ...(getGuildConfig(guildId).xpBoosts ?? {}), [userId]: boost } });
 }
 
+// --- Rôles boostés (/boostrole) ---
+// roleBoosts = { roleId: { xp, money } } : multiplicateurs des gains des membres qui ont le rôle.
+export function getRoleBoosts(guildId) {
+  return getGuildConfig(guildId).roleBoosts ?? {};
+}
+
+export function setRoleBoosts(guildId, roleBoosts) {
+  setGuildConfig(guildId, { roleBoosts });
+}
+
+// --- Roue de la fortune (/argent roue) : wheel = { userId: instant du dernier tour } ---
+export function getWheelSpin(guildId, userId) {
+  return getGuildConfig(guildId).wheel?.[userId] ?? null;
+}
+
+export function setWheelSpin(guildId, userId, at) {
+  setGuildConfig(guildId, { wheel: { ...(getGuildConfig(guildId).wheel ?? {}), [userId]: at } });
+}
+
 // --- Comptage (/compteur) ---
 // counting = { channelId, current, record, lastUserId } ; nombres gardés en texte (sans limite de taille).
 export function getCounting(guildId) {
@@ -1528,7 +1547,7 @@ export function getAllBumpReminders() {
     .map(([guildId, g]) => ({ guildId, cfg: g.bumpReminder }));
 }
 
-// --- Partenariats (/embed → Partenariat, /nump) ---
+// --- Partenariats (/embed → Partenariat ; compteur [nump] des messages) ---
 // partner = { channelId, roleId, embed, total, byUser: { userId: nombre },
 //             mentions: { userId: [{ channelId, messageId }] } }
 export function getPartner(guildId) {

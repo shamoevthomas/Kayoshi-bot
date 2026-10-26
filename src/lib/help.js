@@ -100,8 +100,8 @@ const CATEGORIES = [
     summary: 'XP par message et en vocal, événements, boosters, récompenses',
     about:
       'Chaque message rapporte de l’XP selon sa longueur (de 3 à 75 XP, au plus une fois toutes les 3 s), et chaque minute ' +
-      'en conversation vocale 5 XP (sans sourdine, à 2 au moins, hors AFK). Un événement du staff (×2 ou ×3) et un booster ' +
-      'acheté dans la boutique multiplient l’XP. Passer un niveau rapporte 💰 200, s’annonce avec une carte en image et met à ' +
+      'en conversation vocale 5 XP (sans sourdine, à 2 au moins, hors AFK). Un événement du staff (×2 ou ×3), un booster ' +
+      'acheté dans la boutique et un rôle boosté (ex : VIP) multiplient l’XP. Passer un niveau rapporte 💰 200, s’annonce avec une carte en image et met à ' +
       'jour les rôles-récompenses : en addition (gardés) ou évolutifs (remplacés au palier suivant), dès le niveau 0. ' +
       'Un palier peut aussi donner de l’argent.',
     lines: [
@@ -115,13 +115,15 @@ const CATEGORIES = [
     key: 'economy',
     emoji: '💰',
     name: 'Économie & boutique',
-    summary: 'Daily, dons, quêtes, drops, membres de la semaine, boutique',
+    summary: 'Daily, roue, dons, quêtes, drops, membres de la semaine, rôles boostés, boutique',
     about:
       'L’argent se gagne en écrivant (💰 5 par message, 25 au-delà de 125 caractères), en passant des niveaux (💰 200), ' +
-      'avec le daily, les drops d’argent à ramasser dans les salons et les récompenses des membres de la semaine (top 3 messages ' +
-      'et top 3 vocal, chaque lundi), puis se dépense dans la boutique : rôles, rôles temporaires, ou objets personnalisés qui ouvrent un ticket.',
+      'avec le daily, la roue de la fortune, les drops d’argent à ramasser dans les salons et les récompenses des membres de la ' +
+      'semaine (top 3 messages et top 3 vocal, chaque lundi). Un rôle boosté (ex : VIP ×1,5) fait gagner plus en étant actif. ' +
+      'L’argent se dépense dans la boutique : rôles, rôles temporaires, boosters d’XP, ou objets personnalisés qui ouvrent un ticket.',
     lines: [
-      ['/argent', '`daily` (100, +10 par jour de série jusqu’à 200) · `donner` (à un membre) · `top` (les plus riches)'],
+      ['/argent', '`daily` (100, +10 par jour de série jusqu’à 200) · `roue` (une fois par jour : argent, XP, booster… ou rien) · `donner` (à un membre) · `top` (les plus riches)'],
+      ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,5) (admin)'],
       ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire'],
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
       ['/configeconomie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
@@ -143,6 +145,7 @@ const CATEGORIES = [
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement)'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
+      ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
       ['/gif', 'Transformer une image (fichier ou lien) en GIF, pour l’ajouter à tes GIF favoris'],
       ['kayo pp · kayo banner', 'Photo de profil ou bannière d’un membre (ou la tienne) ; `server` pour celles du serveur (`hana` marche aussi)'],
       ['/coiffeur', 'Répondre « feur » quand un message finit par « quoi »'],
@@ -175,7 +178,6 @@ const CATEGORIES = [
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs)'],
       ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants) ou prix personnalisé (ex : Nitro)'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
-      ['/nump', 'Nombre de partenariats effectués par un membre (rang + total du serveur)'],
       ['/save', '`emplacement` (save1 à save5, avec aperçu) · `action` : enregistrer un message ou envoyer celui enregistré'],
       ['/profilbot', '`modifier` `reinitialiser` — photo, bannière et bio du bot sur ce serveur uniquement'],
     ],
@@ -225,6 +227,7 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['/boostrole', 'rôles qui gagnent plus d’XP et d’argent'],
   ['/statut', 'rôle selon un mot-clé du statut'],
   ['/compteur', 'salon de comptage, sans fin'],
   ['/quetes', 'quêtes de la semaine (argent, niveaux)'],
@@ -239,12 +242,12 @@ const RECENT = [
   ['/money', 'donner ou retirer de l’argent (admin)'],
   ['/change-item', 'modifier un objet de la boutique'],
   ['/configshop', 'apparence de la boutique'],
-  ['/shop', 'boutique et inventaire'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/argent', '`roue` : roue de la fortune une fois par jour'],
   ['/lock', 'verrouille pour le rôle Membre au lieu de @everyone (pareil pour /unlock)'],
   ['/save', 'une seule commande : emplacement save1 à save5, enregistrer ou envoyer'],
   ['/delwarn', 'option `tout` : retirer tous les avertissements'],
@@ -254,7 +257,6 @@ const RECENT_CHANGES = [
   ['/niveau', 'bonus d’XP en cours affichés'],
   ['/gw', 'gain en argent ou prix personnalisé'],
   ['/passer-verif', 'option `tout` (ex-/verif-all)'],
-  ['/role', 'respecte la hiérarchie, gère les rôles temporaires'],
 ];
 
 const HOME = 'home';

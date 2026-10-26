@@ -1,7 +1,7 @@
 import { EmbedBuilder } from 'discord.js';
 import { getQuests, getQuestWeek, setQuestWeek, getStatsData, addMoney } from './store.js';
 import { currentMonday, weekDays } from './weeklytop.js';
-import { grantLevels } from './levels.js';
+import { grantLevels, boostedMoney } from './levels.js';
 import { formatMoney } from './shop.js';
 
 // Quêtes de la semaine (/quetes) : objectifs définis par le staff (messages, minutes de vocal,
@@ -65,14 +65,15 @@ export async function checkQuests(ctx) {
   setQuestWeek(ctx.guild.id, qw); // noté avant de payer : jamais deux fois la même quête
 
   for (const q of finished) {
+    const money = boostedMoney(ctx.member, q.money ?? 0); // rôle boosté (/boostrole)
     if (ctx.channel) {
       const embed = new EmbedBuilder()
         .setColor(0x57f287)
         .setTitle('📜 Quête terminée !')
-        .setDescription(`${ctx.author} a terminé **${questLabel(q)}** et gagne ${rewardText(q)} !`);
+        .setDescription(`${ctx.author} a terminé **${questLabel(q)}** et gagne ${rewardText({ ...q, money })} !`);
       await ctx.channel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(() => {});
     }
-    if (q.money) addMoney(ctx.guild.id, ctx.author.id, q.money);
+    if (money) addMoney(ctx.guild.id, ctx.author.id, money);
     // Niveaux : vrai passage de niveau (argent par niveau, annonce, rôles et salaires de palier).
     if (q.levels) await grantLevels(ctx, q.levels).catch((err) => console.error('[quetes]', err));
   }

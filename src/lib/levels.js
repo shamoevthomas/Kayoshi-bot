@@ -19,6 +19,7 @@ import {
   addMoney,
   getXpEvent,
   getXpBoost,
+  getRoleBoosts,
 } from './store.js';
 import { formatMoney } from './shop.js';
 
@@ -82,7 +83,7 @@ export function grantMessageMoney(message) {
   if (now - (lastMoneyGain.get(key) ?? 0) < MONEY_COOLDOWN_MS) return;
   lastMoneyGain.set(key, now);
 
-  addMoney(message.guild.id, message.author.id, gain);
+  addMoney(message.guild.id, message.author.id, boostedMoney(message.member, gain));
 }
 
 // XP selon la longueur du message (sans texte, ex. une image seule : rien).
@@ -228,7 +229,7 @@ function renderSalaryCard(user, member, amount) {
 export async function grantMessageXp(message) {
   if (!message.guild || message.author?.bot) return;
   if (!getLevelsEnabled(message.guild.id)) return; // système désactivé via /configniveau
-  const gain = Math.round(xpForMessage((message.content ?? '').trim().length) * xpMultiplier(message.guild.id, message.author.id));
+  const gain = Math.round(xpForMessage((message.content ?? '').trim().length) * xpMultiplier(message.guild.id, message.author.id, message.member));
   if (!gain) return;
 
   const key = `${message.guild.id}:${message.author.id}`;
@@ -240,11 +241,24 @@ export async function grantMessageXp(message) {
   await afterXpChange(message, levelFromXp(before), levelFromXp(after));
 }
 
-// Multiplicateur d'XP : événement du serveur (/xp evenement) × booster personnel (boutique).
-export function xpMultiplier(guildId, userId, now = Date.now()) {
+// Boost des rôles du membre (/boostrole) pour « xp » ou « money » : le plus fort de ses rôles boostés.
+export function roleBoost(member, kind) {
+  if (!member?.roles?.cache) return 1;
+  let best = 1;
+  for (const [roleId, boost] of Object.entries(getRoleBoosts(member.guild.id))) {
+    if (boost[kind] && member.roles.cache.has(roleId)) best = Math.max(best, boost[kind]);
+  }
+  return best;
+}
+
+// Argent gagné en étant actif (messages, niveaux, daily, drops, quêtes), avec le boost de rôle.
+export const boostedMoney = (member, amount) => Math.round(amount * roleBoost(member, 'money'));
+
+// Multiplicateur d'XP : événement du serveur (/xp evenement) × booster personnel (boutique) × rôle boosté.
+export function xpMultiplier(guildId, userId, member = null, now = Date.now()) {
   const event = getXpEvent(guildId);
   const boost = getXpBoost(guildId, userId);
-  return (event?.endsAt > now ? event.multiplier : 1) * (boost?.endsAt > now ? boost.multiplier : 1);
+  return (event?.endsAt > now ? event.multiplier : 1) * (boost?.endsAt > now ? boost.multiplier : 1) * roleBoost(member, 'xp');
 }
 
 // XP gagnée hors message (vocal) : même suite qu'un gain par message (rôles, passage de niveau…).
@@ -275,7 +289,8 @@ async function afterXpChange(ctx, oldLevel, newLevel) {
   const moneyRewards = getLevelMoneyRewards(ctx.guild.id);
   let bonus = 0;
   for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) bonus += moneyRewards[lvl] ?? 0;
-  addMoney(ctx.guild.id, ctx.author.id, MONEY_PER_LEVEL * (newLevel - oldLevel) + bonus);
+  bonus = boostedMoney(member, bonus);
+  addMoney(ctx.guild.id, ctx.author.id, boostedMoney(member, MONEY_PER_LEVEL * (newLevel - oldLevel)) + bonus);
 
   const channel = await levelChannel(ctx);
   if (channel) await announceLevelUp(channel, ctx, newLevel).catch((err) => console.error('[levels]', err));

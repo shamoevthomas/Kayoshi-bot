@@ -2,6 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'disc
 import { getMoneyDrops, addMoney } from './store.js';
 import { formatMoney } from './shop.js';
 import { countQuestAction, checkQuests } from './quests.js';
+import { boostedMoney } from './levels.js';
 
 // Drops d'argent (/configeconomie drops) : de temps en temps, un message dans un des salons choisis
 // fait apparaître « 💰 X à gagner » avec un bouton ; le premier qui clique gagne.
@@ -65,13 +66,14 @@ export async function handleDropInteraction(interaction) {
     return interaction.reply({ content: '⌛ Trop tard, ce drop n’est plus disponible.', ephemeral: true });
   }
   claimed.add(drop.id);
-  const balance = addMoney(interaction.guild.id, interaction.user.id, amount);
+  const won = boostedMoney(interaction.member, amount); // rôle boosté (/boostrole)
+  const balance = addMoney(interaction.guild.id, interaction.user.id, won);
   await interaction.update({
     embeds: [
       new EmbedBuilder()
         .setColor(COLOR)
         .setTitle('🎉 Drop ramassé !')
-        .setDescription(`${interaction.user} a récupéré 💰 **${formatMoney(amount)}** !`)
+        .setDescription(`${interaction.user} a récupéré 💰 **${formatMoney(won)}** !${won > amount ? ' _(bonus de rôle)_' : ''}`)
         .setFooter({ text: `Son solde : ${formatMoney(balance)} 💰` }),
     ],
     components: [],
