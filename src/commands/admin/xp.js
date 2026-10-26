@@ -9,8 +9,11 @@ import {
   setLevelReward,
   setLevelMoneyReward,
   removeLevelReward,
+  getXpEvent,
+  setXpEvent,
 } from '../../lib/store.js';
 import { formatMoney } from '../../lib/shop.js';
+import { parseDuration, formatDuration } from '../../lib/time.js';
 import { levelFromXp, xpForLevel, xpDeltaForLevels, syncLevelRoles, LEVEL_COLOR, MONEY_PER_LEVEL } from '../../lib/levels.js';
 import { sendLog, Colors } from '../../lib/logger.js';
 
@@ -80,6 +83,19 @@ export default {
         .addStringOption(unitOption)
         .addStringOption(reasonOption),
     )
+    .addSubcommand((s) =>
+      s
+        .setName('evenement')
+        .setDescription('Événement XP : XP multipliée pour tout le serveur pendant une durée.')
+        .addStringOption((o) =>
+          o
+            .setName('multiplicateur')
+            .setDescription('XP ×2, ×3, ou arrêter l’événement en cours')
+            .setRequired(true)
+            .addChoices({ name: 'XP ×2', value: '2' }, { name: 'XP ×3', value: '3' }, { name: 'Arrêter l’événement', value: 'stop' }),
+        )
+        .addStringOption((o) => o.setName('duree').setDescription('Durée (ex : 30m, 1h, 2h — 7 jours maximum)')),
+    )
     .addSubcommandGroup((g) =>
       g
         .setName('recompense')
@@ -118,6 +134,7 @@ export default {
     }
 
     const sub = interaction.options.getSubcommand();
+    if (sub === 'evenement') return handleXpEvent(interaction, guildId);
     const target = interaction.options.getUser('membre');
     const amount = interaction.options.getInteger('montant');
     const unit = interaction.options.getString('unite') ?? 'xp';
@@ -177,6 +194,47 @@ export default {
     );
   },
 };
+
+// /xp evenement : XP multipliée pour tout le serveur (messages et vocal), annoncée dans le salon.
+// La fin est annoncée automatiquement (voir lib/voicexp.js).
+async function handleXpEvent(interaction, guildId) {
+  const choice = interaction.options.getString('multiplicateur');
+  const current = getXpEvent(guildId);
+  const active = current?.endsAt > Date.now() ? current : null;
+  if (choice === 'stop') {
+    if (!active) return interaction.reply({ content: 'ℹ️ Aucun événement XP en cours.', ephemeral: true });
+    setXpEvent(guildId, null);
+    await interaction.channel
+      .send({ embeds: [new EmbedBuilder().setColor(0x4e5058).setTitle(`⏹️ Événement XP ×${active.multiplier} arrêté`).setDescription('L’XP revient à la normale.')] })
+      .catch(() => {});
+    return interaction.reply({ content: '✅ Événement XP arrêté.', ephemeral: true });
+  }
+  const dur = parseDuration(interaction.options.getString('duree') ?? '');
+  if (!dur || dur.permanent || dur.ms < 60_000 || dur.ms > 7 * 86_400_000) {
+    return interaction.reply({ content: '❌ Donne une `duree` valide, ex : `30m`, `1h`, `2h` (7 jours maximum).', ephemeral: true });
+  }
+  const multiplier = Number(choice);
+  const endsAt = Date.now() + dur.ms;
+  setXpEvent(guildId, { multiplier, endsAt, channelId: interaction.channelId, by: interaction.user.id });
+  const end = Math.floor(endsAt / 1000);
+  await interaction.channel
+    .send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xf5c542)
+          .setTitle(`⚡ Événement XP ×${multiplier} !`)
+          .setDescription(
+            `Pendant **${formatDuration(dur.ms)}**, chaque message et chaque minute en vocal rapportent **${multiplier}× plus d’XP**.\n` +
+              `Fin <t:${end}:R> (à <t:${end}:t>).`,
+          ),
+      ],
+    })
+    .catch(() => {});
+  return interaction.reply({
+    content: `✅ Événement XP ×${multiplier} lancé pour ${formatDuration(dur.ms)}.${active ? ` (il remplace l’événement ×${active.multiplier} en cours)` : ''}`,
+    ephemeral: true,
+  });
+}
 
 // Gestion du sous-groupe /xp recompense (ajouter / retirer / liste).
 async function handleRewards(interaction, guildId) {

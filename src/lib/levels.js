@@ -17,6 +17,8 @@ import {
   getLevelUpMessage,
   getLevelsEnabled,
   addMoney,
+  getXpEvent,
+  getXpBoost,
 } from './store.js';
 import { formatMoney } from './shop.js';
 
@@ -226,7 +228,7 @@ function renderSalaryCard(user, member, amount) {
 export async function grantMessageXp(message) {
   if (!message.guild || message.author?.bot) return;
   if (!getLevelsEnabled(message.guild.id)) return; // système désactivé via /configniveau
-  const gain = xpForMessage((message.content ?? '').trim().length);
+  const gain = Math.round(xpForMessage((message.content ?? '').trim().length) * xpMultiplier(message.guild.id, message.author.id));
   if (!gain) return;
 
   const key = `${message.guild.id}:${message.author.id}`;
@@ -236,6 +238,19 @@ export async function grantMessageXp(message) {
 
   const { before, after } = addXp(message.guild.id, message.author.id, gain);
   await afterXpChange(message, levelFromXp(before), levelFromXp(after));
+}
+
+// Multiplicateur d'XP : événement du serveur (/xp evenement) × booster personnel (boutique).
+export function xpMultiplier(guildId, userId, now = Date.now()) {
+  const event = getXpEvent(guildId);
+  const boost = getXpBoost(guildId, userId);
+  return (event?.endsAt > now ? event.multiplier : 1) * (boost?.endsAt > now ? boost.multiplier : 1);
+}
+
+// XP gagnée hors message (vocal) : même suite qu'un gain par message (rôles, passage de niveau…).
+export async function grantXp(ctx, amount) {
+  const { before, after } = addXp(ctx.guild.id, ctx.author.id, amount);
+  await afterXpChange(ctx, levelFromXp(before), levelFromXp(after));
 }
 
 // Niveaux gagnés d'un coup (quêtes) : convertis en XP, puis traités comme un vrai passage de niveau.

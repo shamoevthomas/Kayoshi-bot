@@ -378,6 +378,25 @@ export function setQuestWeek(guildId, questWeek) {
   setGuildConfig(guildId, { questWeek });
 }
 
+// --- Bonus d'XP ---
+// xpEvent = { multiplier, endsAt, channelId, by } : événement du serveur (/xp evenement).
+// xpBoosts = { userId: { multiplier, endsAt } } : boosters achetés dans la boutique.
+export function getXpEvent(guildId) {
+  return getGuildConfig(guildId).xpEvent ?? null;
+}
+
+export function setXpEvent(guildId, xpEvent) {
+  setGuildConfig(guildId, { xpEvent });
+}
+
+export function getXpBoost(guildId, userId) {
+  return getGuildConfig(guildId).xpBoosts?.[userId] ?? null;
+}
+
+export function setXpBoost(guildId, userId, boost) {
+  setGuildConfig(guildId, { xpBoosts: { ...(getGuildConfig(guildId).xpBoosts ?? {}), [userId]: boost } });
+}
+
 // --- Comptage (/compteur) ---
 // counting = { channelId, current, record, lastUserId } ; nombres gardés en texte (sans limite de taille).
 export function getCounting(guildId) {
@@ -561,6 +580,17 @@ export function getTagRoleConfig(guildId) {
 
 export function setTagRoleConfig(guildId, tagRole) {
   return setGuildConfig(guildId, { tagRole });
+}
+
+// --- Rôle selon le statut (/statut role) ---
+// statusKeywords = { enabled, roleId, keywords: [] } : le rôle est donné si le statut contient un des mots-clés.
+// (statutRules et statusRole ci-dessous : anciennes commandes /statut et /statut-role, encore lues.)
+export function getStatusKeywords(guildId) {
+  return getGuildConfig(guildId).statusKeywords ?? null;
+}
+
+export function setStatusKeywords(guildId, statusKeywords) {
+  setGuildConfig(guildId, { statusKeywords });
 }
 
 // --- Rôles selon le statut : plusieurs mots-clés (/statut) ---

@@ -10,7 +10,7 @@ import {
   StringSelectMenuBuilder,
   TextDisplayBuilder,
 } from 'discord.js';
-import { getMoney, addMoney, getShopItems, getShopItem, addPurchase, getPurchases, getShopConfig, setTempRole } from './store.js';
+import { getMoney, addMoney, getShopItems, getShopItem, addPurchase, getPurchases, getShopConfig, setTempRole, getXpBoost, setXpBoost } from './store.js';
 import { openTicketFor } from './tickets.js';
 import { formatDuration } from './time.js';
 
@@ -133,7 +133,7 @@ async function buy(interaction, itemId) {
   if (balance < item.price) {
     return `❌ Il te faut ${COIN} **${formatMoney(item.price)}** pour **${item.name}**, tu as **${formatMoney(balance)}**.`;
   }
-  // Exécute l'effet de l'objet selon son type (ticket / rôle permanent / rôle temporaire).
+  // Exécute l'effet de l'objet selon son type (ticket / rôle permanent / rôle temporaire / booster d'XP).
   const outcome = await fulfill(interaction, item);
   if (outcome.error) return `❌ ${outcome.error} Rien n’a été débité.`;
 
@@ -149,6 +149,17 @@ async function buy(interaction, itemId) {
 async function fulfill(interaction, item) {
   const { guild, user } = interaction;
   const type = item.type ?? 'personnalise';
+
+  // Booster d'XP : s'ajoute au temps restant d'un booster en cours ; le plus fort multiplicateur est gardé.
+  if (type === 'xp_boost') {
+    const now = Date.now();
+    const current = getXpBoost(guild.id, user.id);
+    const active = current?.endsAt > now ? current : null;
+    const boost = { multiplier: Math.max(item.multiplier ?? 2, active?.multiplier ?? 1), endsAt: (active?.endsAt ?? now) + item.durationMs };
+    setXpBoost(guild.id, user.id, boost);
+    const end = Math.floor(boost.endsAt / 1000);
+    return { note: `⚡ XP ×${boost.multiplier} jusqu’à <t:${end}:t> (<t:${end}:R>).${active ? ' Le temps s’ajoute à ton booster en cours.' : ''}` };
+  }
 
   if (type === 'role' || type === 'role_temp') {
     const role = guild.roles.cache.get(item.roleId);

@@ -21,10 +21,8 @@ const CATEGORIES = [
       ['/mute', 'Rendre un membre muet (timeout) pour une durée'],
       ['/unmute', 'Retirer le mute (timeout) d’un membre'],
       ['/warn', 'Donner un avertissement à un membre'],
-      ['/warnings', 'Voir les avertissements d’un membre'],
-      ['/delwarn', 'Retirer un avertissement précis'],
-      ['/clearwarns', 'Effacer TOUS les avertissements d’un membre'],
-      ['/casier', 'Sanctions d’un membre, ou de tout le serveur sans membre (avertissements, mutes, kicks, bans, deranks), avec dates et modérateurs ; option `sanction` pour un seul type'],
+      ['/delwarn', 'Retirer un avertissement précis (son numéro est dans /casier), ou tous avec `tout`'],
+      ['/casier', 'Sanctions d’un membre, ou de tout le serveur sans membre (avertissements avec leur numéro, mutes, kicks, bans, deranks), avec dates et modérateurs ; option `sanction` pour un seul type'],
       ['/sanction', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
       ['/purge', 'Supprimer des messages dans ce salon (par lots)'],
       ['/lock · /unlock', 'Verrouiller / déverrouiller l’écriture dans ce salon'],
@@ -49,8 +47,7 @@ const CATEGORIES = [
       ['/rank', 'Donner un ou deux rôles à un membre et l’annoncer en embed (« Rank up par @staff »)'],
       ['/derank', 'Retirer jusqu’à 5 rôles à un membre, le prévenir en MP et l’annoncer (« Derank par @staff »)'],
       ['/configrank', 'Choisir le salon et les messages des annonces de /rank et /derank'],
-      ['/statut', '`ajouter` `liste` `retirer` — rôle selon un mot-clé du statut'],
-      ['/statut-role', '`activer` `desactiver` `voir` — rôle selon un texte du statut'],
+      ['/statut', '`role` — rôle donné aux membres qui ont un mot-clé dans leur statut (activer → mots-clés, un par ligne ; désactiver)'],
       ['/tagrole', '`activer` `desactiver` `voir` — rôle si le tag du serveur est porté'],
       ['/antirole', '`ajouter` `liste` `retirer` — rôles incompatibles (ex : Actif retire Nouveau)'],
     ],
@@ -100,15 +97,17 @@ const CATEGORIES = [
     key: 'levels',
     emoji: '📈',
     name: 'Système de niveaux',
-    summary: 'XP par message, classement, récompenses de palier',
+    summary: 'XP par message et en vocal, événements, boosters, récompenses',
     about:
-      'Chaque message rapporte de l’XP selon sa longueur (de 3 à 75 XP, au plus une fois toutes les 3 s). ' +
-      'Passer un niveau rapporte 💰 200, s’annonce avec une carte en image et met à jour les rôles-récompenses : ' +
-      'en addition (gardés) ou évolutifs (remplacés au palier suivant), dès le niveau 0. Un palier peut aussi donner de l’argent.',
+      'Chaque message rapporte de l’XP selon sa longueur (de 3 à 75 XP, au plus une fois toutes les 3 s), et chaque minute ' +
+      'en conversation vocale 5 XP (sans sourdine, à 2 au moins, hors AFK). Un événement du staff (×2 ou ×3) et un booster ' +
+      'acheté dans la boutique multiplient l’XP. Passer un niveau rapporte 💰 200, s’annonce avec une carte en image et met à ' +
+      'jour les rôles-récompenses : en addition (gardés) ou évolutifs (remplacés au palier suivant), dès le niveau 0. ' +
+      'Un palier peut aussi donner de l’argent.',
     lines: [
-      ['/niveau', 'Voir ton niveau, ton XP et ta progression (ou celui d’un membre)'],
+      ['/niveau', 'Voir ton niveau, ton XP, ta progression et tes bonus d’XP en cours (ou ceux d’un membre)'],
       ['/niveaux', 'Classement des membres par niveau / XP'],
-      ['/xp', '`ajouter` `retirer` `definir` — gérer l’XP ou le niveau d’un membre ; `recompense` — paliers : rôle (addition ou évolutif) et/ou argent (admin)'],
+      ['/xp', '`ajouter` `retirer` `definir` — gérer l’XP ou le niveau d’un membre ; `evenement` — XP ×2 ou ×3 pour tout le serveur pendant une durée ; `recompense` — paliers : rôle (addition ou évolutif) et/ou argent (admin)'],
       ['/configniveau', '`activer` `desactiver` `voir` `message` — activer le système et personnaliser l’annonce de passage de niveau (admin)'],
     ],
   },
@@ -127,7 +126,7 @@ const CATEGORIES = [
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
       ['/configeconomie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
       ['/money', '`ajouter` `retirer` — donner / retirer de l’argent à un membre (admin)'],
-      ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire (admin)'],
+      ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire, booster d’XP (admin)'],
       ['/change-item', 'Modifier le nom, le prix ou la description d’un objet (admin)'],
       ['/configshop', 'Titre, description et couleur de la boutique (admin)'],
       ['/history-shop', 'Historique des achats de la boutique, ou ceux d’un membre (admin)'],
@@ -226,6 +225,7 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['/statut', 'rôle selon un mot-clé du statut'],
   ['/compteur', 'salon de comptage, sans fin'],
   ['/quetes', 'quêtes de la semaine (argent, niveaux)'],
   ['/configeconomie', 'drops d’argent et membres de la semaine'],
@@ -240,7 +240,21 @@ const RECENT = [
   ['/change-item', 'modifier un objet de la boutique'],
   ['/configshop', 'apparence de la boutique'],
   ['/shop', 'boutique et inventaire'],
-  ['/add-item', 'ajouter un objet à la boutique'],
+];
+
+// Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
+// À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
+const RECENT_CHANGES = [
+  ['/delwarn', 'option `tout` : retirer tous les avertissements'],
+  ['/casier', 'numéro des avertissements affiché'],
+  ['/xp', '`evenement` : XP ×2 ou ×3 pour tout le serveur'],
+  ['/add-item', 'nouveau type : booster d’XP'],
+  ['/niveau', 'bonus d’XP en cours affichés'],
+  ['/gw', 'gain en argent ou prix personnalisé'],
+  ['/passer-verif', 'option `tout` (ex-/verif-all)'],
+  ['/role', 'respecte la hiérarchie, gère les rôles temporaires'],
+  ['/unban', 'option `tout` : débannir tout le monde'],
+  ['/ban', 'option `id` : bannir quelqu’un d’absent du serveur'],
 ];
 
 const HOME = 'home';
@@ -254,12 +268,15 @@ function homeEmbed() {
       'Choisis une catégorie dans le menu ci-dessous pour voir son fonctionnement et toutes ses commandes.\n\n' +
         CATEGORIES.map((c) => `${c.emoji} **${c.name}** — ${c.summary}`).join('\n'),
     )
-    .addFields({ name: '🆕 Dernières commandes ajoutées', value: RECENT.map(([name, desc]) => `**${name}** — ${desc}`).join('\n') })
+    .addFields(
+      { name: '🆕 Dernières commandes ajoutées', value: RECENT.map(([name, desc]) => `**${name}** — ${desc}`).join('\n') },
+      { name: '🔧 Dernières commandes modifiées', value: RECENT_CHANGES.map(([name, desc]) => `**${name}** — ${desc}`).join('\n') },
+    )
     .setFooter({ text: 'Astuce : tape « / » dans le champ de message pour voir les options de chaque commande.' });
 }
 
 // Pour les tests : commandes de la liste des nouveautés.
-export const recentEntries = () => RECENT.map(([name]) => name);
+export const recentEntries = () => [...RECENT, ...RECENT_CHANGES].map(([name]) => name);
 
 function categoryEmbed(cat) {
   const commands = cat.lines.map(([name, desc]) => `**${name}** — ${desc}`).join('\n');

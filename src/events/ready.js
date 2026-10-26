@@ -17,6 +17,7 @@ import { closeInactiveTickets } from '../lib/tickets.js';
 import { reconcileWouldYouRather } from '../lib/wouldyourather.js';
 import { processTempRoles } from '../lib/roles.js';
 import { processWeeklyTop } from '../lib/weeklytop.js';
+import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -54,6 +55,11 @@ export default {
     // Membres de la semaine : récompensés le lundi (vérifié toutes les heures).
     setTimeout(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 90_000);
     setInterval(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 3_600_000);
+    // XP en vocal (chaque minute) et fin des événements XP (/xp evenement).
+    setInterval(() => {
+      grantVoiceXp(client).catch((err) => console.error('[xp vocal]', err));
+      endXpEvents(client).catch((err) => console.error('[xp evenement]', err));
+    }, 60_000);
     // Reprogramme les kicks des membres non vérifiés.
     reconcileVerification(client);
     // Rappel des membres non vérifiés toutes les 5 h (ticker de contrôle : 30 min).

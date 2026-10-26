@@ -8,6 +8,7 @@ const TYPES = [
   { name: 'Personnalisé (ouvre un ticket)', value: 'personnalise' },
   { name: 'Rôle permanent', value: 'role' },
   { name: 'Rôle temporaire', value: 'role_temp' },
+  { name: 'Booster d’XP', value: 'xp_boost' },
 ];
 
 export default {
@@ -24,7 +25,10 @@ export default {
       o.setName('motif').setDescription('Type « personnalisé » : motif du ticket ouvert à l’achat').setAutocomplete(true),
     )
     .addRoleOption((o) => o.setName('role').setDescription('Type « rôle » : le rôle donné à l’achat'))
-    .addStringOption((o) => o.setName('duree').setDescription('Type « rôle temporaire » : durée, ex 2h, 7d, 2 jours')),
+    .addStringOption((o) => o.setName('duree').setDescription('Types « rôle temporaire » et « booster d’XP » : durée, ex 1h, 7d, 2 jours'))
+    .addIntegerOption((o) =>
+      o.setName('multiplicateur').setDescription('Type « booster d’XP » : XP ×2, ×3… (défaut : 2)').setMinValue(2).setMaxValue(5),
+    ),
 
   async autocomplete(interaction) {
     const query = interaction.options.getFocused().toLowerCase();
@@ -55,6 +59,20 @@ export default {
       const item = addShopItem(interaction.guild.id, { ...base, motifId: motif.id });
       return interaction.reply({
         content: `✅ Objet **${item.name}** ajouté (💰 ${formatMoney(price)}) : ouvre un **ticket** avec le motif **${motif.label}** à l’achat.`,
+        ephemeral: true,
+      });
+    }
+
+    // Booster d'XP : XP multipliée pour l'acheteur pendant la durée.
+    if (type === 'xp_boost') {
+      const dur = parseDuration(interaction.options.getString('duree') ?? '');
+      if (!dur || dur.permanent || dur.ms < 60_000 || dur.ms > 30 * 86_400_000) {
+        return interaction.reply({ content: '❌ Donne une **durée** valide (option `duree`), ex : `1h`, `1d` (1 min à 30 jours).', ephemeral: true });
+      }
+      const multiplier = interaction.options.getInteger('multiplicateur') ?? 2;
+      const item = addShopItem(interaction.guild.id, { ...base, multiplier, durationMs: dur.ms });
+      return interaction.reply({
+        content: `✅ Objet **${item.name}** ajouté (💰 ${formatMoney(price)}) : XP ×${multiplier} pendant **${formatDuration(dur.ms)}** à l’achat.`,
         ephemeral: true,
       });
     }

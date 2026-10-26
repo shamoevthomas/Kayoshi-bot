@@ -1,83 +1,54 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
-import { getStatutRules, addStatutRule, removeStatutRule } from '../../lib/store.js';
-import { sweepAutoRolesGuild } from '../../lib/autoroles.js';
+import { getStatusKeywords } from '../../lib/store.js';
+import { keywordsModal, disableStatusRole } from '../../lib/statusrole.js';
 
+// /statut role : rôle donné aux membres qui ont un des mots-clés dans leur statut.
+// Activer → formulaire des mots-clés (un par ligne, pré-rempli) ; désactiver → arrêt immédiat.
 export default {
   data: new SlashCommandBuilder()
     .setName('statut')
-    .setDescription('Donner un rôle aux membres qui ont un mot-clé dans leur statut (plusieurs possibles).')
+    .setDescription('Rôles selon le statut des membres.')
+    .addSubcommand((s) =>
+      s
+        .setName('role')
+        .setDescription('Donner un rôle aux membres qui ont un mot-clé dans leur statut.')
+        .addStringOption((o) =>
+          o
+            .setName('etat')
+            .setDescription('Activer (puis choisir les mots-clés) ou désactiver le système')
+            .setRequired(true)
+            .addChoices({ name: 'Activer', value: 'on' }, { name: 'Désactiver', value: 'off' }),
+        )
+        .addRoleOption((o) => o.setName('role').setDescription('Le rôle à donner (par défaut : celui déjà choisi)')),
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-    .setDMPermission(false)
-    .addSubcommand((sub) =>
-      sub
-        .setName('ajouter')
-        .setDescription('Ajouter un mot-clé qui donne un rôle.')
-        .addStringOption((o) => o.setName('mot_cle').setDescription('Le mot-clé à détecter dans le statut').setRequired(true))
-        .addRoleOption((o) => o.setName('role').setDescription('Le rôle à donner').setRequired(true)),
-    )
-    .addSubcommand((sub) =>
-      sub
-        .setName('retirer')
-        .setDescription('Retirer un mot-clé.')
-        .addStringOption((o) => o.setName('mot_cle').setDescription('Le mot-clé à retirer').setRequired(true))
-        .addRoleOption((o) => o.setName('role').setDescription('(Facultatif) préciser le rôle si le mot-clé en a plusieurs')),
-    )
-    .addSubcommand((sub) => sub.setName('liste').setDescription('Voir les mots-clés configurés.')),
+    .setDMPermission(false),
 
   async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
-    const guildId = interaction.guild.id;
-
-    if (sub === 'liste') {
-      const rules = getStatutRules(guildId);
-      if (!rules.length) return interaction.reply({ content: 'Aucun mot-clé configuré.', ephemeral: true });
-      const lines = rules.map((r) => `• \`${r.keyword}\` → <@&${r.roleId}>`);
-      return interaction.reply({ content: `📝 **Mots-clés de statut :**\n${lines.join('\n')}`, ephemeral: true });
-    }
-
-    if (sub === 'retirer') {
-      const keyword = interaction.options.getString('mot_cle').trim();
-      const role = interaction.options.getRole('role');
-      const n = removeStatutRule(guildId, keyword, role?.id ?? null);
+    const { guild } = interaction;
+    if (interaction.options.getString('etat') === 'off') {
       return interaction.reply({
-        content: n ? `✅ ${n} règle(s) retirée(s) pour \`${keyword.toLowerCase()}\`.` : `ℹ️ Aucun mot-clé \`${keyword.toLowerCase()}\` trouvé.`,
+        content: disableStatusRole(guild.id)
+          ? '✅ Rôle selon le statut **désactivé**. Les mots-clés sont gardés pour la prochaine fois ; les rôles déjà donnés ne sont pas retirés.'
+          : 'ℹ️ Le rôle selon le statut n’était pas activé.',
         ephemeral: true,
       });
     }
 
-    // ajouter
-    const keyword = interaction.options.getString('mot_cle').trim();
-    const role = interaction.options.getRole('role');
-    const me = interaction.guild.members.me;
-
-    if (role.id === interaction.guild.id) {
-      return interaction.reply({ content: '❌ Impossible d’utiliser @everyone.', ephemeral: true });
+    const saved = getStatusKeywords(guild.id);
+    const role = interaction.options.getRole('role') ?? (saved?.roleId ? guild.roles.cache.get(saved.roleId) : null);
+    if (!role) return interaction.reply({ content: '❌ Choisis le `role` à donner.', ephemeral: true });
+    if (role.managed || role.id === guild.id) {
+      return interaction.reply({ content: '❌ Ce rôle ne peut pas être donné (rôle d’intégration ou @everyone).', ephemeral: true });
     }
-    if (role.managed) {
-      return interaction.reply({ content: `❌ Le rôle ${role} est géré par une intégration, impossible de l’attribuer.`, ephemeral: true });
-    }
+    const me = guild.members.me;
     if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) {
       return interaction.reply({ content: '❌ Il me manque la permission **Gérer les rôles**.', ephemeral: true });
     }
     if (role.position >= me.roles.highest.position) {
-      return interaction.reply({ content: `❌ Le rôle ${role} est au-dessus de mon rôle le plus haut. Déplace mon rôle plus haut.`, ephemeral: true });
+      return interaction.reply({ content: `❌ Mon rôle doit être **au-dessus** de ${role} dans la liste des rôles.`, ephemeral: true });
     }
-    if (!keyword) {
-      return interaction.reply({ content: '❌ Mot-clé vide.', ephemeral: true });
-    }
-
-    const added = addStatutRule(guildId, keyword, role.id);
-    if (!added) {
-      return interaction.reply({ content: `ℹ️ La règle \`${keyword.toLowerCase()}\` → ${role} existe déjà.`, ephemeral: true });
-    }
-
-    await interaction.deferReply({ ephemeral: true });
-    // Applique tout de suite aux membres en ligne connus.
-    await sweepAutoRolesGuild(interaction.guild).catch(() => {});
-    return interaction.editReply({
-      content:
-        `✅ Ajouté : les membres avec **\`${keyword.toLowerCase()}\`** dans leur statut reçoivent ${role}.\n` +
-        `_(Fonctionne pour les membres en ligne ; le rôle est retiré dès que le mot-clé disparaît.)_`,
-    });
+    // Les mots-clés se saisissent dans un formulaire (un par ligne).
+    return interaction.showModal(keywordsModal(role.id, saved?.keywords ?? []));
   },
 };

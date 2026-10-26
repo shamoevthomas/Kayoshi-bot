@@ -67,7 +67,7 @@ async function collect(guild, userId) {
     list.map((s) => ({ ...s, target })),
   );
   const warns = byUser(userId ? { [userId]: getWarns(guild.id, userId) } : getAllWarns(guild.id)).flatMap(([target, list]) =>
-    list.map((w) => ({ target, type: 'warn', reason: w.reason, by: w.moderatorId, at: w.ts })),
+    list.map((w) => ({ target, type: 'warn', warnId: w.id, reason: w.reason, by: w.moderatorId, at: w.ts })),
   );
   return [...recorded, ...warns, ...(await auditEntries(guild, userId, recorded))];
 }
@@ -78,7 +78,9 @@ function line(entry, botId, showTarget) {
   const duration = entry.duration > 0 ? ` (${formatDuration(entry.duration)})` : '';
   const by = !entry.by ? 'automatique' : entry.by === botId ? 'via le bot' : `par <@${entry.by}>`;
   const reason = entry.reason ? ` — ${entry.reason.length > 60 ? `${entry.reason.slice(0, 59)}…` : entry.reason}` : '';
-  return `${when} ${LABELS[entry.type] ?? entry.type}${target}${duration}${reason} · ${by}`;
+  // Numéro des avertissements : celui à donner à /delwarn.
+  const number = entry.warnId ? ` #${entry.warnId}` : '';
+  return `${when} ${LABELS[entry.type] ?? entry.type}${number}${target}${duration}${reason} · ${by}`;
 }
 
 export default {

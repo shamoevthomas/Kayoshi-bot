@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getXp, getLevelRank } from '../../lib/store.js';
+import { getXp, getLevelRank, getXpEvent, getXpBoost } from '../../lib/store.js';
 import { levelInfo, LEVEL_COLOR } from '../../lib/levels.js';
 
 function progressBar(into, span, size = 14) {
@@ -37,6 +37,15 @@ export default {
         { name: 'XP totale', value: `**${xp}**`, inline: true },
         { name: 'Classement', value: rank ? `#**${rank}**` : '—', inline: true },
       );
+
+    // Bonus d'XP en cours : événement du serveur et booster acheté dans la boutique.
+    const now = Date.now();
+    const bonuses = [];
+    const event = getXpEvent(interaction.guild.id);
+    if (event?.endsAt > now) bonuses.push(`⚡ Événement ×${event.multiplier} (fin <t:${Math.floor(event.endsAt / 1000)}:R>)`);
+    const boost = getXpBoost(interaction.guild.id, user.id);
+    if (boost?.endsAt > now) bonuses.push(`🚀 Booster ×${boost.multiplier} (fin <t:${Math.floor(boost.endsAt / 1000)}:R>)`);
+    if (bonuses.length) embed.addFields({ name: 'Bonus d’XP en cours', value: bonuses.join('\n') });
 
     return interaction.reply({ embeds: [embed] });
   },

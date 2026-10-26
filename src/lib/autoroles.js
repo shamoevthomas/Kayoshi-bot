@@ -1,8 +1,8 @@
-// Réconciliation UNIFIÉE des rôles automatiques (statut mots-clés, statut-role,
+// Réconciliation UNIFIÉE des rôles automatiques (/statut role, anciennes règles de statut,
 // tag du serveur). On calcule l'ensemble des rôles « voulus » toutes sources
 // confondues, et on ne retire un rôle QUE si aucune source ne le réclame.
 // -> Fini les conflits où un système enlève le rôle qu'un autre vient de mettre.
-import { getStatutRules, getStatusRoleConfig, getTagRoleConfig } from './store.js';
+import { getStatutRules, getStatusRoleConfig, getTagRoleConfig, getStatusKeywords } from './store.js';
 import { wearsServerTag } from './tagrole.js';
 import { isBlockedByAntiRole } from './antirole.js';
 
@@ -19,7 +19,10 @@ function presenceText(member) {
 // Renvoie true si au moins une source de rôle auto est configurée sur le serveur.
 export function hasAutoRoles(guildId) {
   return Boolean(
-    getStatutRules(guildId).length || getStatusRoleConfig(guildId)?.roleId || getTagRoleConfig(guildId)?.roleId,
+    getStatusKeywords(guildId)?.enabled ||
+      getStatutRules(guildId).length ||
+      getStatusRoleConfig(guildId)?.roleId ||
+      getTagRoleConfig(guildId)?.roleId,
   );
 }
 
@@ -31,13 +34,19 @@ export async function reconcileAutoRoles(member) {
   const managed = new Set(); // rôles gérés par au moins une source
   const desired = new Set(); // rôles réclamés par au moins une source
 
-  // 1) /statut (plusieurs mots-clés)
+  // 0) /statut role : un rôle, un ou plusieurs mots-clés
+  const sk = getStatusKeywords(guildId);
+  if (sk?.enabled && sk.roleId) {
+    managed.add(sk.roleId);
+    if (sk.keywords.some((k) => text.includes(k.toLowerCase()))) desired.add(sk.roleId);
+  }
+  // 1) ancienne /statut (plusieurs mots-clés)
   for (const r of getStatutRules(guildId)) {
     if (!r.roleId) continue;
     managed.add(r.roleId);
     if (r.keyword && text.includes(r.keyword.toLowerCase())) desired.add(r.roleId);
   }
-  // 2) /statut-role (mot-clé unique)
+  // 2) ancienne /statut-role (mot-clé unique)
   const sr = getStatusRoleConfig(guildId);
   if (sr?.roleId && sr.text) {
     managed.add(sr.roleId);
