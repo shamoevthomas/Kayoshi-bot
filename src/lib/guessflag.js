@@ -1,9 +1,14 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getGuessFlag, patchGuessFlag } from './store.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { getGuessFlag, patchGuessFlag, getGuildConfig } from './store.js';
 
 // Devine le drapeau (/guessflag) : un embed avec un drapeau dans le salon du jeu. Chaque
-// message du salon est une réponse, supprimée aussitôt ; la bonne réponse donne un point et
-// fait passer au drapeau suivant (même message, modifié). Images : flagcdn.com.
+// message du salon est une réponse, supprimée 2 s après (le joueur voit ce qu'il a écrit) et notée
+// dans le salon « logs-drapeau » ; la bonne réponse donne un point et fait passer au drapeau suivant
+// (même message, modifié). Images : flagcdn.com.
+const DELETE_AFTER_MS = 2000;
+const LOG_NAME = 'logs-drapeau';
+const RETRY_AFTER_FAILURE_MS = 10 * 60_000;
+const logFailedAt = new Map(); // guildId → dernier échec de création du salon de logs
 
 // Pays reconnus par l'ONU + Vatican, Palestine, Kosovo et Taïwan (codes ISO).
 const CODES = (
@@ -180,10 +185,49 @@ function withLock(guildId, fn) {
   return run;
 }
 
-// Lance (ou relance) la partie dans ce salon. Le classement est gardé.
+// Salon des logs du jeu (les réponses de chacun) : réutilisé s'il existe, sinon créé à côté du salon
+// de logs du serveur (/log) avec ses permissions (le staff qui voit les logs le voit), ou à côté du
+// salon du jeu, caché à @everyone, s'il n'y a pas de salon de logs. Renvoie le salon, ou null.
+async function ensureLogChannel(guild, gameChannel) {
+  const state = getGuessFlag(guild.id) ?? {};
+  const known = state.logChannelId && (guild.channels.cache.get(state.logChannelId) ?? (await guild.channels.fetch(state.logChannelId).catch(() => null)));
+  if (known?.isTextBased?.()) return known;
+  let channel = guild.channels.cache.find((c) => c.name === LOG_NAME && c.type === ChannelType.GuildText);
+  if (!channel) {
+    if (Date.now() - (logFailedAt.get(guild.id) ?? 0) < RETRY_AFTER_FAILURE_MS) return null;
+    const logId = getGuildConfig(guild.id).logChannelId;
+    const serverLogs = logId && guild.channels.cache.get(logId);
+    const botId = guild.client.user.id;
+    const overwrites = serverLogs
+      ? [...serverLogs.permissionOverwrites.cache.values()]
+          .filter((o) => o.id !== botId)
+          .map((o) => ({ id: o.id, type: o.type, allow: o.allow, deny: o.deny }))
+      : [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
+    overwrites.push({ id: botId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks] });
+    channel = await guild.channels
+      .create({
+        name: LOG_NAME,
+        type: ChannelType.GuildText,
+        topic: 'Réponses du jeu « Devine le drapeau » — Kayoshi.',
+        parent: (serverLogs ?? gameChannel)?.parentId ?? null,
+        permissionOverwrites: overwrites,
+      })
+      .catch((err) => {
+        console.error('[logs-drapeau] création impossible :', err.message);
+        logFailedAt.set(guild.id, Date.now());
+        return null;
+      });
+  }
+  if (channel) patchGuessFlag(guild.id, { logChannelId: channel.id });
+  return channel;
+}
+
+// Lance (ou relance) la partie dans ce salon. Le classement est gardé. Renvoie le salon des logs.
 export async function startGuessFlag(channel) {
   patchGuessFlag(channel.guild.id, { channelId: channel.id, messageId: null });
+  const logChannel = await ensureLogChannel(channel.guild, channel);
   await withLock(channel.guild.id, () => nextFlag(channel));
+  return logChannel;
 }
 
 export async function stopGuessFlag(guild) {
@@ -201,17 +245,29 @@ export async function stopGuessFlag(guild) {
 
 export const isGuessFlagChannel = (guildId, channelId) => Boolean(channelId) && getGuessFlag(guildId)?.channelId === channelId;
 
-// Message dans le salon du jeu : toujours supprimé ; bonne réponse → point et drapeau suivant.
-// Renvoie true si le message était dans le salon du jeu.
+// Message dans le salon du jeu : supprimé 2 s après et noté dans les logs ; bonne réponse → point et
+// drapeau suivant (tout de suite). Renvoie true si le message était dans le salon du jeu.
 export async function handleGuessFlagMessage(message) {
   if (!message.guild || message.author.bot || !isGuessFlagChannel(message.guild.id, message.channelId)) return false;
-  await message.delete().catch(() => {});
+  setTimeout(() => message.delete().catch(() => {}), DELETE_AFTER_MS);
+  let found = null;
   await withLock(message.guild.id, async () => {
     const state = getGuessFlag(message.guild.id);
     if (state?.current && isCorrect(message.content, state.current.code)) {
+      found = state.current.code;
       await nextFlag(message.channel, { by: 'guess', userId: message.author.id });
     }
   });
+  const logChannel = await ensureLogChannel(message.guild, message.channel);
+  const answer = (message.content || '(sans texte)').replace(/\s+/g, ' ').slice(0, 200);
+  await logChannel
+    ?.send({
+      content: found
+        ? `✅ ${message.author} : « ${answer} » — bonne réponse, ${flagEmoji(found)} ${countryName(found)}`
+        : `❌ ${message.author} : « ${answer} »`,
+      allowedMentions: { parse: [] },
+    })
+    .catch(() => {});
   return true;
 }
 

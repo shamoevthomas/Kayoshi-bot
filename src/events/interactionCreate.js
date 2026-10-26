@@ -15,6 +15,8 @@ import { handleQuoteInteraction } from '../lib/quote.js';
 import { HELP_MENU_ID, handleHelpInteraction } from '../lib/help.js';
 import { handleDropInteraction } from '../lib/moneydrops.js';
 import { handleStatusRoleModal } from '../lib/statusrole.js';
+import { handleTopInteraction } from '../lib/leaderboards.js';
+import { handleQuizInteraction } from '../lib/quiz.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -38,6 +40,8 @@ export default {
         if (cid === HELP_MENU_ID) return void (await handleHelpInteraction(interaction));
         if (cid.startsWith('drop_claim:')) return void (await handleDropInteraction(interaction));
         if (cid.startsWith('stat_kw:')) return void (await handleStatusRoleModal(interaction));
+        if (cid.startsWith('top:')) return void (await handleTopInteraction(interaction));
+        if (cid.startsWith('quiz_ans:')) return void (await handleQuizInteraction(interaction));
         if (cid === 'shop_open') return void (await openShop(interaction));
         if (cid.startsWith('shop_')) return void (await handleShopInteraction(interaction));
       } catch (err) {

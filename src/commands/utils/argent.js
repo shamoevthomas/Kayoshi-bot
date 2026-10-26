@@ -1,23 +1,22 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getMoney, addMoney, getMoneyLeaderboard, getDaily, setDaily } from '../../lib/store.js';
+import { SlashCommandBuilder } from 'discord.js';
+import { getMoney, addMoney, getDaily, setDaily } from '../../lib/store.js';
 import { formatMoney } from '../../lib/shop.js';
 import { countQuestAction, checkQuests } from '../../lib/quests.js';
 import { boostedMoney, roleBoost } from '../../lib/levels.js';
 import { spinWheel } from '../../lib/wheel.js';
 
-// Économie des membres : récompense quotidienne (avec série de jours), dons entre membres, classement,
-// roue de la fortune (lib/wheel.js).
+// Économie des membres : récompense quotidienne (avec série de jours), dons entre membres, roue de la
+// fortune (lib/wheel.js). Le classement de l'argent est dans /top.
 // L'argent se gagne aussi en écrivant et en passant des niveaux, et se dépense dans /shop.
 const DAILY_BASE = 100;
 const DAILY_STREAK_BONUS = 10; // en plus par jour de série
 const DAILY_MAX = 200;
 const DAY = 86_400_000;
-const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default {
   data: new SlashCommandBuilder()
     .setName('argent')
-    .setDescription('Récompense quotidienne, roue de la fortune, dons entre membres et classement de l’argent.')
+    .setDescription('Récompense quotidienne, roue de la fortune et dons entre membres.')
     .addSubcommand((s) => s.setName('daily').setDescription('Récupérer ta récompense quotidienne (bonus si tu reviens chaque jour).'))
     .addSubcommand((s) =>
       s
@@ -26,7 +25,6 @@ export default {
         .addUserOption((o) => o.setName('membre').setDescription('Le membre à qui donner').setRequired(true))
         .addIntegerOption((o) => o.setName('montant').setDescription('Combien donner').setRequired(true).setMinValue(1)),
     )
-    .addSubcommand((s) => s.setName('top').setDescription('Classement des membres les plus riches.'))
     .addSubcommand((s) => s.setName('roue').setDescription('Tourner la roue de la fortune (une fois par jour) : argent, XP, booster… ou rien.'))
     .setDMPermission(false),
 
@@ -34,8 +32,7 @@ export default {
     const sub = interaction.options.getSubcommand();
     if (sub === 'daily') return daily(interaction);
     if (sub === 'donner') return give(interaction);
-    if (sub === 'roue') return spinWheel(interaction);
-    return top(interaction);
+    return spinWheel(interaction);
   },
 };
 
@@ -86,23 +83,4 @@ async function give(interaction) {
     content: `💸 ${user} a donné 💰 **${formatMoney(amount)}** à ${target} !`,
     allowedMentions: { users: [target.id] },
   });
-}
-
-async function top(interaction) {
-  const { guild, user } = interaction;
-  const board = getMoneyLeaderboard(guild.id);
-  const lines = board.length
-    ? board
-        .slice(0, 10)
-        .map((r, i) => `${MEDALS[i] ?? `**${i + 1}.**`} <@${r.userId}> — 💰 **${formatMoney(r.money)}**`)
-        .join('\n')
-    : '_Personne n’a encore d’argent._';
-  const place = board.findIndex((r) => r.userId === user.id);
-  const embed = new EmbedBuilder()
-    .setColor(0x2ecc71)
-    .setTitle('💰 Classement de l’argent')
-    .setDescription(lines)
-    .setFooter({ text: place >= 0 ? `Ta place : ${place + 1}ᵉ · ${formatMoney(board[place].money)} 💰` : 'Tu n’as pas encore d’argent' })
-    .setTimestamp();
-  return interaction.reply({ embeds: [embed] });
 }

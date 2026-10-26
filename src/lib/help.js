@@ -71,7 +71,6 @@ const CATEGORIES = [
       ['/bilan', 'Bilan des arrivées et départs sur une période'],
       ['/inviteconfig', '`salon` `desactiver` — salon de suivi des invitations'],
       ['/invitations', 'Suivi des invitations d’un membre (total, détail, palier)'],
-      ['/inviteleaderboard', 'Classement des meilleurs parrains'],
       ['/invitrank', '`ajouter` `liste` `retirer` — paliers de rôles selon les invitations'],
     ],
   },
@@ -106,7 +105,7 @@ const CATEGORIES = [
       'Un palier peut aussi donner de l’argent.',
     lines: [
       ['/niveau', 'Voir ton niveau, ton XP, ta progression et tes bonus d’XP en cours (ou ceux d’un membre)'],
-      ['/niveaux', 'Classement des membres par niveau / XP'],
+      ['/top', 'Classements en onglets : niveaux, argent, messages, vocal, invitations et quiz'],
       ['/xp', '`ajouter` `retirer` `definir` — gérer l’XP ou le niveau d’un membre ; `evenement` — XP ×2 ou ×3 pour tout le serveur pendant une durée ; `recompense` — paliers : rôle (addition ou évolutif) et/ou argent (admin)'],
       ['/configniveau', '`activer` `desactiver` `voir` `message` — activer le système et personnaliser l’annonce de passage de niveau (admin)'],
     ],
@@ -122,9 +121,9 @@ const CATEGORIES = [
       'semaine (top 3 messages et top 3 vocal, chaque lundi). Un rôle boosté (ex : VIP ×1,5) fait gagner plus en étant actif. ' +
       'L’argent se dépense dans la boutique : rôles, rôles temporaires, boosters d’XP, ou objets personnalisés qui ouvrent un ticket.',
     lines: [
-      ['/argent', '`daily` (100, +10 par jour de série jusqu’à 200) · `roue` (une fois par jour : argent, XP, booster… ou rien) · `donner` (à un membre) · `top` (les plus riches)'],
+      ['/argent', '`daily` (100, +10 par jour de série jusqu’à 200) · `roue` (une fois par jour : argent, XP, booster… ou rien) · `donner` (à un membre) — classement des plus riches : `/top`'],
       ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,5) (admin)'],
-      ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire'],
+      ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire — chaque jour, un objet en promo à -10 %'],
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
       ['/configeconomie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
       ['/money', '`ajouter` `retirer` — donner / retirer de l’argent à un membre (admin)'],
@@ -142,7 +141,8 @@ const CATEGORIES = [
     about: 'De quoi animer le serveur : jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
-      ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement)'],
+      ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; réponses supprimées après 2 s et notées dans #logs-drapeau)'],
+      ['/quiz', '`activer` `desactiver` `question` — quiz de culture générale dans un salon : le premier qui trouve gagne de l’argent (classement dans `/top`)'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
@@ -227,6 +227,8 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['/top', 'tous les classements en onglets'],
+  ['/quiz', 'quiz de culture générale'],
   ['/boostrole', 'rôles qui gagnent plus d’XP et d’argent'],
   ['/statut', 'rôle selon un mot-clé du statut'],
   ['/compteur', 'salon de comptage, sans fin'],
@@ -240,14 +242,14 @@ const RECENT = [
   ['/renier', 'renier un enfant adopté'],
   ['/fuguer', 'quitter son parent adoptif'],
   ['/money', 'donner ou retirer de l’argent (admin)'],
-  ['/change-item', 'modifier un objet de la boutique'],
-  ['/configshop', 'apparence de la boutique'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
-  ['/argent', '`roue` : roue de la fortune une fois par jour'],
+  ['/guessflag', 'réponses supprimées après 2 s, salon #logs-drapeau'],
+  ['/shop', 'promo du jour : un objet à -10 %'],
+  ['/argent', '`roue` : roue de la fortune ; le classement passe dans /top'],
   ['/lock', 'verrouille pour le rôle Membre au lieu de @everyone (pareil pour /unlock)'],
   ['/save', 'une seule commande : emplacement save1 à save5, enregistrer ou envoyer'],
   ['/delwarn', 'option `tout` : retirer tous les avertissements'],
@@ -255,8 +257,6 @@ const RECENT_CHANGES = [
   ['/xp', '`evenement` : XP ×2 ou ×3 pour tout le serveur'],
   ['/add-item', 'nouveau type : booster d’XP'],
   ['/niveau', 'bonus d’XP en cours affichés'],
-  ['/gw', 'gain en argent ou prix personnalisé'],
-  ['/passer-verif', 'option `tout` (ex-/verif-all)'],
 ];
 
 const HOME = 'home';

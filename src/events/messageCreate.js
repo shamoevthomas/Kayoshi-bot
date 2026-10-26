@@ -13,6 +13,7 @@ import { handleLoveCommand } from '../lib/lovecalc.js';
 import { handleAvatarCommand } from '../lib/avatarcommand.js';
 import { handleQuoteCommand } from '../lib/quote.js';
 import { handleActionCommand } from '../lib/actions.js';
+import { noteQuizActivity } from '../lib/quiz.js';
 import { grantMessageXp, grantMessageMoney } from '../lib/levels.js';
 import { maybeDropMoney } from '../lib/moneydrops.js';
 import { checkQuests } from '../lib/quests.js';
@@ -52,6 +53,8 @@ export default {
     });
     if (spam) return;
 
+    // Serveur actif : le quiz ne pose ses questions que dans ce cas.
+    noteQuizActivity(message);
     // Salon de comptage (/compteur) : 1, 2, 3… à tour de rôle.
     await handleCountingMessage(message).catch((err) => console.error('[compteur]', err));
 

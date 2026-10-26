@@ -47,10 +47,11 @@ export default {
     const previous = getGuessFlag(interaction.guild.id)?.channelId;
     if (previous && previous !== channel.id) await stopGuessFlag(interaction.guild);
     await interaction.deferReply({ ephemeral: true });
-    await startGuessFlag(channel);
+    const logChannel = await startGuessFlag(channel);
     return interaction.editReply(
       `✅ Jeu du drapeau lancé dans ${channel} !\n` +
-        '-# Chaque message envoyé dans ce salon est une réponse et est supprimé aussitôt. Une bonne réponse donne 1 point et passe au drapeau suivant.',
+        (logChannel ? `📋 Les réponses sont notées dans ${logChannel}.\n` : '⚠️ Je n’ai pas pu créer le salon de logs (il me faut **Gérer les salons**).\n') +
+        '-# Chaque message envoyé dans ce salon est une réponse, supprimée 2 secondes après. Une bonne réponse donne 1 point et passe au drapeau suivant.',
     );
   },
 };

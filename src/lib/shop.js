@@ -36,8 +36,34 @@ const SORTS = {
   recent: { label: 'Plus récents', cmp: (a, b) => b.createdAt - a.createdAt },
 };
 
+// Promo du jour : chaque jour (heure de Paris), un objet tiré au hasard coûte 10 % de moins.
+// Tirage déterministe (même objet toute la journée, sans rien stocker), qui change à minuit.
+export const PROMO_PERCENT = 10;
+const parisDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' });
+function hash(text) {
+  let h = 0;
+  for (const c of text) h = (Math.imul(h, 31) + c.codePointAt(0)) >>> 0;
+  return h;
+}
+export function promoItemId(guildId, now = Date.now()) {
+  const ids = Object.keys(getShopItems(guildId)).sort();
+  return ids.length ? ids[hash(`${guildId}:${parisDay.format(new Date(now))}`) % ids.length] : null;
+}
+// Prix payé : réduit pour l'objet en promo du jour.
+export function itemPrice(guildId, itemId, item) {
+  return itemId === promoItemId(guildId) ? Math.round((item.price * (100 - PROMO_PERCENT)) / 100) : item.price;
+}
+
 function sortedItems(guildId, sort) {
-  const items = Object.entries(getShopItems(guildId)).map(([id, it]) => ({ id, ...it }));
+  const promo = promoItemId(guildId);
+  // price = prix payé (promo comprise), basePrice = prix normal.
+  const items = Object.entries(getShopItems(guildId)).map(([id, it]) => ({
+    id,
+    ...it,
+    basePrice: it.price,
+    price: itemPrice(guildId, id, it),
+    promo: id === promo,
+  }));
   return items.sort((SORTS[sort] ?? SORTS.prix_asc).cmp);
 }
 
@@ -68,7 +94,10 @@ export function shopPayload(guild, userId, { page = 0, sort = 'prix_asc' } = {})
     container.addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(it.description ? `**${it.name}**\n${it.description}` : `**${it.name}**`),
+          new TextDisplayBuilder().setContent(
+            (it.promo ? `🏷️ **Promo du jour : -${PROMO_PERCENT} %** (au lieu de ~~${formatMoney(it.basePrice)}~~)\n` : '') +
+              (it.description ? `**${it.name}**\n${it.description}` : `**${it.name}**`),
+          ),
         )
         .setButtonAccessory(
           new ButtonBuilder()
@@ -129,18 +158,19 @@ async function buy(interaction, itemId) {
   const userId = interaction.user.id;
   const item = getShopItem(guildId, itemId);
   if (!item) return '❌ Cet objet n’existe plus.';
+  const price = itemPrice(guildId, itemId, item); // promo du jour comprise
   const balance = getMoney(guildId, userId);
-  if (balance < item.price) {
-    return `❌ Il te faut ${COIN} **${formatMoney(item.price)}** pour **${item.name}**, tu as **${formatMoney(balance)}**.`;
+  if (balance < price) {
+    return `❌ Il te faut ${COIN} **${formatMoney(price)}** pour **${item.name}**, tu as **${formatMoney(balance)}**.`;
   }
   // Exécute l'effet de l'objet selon son type (ticket / rôle permanent / rôle temporaire / booster d'XP).
   const outcome = await fulfill(interaction, item);
   if (outcome.error) return `❌ ${outcome.error} Rien n’a été débité.`;
 
-  const after = addMoney(guildId, userId, -item.price);
-  addPurchase(guildId, { userId, itemId, name: item.name, price: item.price, type: item.type ?? 'personnalise' });
+  const after = addMoney(guildId, userId, -price);
+  addPurchase(guildId, { userId, itemId, name: item.name, price, type: item.type ?? 'personnalise' });
   return (
-    `✅ Tu as acheté **${item.name}** pour ${COIN} **${formatMoney(item.price)}** !\n` +
+    `✅ Tu as acheté **${item.name}** pour ${COIN} **${formatMoney(price)}**${price < item.price ? ` (promo du jour -${PROMO_PERCENT} %)` : ''} !\n` +
     `Nouveau solde : ${COIN} **${formatMoney(after)}**.\n${outcome.note}`
   );
 }

@@ -416,6 +416,25 @@ export function setWheelSpin(guildId, userId, at) {
   setGuildConfig(guildId, { wheel: { ...(getGuildConfig(guildId).wheel ?? {}), [userId]: at } });
 }
 
+// --- Quiz de culture générale (/quiz) ---
+// quiz = { enabled, channelId, everyMin, reward } ; quizScores = { userId: bonnes réponses }.
+export function getQuiz(guildId) {
+  return getGuildConfig(guildId).quiz ?? null;
+}
+
+export function setQuiz(guildId, quiz) {
+  setGuildConfig(guildId, { quiz });
+}
+
+export function getQuizScores(guildId) {
+  return getGuildConfig(guildId).quizScores ?? {};
+}
+
+export function addQuizWin(guildId, userId) {
+  const scores = getQuizScores(guildId);
+  setGuildConfig(guildId, { quizScores: { ...scores, [userId]: (scores[userId] ?? 0) + 1 } });
+}
+
 // --- Comptage (/compteur) ---
 // counting = { channelId, current, record, lastUserId } ; nombres gardés en texte (sans limite de taille).
 export function getCounting(guildId) {
@@ -1206,7 +1225,7 @@ export function addMoney(guildId, userId, delta) {
   return after;
 }
 
-// Classement de l'argent (/argent top) : soldes > 0, du plus riche au moins riche.
+// Classement de l'argent (/top) : soldes > 0, du plus riche au moins riche.
 export function getMoneyLeaderboard(guildId) {
   return Object.entries(getGuildConfig(guildId).money ?? {})
     .map(([userId, money]) => ({ userId, money }))

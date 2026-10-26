@@ -41,7 +41,7 @@ async function levelBackground() {
 // Argent gagné pour chaque niveau franchi (dépensable dans /shop).
 export const MONEY_PER_LEVEL = 200;
 
-// Couleur des embeds du système de niveaux (annonce, /niveau, /niveaux, récompenses).
+// Couleur des embeds du système de niveaux (annonce, /niveau, récompenses).
 export const LEVEL_COLOR = 0xffffff;
 
 // Message texte par défaut au-dessus de la carte (modifiable via /configniveau).
