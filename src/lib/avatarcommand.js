@@ -3,7 +3,8 @@ import { EmbedBuilder } from 'discord.js';
 // « kayo pp [@membre] » (ou « kayo pfp ») : envoie la photo de profil du membre mentionné (ou la sienne).
 // « kayo banner [@membre] » : pareil avec la bannière.
 // « kayo pp server » / « kayo banner server » : icône / bannière du serveur.
-const COMMAND = /^kayo\s+(pp|pfp|banner)\b\s*(.*)$/i;
+// « hana » marche aussi à la place de « kayo » (hana pp, hana banner…).
+const COMMAND = /^(?:kayo|hana)\s+(pp|pfp|banner)\b\s*(.*)$/i;
 
 export async function handleAvatarCommand(message) {
   if (!message.guild || message.author.bot) return false;

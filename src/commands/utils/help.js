@@ -130,7 +130,7 @@ const CATEGORIES = [
       ['/xp', '`ajouter` `retirer` `definir` `recompense` — gérer XP, niveaux & récompenses de palier : rôle (addition ou évolutif) et/ou argent (admin)'],
       ['/configniveau', '`activer` `desactiver` `voir` `message` — activer/désactiver le système de niveaux et personnaliser le message (admin)'],
       ['+vc', 'Écrire `+vc` : personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
-      ['kayo pp · kayo banner', 'Écrire `kayo pp @membre` ou `kayo banner @membre` : affiche la photo de profil ou la bannière du membre (ou la tienne) ; `kayo pp server` / `kayo banner server` : celles du serveur'],
+      ['kayo pp · kayo banner', 'Écrire `kayo pp @membre` ou `kayo banner @membre` : affiche la photo de profil ou la bannière du membre (ou la tienne) ; `kayo pp server` / `kayo banner server` : celles du serveur (`hana` marche aussi à la place de `kayo`)'],
       ['/gif', 'Transforme une image (fichier ou lien) en GIF, pour l’ajouter à tes GIF favoris'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : il en fait une citation en image (boutons : thème clair, avatar en couleur, gras, serif gras, supprimer)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, rôle à mentionner facultatif, vote A/B, pourcentages à la fin'],
