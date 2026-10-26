@@ -43,7 +43,7 @@ export default {
     const existing = getTempRole(guild.id, member.id, role.id);
     if (member.roles.cache.has(role.id) && !existing) {
       return interaction.reply({
-        content: `↪️ ${target} a déjà le rôle ${role} (sans limite de temps). Retire-le d’abord avec \`/removerole\` pour le donner temporairement.`,
+        content: `↪️ ${target} a déjà le rôle ${role} (sans limite de temps). Retire-le d’abord avec \`/role\` pour le donner temporairement.`,
         ephemeral: true,
       });
     }

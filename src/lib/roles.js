@@ -7,7 +7,7 @@ const LOCK_ROLE_ID = '1272125126149673051';
 export const lockRole = (guild) => guild.roles.cache.get(LOCK_ROLE_ID) ?? guild.roles.everyone;
 
 // Raison pour laquelle l'auteur de la commande ne peut pas donner / retirer ce rôle via le bot
-// (mêmes règles que /addrole), ou null.
+// (/role, /roletempo…), ou null.
 export function roleCommandProblem(interaction, role, verb = 'gérer') {
   const { guild } = interaction;
   if (role.id === guild.id) return `❌ Impossible de ${verb} le rôle @everyone.`;

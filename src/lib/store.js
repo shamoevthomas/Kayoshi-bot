@@ -938,55 +938,6 @@ export function getActivityLeaderboard(guildId, limit = 10) {
     .slice(0, limit);
 }
 
-// --- Créateurs suivis (YouTube / TikTok) ---
-// data[guildId].creators = { youtube: { key: sub }, tiktok: { key: sub } }
-// sub = { username, channelId, title, postChannelId, mentionType, roleId, lastVideoId }
-export function getCreators(guildId, platform) {
-  return getGuildConfig(guildId).creators?.[platform] ?? {};
-}
-
-export function addCreator(guildId, platform, key, sub) {
-  const data = load();
-  const g = data[guildId] ?? {};
-  g.creators = g.creators ?? {};
-  g.creators[platform] = g.creators[platform] ?? {};
-  g.creators[platform][key] = sub;
-  data[guildId] = g;
-  save(data);
-  return sub;
-}
-
-export function removeCreator(guildId, platform, key) {
-  const data = load();
-  const p = data[guildId]?.creators?.[platform];
-  if (!p?.[key]) return false;
-  delete p[key];
-  save(data);
-  return true;
-}
-
-export function updateCreator(guildId, platform, key, patch) {
-  const data = load();
-  const p = data[guildId]?.creators?.[platform];
-  if (!p?.[key]) return;
-  p[key] = { ...p[key], ...patch };
-  save(data);
-}
-
-// Tous les créateurs suivis, tous serveurs confondus (pour la veille).
-export function getAllCreators() {
-  const data = load();
-  const out = [];
-  for (const [guildId, g] of Object.entries(data)) {
-    for (const platform of ['youtube', 'tiktok', 'twitch']) {
-      for (const [key, sub] of Object.entries(g.creators?.[platform] ?? {})) {
-        out.push({ guildId, platform, key, sub });
-      }
-    }
-  }
-  return out;
-}
-
 // --- Anti-spam ---
 // antispam = { enabled, maxMessages, intervalMs, timeoutMs, exemptRoleIds:[] }
 export function getAntiSpamConfig(guildId) {
@@ -1131,6 +1082,23 @@ export function addMoney(guildId, userId, delta) {
   data[guildId] = g;
   save(data, guildId);
   return after;
+}
+
+// Classement de l'argent (/argent top) : soldes > 0, du plus riche au moins riche.
+export function getMoneyLeaderboard(guildId) {
+  return Object.entries(getGuildConfig(guildId).money ?? {})
+    .map(([userId, money]) => ({ userId, money }))
+    .filter((r) => r.money > 0)
+    .sort((a, b) => b.money - a.money);
+}
+
+// Récompense quotidienne (/argent daily) : data[guildId].daily = { userId: { last, streak } }.
+export function getDaily(guildId, userId) {
+  return getGuildConfig(guildId).daily?.[userId] ?? null;
+}
+
+export function setDaily(guildId, userId, record) {
+  setGuildConfig(guildId, { daily: { ...(getGuildConfig(guildId).daily ?? {}), [userId]: record } });
 }
 
 export function setMoney(guildId, userId, amount) {

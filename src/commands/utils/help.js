@@ -28,8 +28,6 @@ const CATEGORIES = [
       ['/lockpseudo · /unlockpseudo', 'Imposer un pseudo à un membre (il ne peut plus se renommer, sauf staff) / le libérer'],
       ['/listepseudo', 'Membres qui n’ont pas le droit de se renommer'],
       ['/role', 'Ajouter ou retirer un rôle à un membre (bascule)'],
-      ['/addrole', 'Ajouter un rôle à un membre'],
-      ['/removerole', 'Retirer un rôle à un membre'],
       ['/roletempo', 'Donner un rôle à un membre pour une durée (ex : `15m`), retiré automatiquement à la fin'],
       ['/massrole', '`donner` `retirer` un rôle à plusieurs membres'],
     ],
@@ -38,8 +36,7 @@ const CATEGORIES = [
     title: '🛡️ Arrivées & vérification',
     lines: [
       ['/configverif', 'Configurer la vérification anti-bot (captcha)'],
-      ['/passer-verif', 'Valider manuellement la vérification d’un membre'],
-      ['/verif-all', 'Valider la vérification de tous les non-vérifiés'],
+      ['/passer-verif', 'Valider manuellement la vérification d’un membre, ou de tous les non-vérifiés avec `tout` (administrateurs)'],
       ['/bienvenue', 'Configurer le message de bienvenue (arrivées)'],
       ['/quitte', 'Configurer le message de départ'],
       ['/dmjoin', 'Message privé envoyé à chaque membre qui rejoint le serveur (vide = désactivé)'],
@@ -73,14 +70,6 @@ const CATEGORIES = [
       ['/statut-role', '`activer` `desactiver` `voir` — rôle selon un texte du statut'],
       ['/tagrole', '`activer` `desactiver` `voir` — rôle si le tag du serveur est porté'],
       ['/antirole', '`ajouter` `liste` `retirer` — rôles incompatibles (ex : Actif retire Nouveau)'],
-    ],
-  },
-  {
-    title: '📡 Suivi réseaux sociaux',
-    lines: [
-      ['/twitch', '`ajouter` `liste` `retirer` — annoncer les lives Twitch'],
-      ['/tiktokeur', '`ajouter` `liste` `retirer` — nouvelles vidéos TikTok'],
-      ['/youtubeur', '`ajouter` `liste` `retirer` — nouvelles vidéos YouTube'],
     ],
   },
   {
@@ -122,6 +111,7 @@ const CATEGORIES = [
       ['/niveau', 'Voir ton niveau, ton XP et ta progression (ou celui d’un membre)'],
       ['/niveaux', 'Classement des membres par niveau / XP'],
       ['/shop', 'Boutique : acheter des objets avec ton argent (gagné en montant de niveau) et voir ton inventaire'],
+      ['/argent', '`daily` (récompense quotidienne, bonus de série) · `donner` (à un membre) · `top` (classement des plus riches)'],
       ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire (admin)'],
       ['/change-item', 'Modifier le nom, le prix ou la description d’un objet (admin)'],
       ['/configshop', 'Titre, description et couleur de la boutique (admin)'],

@@ -10,7 +10,6 @@ import { rejoinVoiceChannels } from '../lib/voicestay.js';
 import { reconcileGiveaways } from '../lib/giveaways.js';
 import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
-import { pollAllCreators } from '../lib/creators.js';
 import { processBumpReminders } from '../lib/bumpreminder.js';
 import { ensureVoiceLogChannel } from '../lib/logger.js';
 import { startStatsTracking, backfillMessages } from '../lib/stats.js';
@@ -38,7 +37,7 @@ export default {
     // Met en cache les invitations de chaque serveur (pour le suivi des invitations).
     await cacheAllInvites(client).catch((err) => console.error(err));
     // Statut du bot.
-    client.user.setActivity('.gg/hanami', { type: ActivityType.Custom });
+    client.user.setActivity('.gg/hanamifr', { type: ActivityType.Custom });
     // Démarre le suivi arrivées/départs pour chaque serveur.
     for (const [guildId] of client.guilds.cache) ensureTracking(guildId);
     // Salon « voc-logs » des logs vocaux, créé dès le démarrage pour les serveurs qui ont des logs.
@@ -80,9 +79,6 @@ export default {
     reconcileGiveaways(client).catch(() => {});
     // Pareil pour les votes « Tu préfères… » en cours.
     reconcileWouldYouRather(client);
-    // Veille YouTube/TikTok : nouvelles vidéos postées dans les salons suivis.
-    setTimeout(() => pollAllCreators(client).catch(() => {}), 30_000);
-    setInterval(() => pollAllCreators(client).catch(() => {}), 600_000);
     // Classement des plus actifs : démarre le suivi vocal des membres déjà connectés,
     // puis actualisation immédiate + toutes les 5 min.
     initVoiceSessions(client);
