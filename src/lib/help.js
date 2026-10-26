@@ -176,7 +176,7 @@ const CATEGORIES = [
       ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants) ou prix personnalisé (ex : Nitro)'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
       ['/nump', 'Nombre de partenariats effectués par un membre (rang + total du serveur)'],
-      ['/save', 'Messages sauvegardés (5 emplacements)'],
+      ['/save', '`emplacement` (save1 à save5, avec aperçu) · `action` : enregistrer un message ou envoyer celui enregistré'],
       ['/profilbot', '`modifier` `reinitialiser` — photo, bannière et bio du bot sur ce serveur uniquement'],
     ],
   },
@@ -245,6 +245,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/save', 'une seule commande : emplacement save1 à save5, enregistrer ou envoyer'],
   ['/delwarn', 'option `tout` : retirer tous les avertissements'],
   ['/casier', 'numéro des avertissements affiché'],
   ['/xp', '`evenement` : XP ×2 ou ×3 pour tout le serveur'],
@@ -254,7 +255,6 @@ const RECENT_CHANGES = [
   ['/passer-verif', 'option `tout` (ex-/verif-all)'],
   ['/role', 'respecte la hiérarchie, gère les rôles temporaires'],
   ['/unban', 'option `tout` : débannir tout le monde'],
-  ['/ban', 'option `id` : bannir quelqu’un d’absent du serveur'],
 ];
 
 const HOME = 'home';
