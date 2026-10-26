@@ -8,8 +8,8 @@ const CATEGORIES = [
   {
     title: '🔨 Modération',
     lines: [
-      ['/ban', 'Bannir un membre'],
-      ['/unban', 'Débannir un utilisateur via son ID'],
+      ['/ban', 'Bannir un membre, ou un utilisateur absent du serveur avec son `id`'],
+      ['/unban', 'Débannir un utilisateur via son ID, ou tout le monde avec `tout` (administrateurs, avec confirmation)'],
       ['/kick', 'Expulser un membre du serveur'],
       ['/mute', 'Rendre un membre muet (timeout) pour une durée'],
       ['/unmute', 'Retirer le mute (timeout) d’un membre'],
@@ -114,6 +114,7 @@ const CATEGORIES = [
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds envoyés avec /embed, partenariat, bienvenue / départ, panneau de tickets : ajouter, modifier ou supprimer ses motifs)'],
       ['/nump', 'Nombre de partenariats effectués par un membre (rang + total du serveur)'],
       ['/say', 'Faire parler le bot dans ce salon'],
+      ['/profilbot', '`modifier` `reinitialiser` — photo, bannière et bio du bot sur ce serveur uniquement'],
       ['/save', 'Messages sauvegardés (5 emplacements)'],
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
       ['/emoji', '`rename` `delete` `image` — renommer, supprimer un emoji du serveur, ou envoyer son image'],

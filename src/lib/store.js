@@ -33,6 +33,7 @@ export async function initStore() {
     else cache[row.guild_id] = row.data ?? {};
   }
   migrateGreetEmbeds();
+  mergeSharedFamilies();
   console.log(`🗄️  Store chargé depuis Supabase (${Object.keys(cache).length} serveur(s)).`);
 }
 
@@ -731,10 +732,58 @@ function migrateGreetEmbeds() {
 //            parent: { enfantId: parentId }, children: { parentId: [enfantIds] },
 //            since: { "a-b": timestamp } (date de mariage, clé triée) }
 // Ancien format (un seul conjoint) : spouse: { userId: conjointId }, converti à la lecture.
-export function getFamily(guildId) {
-  const f = getGuildConfig(guildId).family ?? {};
+
+// Famille partagée : l'ancien serveur (Ichima) lit et écrit celle du nouveau (Hanami), pour que
+// les mariages et adoptions faits d'un côté se voient de l'autre.
+const FAMILY_SHARED_WITH = { '1201199956707516476': '1563159382361907350' };
+const familyGuild = (guildId) => FAMILY_SHARED_WITH[guildId] ?? guildId;
+
+function normalizeFamily(f = {}) {
   const spouses = f.spouses ?? Object.fromEntries(Object.entries(f.spouse ?? {}).map(([id, other]) => [id, [other]]));
   return { spouses, parent: f.parent ?? {}, children: f.children ?? {}, since: f.since ?? {} };
+}
+
+export function getFamily(guildId) {
+  return normalizeFamily(getGuildConfig(familyGuild(guildId)).family);
+}
+
+function saveFamily(guildId, f) {
+  setGuildConfig(familyGuild(guildId), { family: f });
+}
+
+// Au démarrage : la famille propre à l'ancien serveur (d'avant le partage) est fusionnée dans
+// celle du nouveau, puis gardée de côté (familyBeforeMerge) sans plus être utilisée.
+// En cas de conflit, le nouveau serveur l'emporte (parent adoptif déjà défini, boucle d'adoption).
+function mergeSharedFamilies() {
+  for (const [oldId, newId] of Object.entries(FAMILY_SHARED_WITH)) {
+    const old = cache[oldId]?.family;
+    if (!old) continue;
+    const source = normalizeFamily(old);
+    const target = normalizeFamily(cache[newId]?.family);
+    for (const [user, spouses] of Object.entries(source.spouses)) {
+      target.spouses[user] = [...new Set([...(target.spouses[user] ?? []), ...spouses])];
+    }
+    for (const [key, at] of Object.entries(source.since)) target.since[key] = Math.min(target.since[key] ?? at, at);
+    let adoptions = 0;
+    for (const [child, parent] of Object.entries(source.parent)) {
+      if (target.parent[child]) continue;
+      // Boucle si l'enfant est déjà un ancêtre du parent.
+      let ancestor = parent;
+      const seen = new Set();
+      while (ancestor && ancestor !== child && !seen.has(ancestor)) {
+        seen.add(ancestor);
+        ancestor = target.parent[ancestor];
+      }
+      if (ancestor === child) continue;
+      target.parent[child] = parent;
+      target.children[parent] = [...new Set([...(target.children[parent] ?? []), child])];
+      adoptions++;
+    }
+    delete cache[oldId].family;
+    setGuildConfig(oldId, { familyBeforeMerge: old });
+    setGuildConfig(newId, { family: target });
+    console.log(`👪 Famille de ${oldId} fusionnée dans ${newId} (${Object.keys(source.spouses).length} marié(s), ${adoptions} adoption(s)).`);
+  }
 }
 
 const pairKey = (a, b) => [a, b].sort().join('-');
@@ -750,7 +799,7 @@ export function marry(guildId, a, b) {
   f.spouses[a] = [...(f.spouses[a] ?? []).filter((id) => id !== b), b];
   f.spouses[b] = [...(f.spouses[b] ?? []).filter((id) => id !== a), a];
   f.since[pairKey(a, b)] = Date.now();
-  setGuildConfig(guildId, { family: f });
+  saveFamily(guildId, f);
 }
 
 // Annule le mariage entre `userId` et `spouseId`. Renvoie true s'ils étaient mariés.
@@ -762,7 +811,7 @@ export function divorce(guildId, userId, spouseId) {
     if (!f.spouses[a].length) delete f.spouses[a];
   }
   delete f.since[pairKey(userId, spouseId)];
-  setGuildConfig(guildId, { family: f });
+  saveFamily(guildId, f);
   return true;
 }
 
@@ -770,7 +819,7 @@ export function adopt(guildId, parentId, childId) {
   const f = getFamily(guildId);
   f.parent[childId] = parentId;
   f.children[parentId] = [...(f.children[parentId] ?? []).filter((id) => id !== childId), childId];
-  setGuildConfig(guildId, { family: f });
+  saveFamily(guildId, f);
 }
 
 // Défait un lien d'adoption (dans un sens ou l'autre). Renvoie true si un lien existait.
@@ -780,7 +829,7 @@ export function removeAdoption(guildId, parentId, childId) {
   delete f.parent[childId];
   f.children[parentId] = (f.children[parentId] ?? []).filter((id) => id !== childId);
   if (!f.children[parentId].length) delete f.children[parentId];
-  setGuildConfig(guildId, { family: f });
+  saveFamily(guildId, f);
   return true;
 }
 

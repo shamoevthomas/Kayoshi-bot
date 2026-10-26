@@ -4,11 +4,13 @@ import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
 import { dmSanction, dmNote } from '../../lib/sanctions.js';
 
+// ID seul ou mention (<@id>) dans l'option « id ».
+const MENTION_OR_ID = /^(?:<@!?)?(\d{17,20})>?$/;
+
 export default {
   data: new SlashCommandBuilder()
     .setName('ban')
-    .setDescription('Bannir un membre.')
-    .addUserOption((o) => o.setName('membre').setDescription('Le membre à bannir').setRequired(true))
+    .setDescription('Bannir un membre, ou un utilisateur absent du serveur via son ID.')
     .addStringOption((o) => o.setName('raison').setDescription('Raison du bannissement').setRequired(true))
     .addStringOption((o) =>
       o
@@ -17,6 +19,9 @@ export default {
         .setRequired(true)
         .addChoices({ name: 'Montrer', value: 'montrer' }, { name: 'Ne pas montrer', value: 'ne pas montrer' }),
     )
+    // Options obligatoires d'abord (règle Discord) : le membre OU son ID, l'un des deux.
+    .addUserOption((o) => o.setName('membre').setDescription('Le membre à bannir (ou utilise l’option id)'))
+    .addStringOption((o) => o.setName('id').setDescription('Ou l’ID d’un utilisateur, même s’il n’est pas sur le serveur'))
     .addStringOption((o) => o.setName('duree').setDescription('Durée (ex: 7d, 12h) — vide = permanent'))
     .addBooleanOption((o) =>
       o.setName('definitif').setDescription('Supprimer ses messages des 7 derniers jours (ex-"ban IP")'),
@@ -25,7 +30,18 @@ export default {
     .setDMPermission(false),
 
   async execute(interaction) {
-    const target = interaction.options.getUser('membre');
+    let target = interaction.options.getUser('membre');
+    const rawId = interaction.options.getString('id')?.trim();
+    if (!target && rawId) {
+      const id = rawId.match(MENTION_OR_ID)?.[1];
+      if (!id) return interaction.reply({ content: '❌ ID invalide : c’est un nombre de 17 à 20 chiffres.', ephemeral: true });
+      target = await interaction.client.users.fetch(id).catch(() => null);
+      if (!target) return interaction.reply({ content: '❌ Aucun utilisateur Discord ne correspond à cet ID.', ephemeral: true });
+    }
+    if (!target) return interaction.reply({ content: '❌ Choisis le `membre` à bannir, ou donne son `id`.', ephemeral: true });
+    if (await interaction.guild.bans.fetch(target.id).catch(() => null)) {
+      return interaction.reply({ content: `ℹ️ **${target.tag}** est déjà banni.`, ephemeral: true });
+    }
     const reason = interaction.options.getString('raison');
     const durInput = interaction.options.getString('duree');
     const definitif = interaction.options.getBoolean('definitif') ?? false;

@@ -37,11 +37,13 @@ const client = new Client({
     GatewayIntentBits.GuildPresences, // lecture des statuts (rôle si invite dans le statut) — privilégié
   ],
   partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
-  // Ajout d'emojis (/copyemoji) : quand Discord impose une longue attente (limite d'ajouts
-  // par serveur), on abandonne au lieu d'attendre en silence ; la commande dit quand réessayer.
+  // Ajout d'emojis (/copyemoji) et profil du bot (/profilbot) : quand Discord impose une longue
+  // attente, on abandonne au lieu d'attendre en silence ; la commande dit quand réessayer.
   rest: {
     rejectOnRateLimit: (info) =>
-      info.method === 'POST' && /\/guilds\/\d+\/emojis(?:\?|$)/.test(info.url) && Math.max(info.retryAfter, info.timeToReset) > 30_000,
+      ((info.method === 'POST' && /\/guilds\/\d+\/emojis(?:\?|$)/.test(info.url)) ||
+        (info.method === 'PATCH' && /\/guilds\/\d+\/members\/@me(?:\?|$)/.test(info.url))) &&
+      Math.max(info.retryAfter, info.timeToReset) > 30_000,
   },
 });
 
