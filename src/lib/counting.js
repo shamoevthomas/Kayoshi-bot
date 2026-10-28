@@ -1,3 +1,4 @@
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { getCounting, setCounting } from './store.js';
 
 // Comptage (/compteur) : dans le salon choisi, les membres écrivent 1, 2, 3… à tour de rôle, sans fin
@@ -39,4 +40,80 @@ export async function handleCountingMessage(message) {
       ? `❌ ${message.author}, ${problem} : on commence par **1** !`
       : `❌ ${message.author} a cassé la série à **${current}** : ${problem}. On recommence à **1** ! (record : **${cfg.record ?? current}**)`;
   await message.channel.send({ content: text, allowedMentions: { parse: [] } }).catch(() => {});
+}
+
+// --- Panneau de /compteur : boutons « cpt:activer », « cpt:desactiver », « cpt:voir » et menu « cpt:salon »
+// (routés par interactionCreate, marchent après un redémarrage). Réservé à « Gérer le serveur ». ---
+const ABOUT =
+  'Dans le salon choisi, les membres écrivent **1, 2, 3…** sans fin, chacun leur tour (pas deux fois de suite). ' +
+  'Une erreur remet le compteur à 1, le record est gardé.';
+
+export function counterPanel(guildId, notice = null, pickChannel = false) {
+  const active = Boolean(getCounting(guildId)?.channelId);
+  const embed = new EmbedBuilder().setColor(0x5865f2).setTitle('🔢 Compteur').setDescription(notice ? `${notice}\n\n-# ${ABOUT}` : ABOUT);
+  const rows = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('cpt:activer').setLabel('Activer').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('cpt:desactiver').setLabel('Désactiver').setEmoji('⏹️').setStyle(ButtonStyle.Danger).setDisabled(!active),
+      new ButtonBuilder().setCustomId('cpt:voir').setLabel('Voir').setEmoji('🔢').setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+  if (pickChannel) {
+    rows.unshift(
+      new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder().setCustomId('cpt:salon').setPlaceholder('Choisis le salon de comptage').addChannelTypes(ChannelType.GuildText),
+      ),
+    );
+  }
+  return { embeds: [embed], components: rows };
+}
+
+// Nouveau salon = on repart de 0 (le record est gardé si c'est le même salon qu'avant).
+async function activate(guildId, channel) {
+  const cfg = getCounting(guildId);
+  const same = cfg?.channelId === channel.id || cfg?.lastChannelId === channel.id;
+  setCounting(guildId, {
+    channelId: channel.id,
+    lastChannelId: channel.id,
+    current: same ? (cfg.current ?? '0') : '0',
+    record: same ? (cfg.record ?? '0') : '0',
+    lastUserId: same ? (cfg.lastUserId ?? null) : null,
+  });
+  const next = same ? BigInt(cfg.current ?? '0') + 1n : 1n;
+  await channel
+    .send(`🔢 **Comptage !** Écrivez les nombres dans l’ordre, chacun votre tour, sans fin. Prochain nombre : **${next}**.\n-# Un mauvais nombre, ou deux fois de suite la même personne, et on recommence à 1.`)
+    .catch(() => {});
+}
+
+export async function handleCounterInteraction(interaction) {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    return interaction.reply({ content: '❌ Il faut la permission « Gérer le serveur ».', ephemeral: true });
+  }
+  const { guild } = interaction;
+  const action = interaction.customId.split(':')[1];
+  const cfg = getCounting(guild.id);
+
+  if (action === 'activer') return interaction.update(counterPanel(guild.id, '👇 Choisis le salon de comptage dans le menu.', true));
+  if (action === 'salon') {
+    const id = interaction.values[0];
+    const channel = guild.channels.cache.get(id) ?? (await guild.channels.fetch(id).catch(() => null));
+    if (!channel?.isTextBased()) return interaction.update(counterPanel(guild.id, '❌ Salon introuvable, choisis-en un autre.', true));
+    // Le réglage est enregistré tout de suite ; l'annonce dans le salon part sans faire attendre le panneau.
+    activate(guild.id, channel).catch(() => {});
+    return interaction.update(counterPanel(guild.id, `✅ Comptage activé dans ${channel}.`));
+  }
+  if (action === 'desactiver') {
+    if (!cfg?.channelId) return interaction.update(counterPanel(guild.id, 'ℹ️ Le comptage n’était pas activé.'));
+    setCounting(guild.id, { ...cfg, channelId: null });
+    return interaction.update(counterPanel(guild.id, '⏹️ Comptage désactivé (le record est gardé).'));
+  }
+  // voir
+  return interaction.update(
+    counterPanel(
+      guild.id,
+      cfg?.channelId
+        ? `🔢 Salon : <#${cfg.channelId}> · nombre actuel : **${cfg.current ?? '0'}** · record : **${cfg.record ?? '0'}**`
+        : 'ℹ️ Aucun salon de comptage : clique sur **Activer**.',
+    ),
+  );
 }

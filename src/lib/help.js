@@ -166,7 +166,7 @@ const CATEGORIES = [
       ['/gif', 'Transformer une image (fichier ou lien) en GIF, pour l’ajouter à tes GIF favoris'],
       ['kayo pp · kayo banner', 'Photo de profil ou bannière d’un membre (ou la tienne) ; `server` pour celles du serveur (`hana` marche aussi)'],
       ['/coiffeur', 'Répondre « feur » quand un message finit par « quoi »'],
-      ['/compteur', '`activer` `desactiver` `voir` — salon de comptage : 1, 2, 3… à tour de rôle, sans fin (une erreur remet à 1, record gardé)'],
+      ['/compteur', 'Panneau avec les boutons Activer (choix du salon), Désactiver et Voir — salon de comptage : 1, 2, 3… à tour de rôle, sans fin (une erreur remet à 1, record gardé)'],
     ],
   },
   {
@@ -264,6 +264,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/compteur', 'un panneau avec les boutons Activer, Désactiver et Voir'],
   ['/argent', '`deposer` : on garde au moins 💰 200 en poche ; `travail` retiré'],
   ['/quiz', '`activer` : rôle à mentionner à chaque question (facultatif)'],
   ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],
@@ -273,7 +274,6 @@ const RECENT_CHANGES = [
   ['/configstat', 'un nouveau classement chaque semaine, l’ancien est supprimé'],
   ['/guessflag', '❌ sur les mauvaises réponses, supprimées après 2 s, salon #logs-drapeau'],
   ['/lock', 'verrouille pour le rôle Membre au lieu de @everyone (pareil pour /unlock)'],
-  ['/save', 'une seule commande : emplacement save1 à save5, enregistrer ou envoyer'],
 ];
 
 const HOME = 'home';
