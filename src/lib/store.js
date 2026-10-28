@@ -449,6 +449,15 @@ export function setQuiz(guildId, quiz) {
   setGuildConfig(guildId, { quiz });
 }
 
+// Question du jour (/quiz question-du-jour) : qotd = { enabled, channelId, roleId, hour, lastDay, used }.
+export function getQotd(guildId) {
+  return getGuildConfig(guildId).qotd ?? null;
+}
+
+export function setQotd(guildId, qotd) {
+  setGuildConfig(guildId, { qotd });
+}
+
 export function getQuizScores(guildId) {
   return getGuildConfig(guildId).quizScores ?? {};
 }

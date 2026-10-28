@@ -25,6 +25,7 @@ const CATEGORIES = [
       ['/casier', 'Sanctions d’un membre, ou de tout le serveur sans membre (avertissements avec leur numéro, mutes, kicks, bans, deranks), avec dates et modérateurs ; option `sanction` pour un seul type'],
       ['/sanction', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
       ['/purge', 'Supprimer des messages dans ce salon (par lots)'],
+      ['+snipe', 'Réaffiche le dernier message supprimé du salon, avec ses images, pendant 1 h (staff : permission « Gérer les messages »)'],
       ['/lock · /unlock', 'Verrouiller / déverrouiller l’écriture dans ce salon pour le rôle Membre'],
       ['/slowmode', 'Régler le mode lent du salon (0 = off)'],
       ['/nick', 'Changer ou réinitialiser le pseudo d’un membre'],
@@ -159,7 +160,7 @@ const CATEGORIES = [
       ['/duel', 'Défier un membre au morpion, au puissance 4 ou à pierre-feuille-ciseaux (2 manches gagnantes), avec une mise facultative : le gagnant remporte tout'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
-      ['/quiz', '`activer` `desactiver` `question` — quiz de culture générale dans un salon : le premier qui trouve gagne de l’argent (classement dans `/top`) ; un rôle peut être mentionné à chaque question'],
+      ['/quiz', '`activer` `desactiver` `question` — quiz de culture générale dans un salon : le premier qui trouve gagne de l’argent (classement dans `/top`) ; un rôle peut être mentionné à chaque question · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
@@ -246,6 +247,7 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+snipe', 'dernier message supprimé (staff)'],
   ['/backup', 'sauvegarder et restaurer le serveur'],
   ['/salon-stats', 'salons qui affichent les stats du serveur'],
   ['/casino', 'blackjack, poker, roulette, machine à sous'],
@@ -260,15 +262,14 @@ const RECENT = [
   ['/casier', 'sanctions d’un membre ou du serveur'],
   ['/argent', 'daily, dons et classement des plus riches'],
   ['/profilbot', 'profil du bot sur ce serveur'],
-  ['/gif', 'transformer une image en GIF'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/quiz', '`question-du-jour` : une question chaque jour, rôle mentionné et fil pour les réponses'],
   ['/compteur', 'panneau à boutons ; une erreur ne remet plus à 1 (message refusé puis effacé)'],
   ['/argent', '`deposer` : on garde au moins 💰 200 en poche ; `travail` retiré'],
-  ['/quiz', '`activer` : rôle à mentionner à chaque question (facultatif)'],
   ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],
   ['/xp', '`ajouter` et `retirer` donnent ou retirent directement des niveaux'],
   ['/top', 'onglet Poche ; Argent = poche + banque'],

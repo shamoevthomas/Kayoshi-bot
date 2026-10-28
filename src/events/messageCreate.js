@@ -7,6 +7,7 @@ import { cacheAttachments } from '../lib/attachmentCache.js';
 import { handleDisboardBump } from '../lib/bumpreminder.js';
 import { handlePartnerMessage } from '../lib/partners.js';
 import { handleVoiceStatsCommand } from '../lib/voicestats.js';
+import { handleSnipeCommand } from '../lib/snipe.js';
 import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
 import { handleLoveCommand } from '../lib/lovecalc.js';
@@ -63,6 +64,8 @@ export default {
 
     // « +vc » : statistiques des salons vocaux.
     await handleVoiceStatsCommand(message).catch((err) => console.error(err));
+    // « +snipe » (staff) : dernier message supprimé du salon.
+    await handleSnipeCommand(message).catch((err) => console.error('[snipe]', err));
     // Stats d'activité (messages par membre et par salon), puis s?u / s?t / s?m / s?v.
     try {
       recordMessage(message);

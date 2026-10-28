@@ -1,9 +1,11 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.js';
-import { getQuiz, setQuiz } from '../../lib/store.js';
+import { getQuiz, setQuiz, getQotd, setQotd } from '../../lib/store.js';
 import { postQuiz } from '../../lib/quiz.js';
+import { postQotd } from '../../lib/qotd.js';
 import { formatMoney } from '../../lib/shop.js';
 
-// Réglages du quiz de culture générale (voir lib/quiz.js). Classement : /top → Quiz.
+// Réglages du quiz de culture générale (voir lib/quiz.js), et de la question du jour (lib/qotd.js).
+// Classement du quiz : /top → Quiz.
 export default {
   data: new SlashCommandBuilder()
     .setName('quiz')
@@ -19,12 +21,28 @@ export default {
     )
     .addSubcommand((s) => s.setName('desactiver').setDescription('Arrêter le quiz.'))
     .addSubcommand((s) => s.setName('question').setDescription('Poser une question tout de suite.'))
+    .addSubcommandGroup((g) =>
+      g
+        .setName('question-du-jour')
+        .setDescription('Une question ouverte chaque jour, avec un fil pour les réponses.')
+        .addSubcommand((s) =>
+          s
+            .setName('activer')
+            .setDescription('Envoyer une question chaque jour dans un salon.')
+            .addChannelOption((o) => o.setName('salon').setDescription('Le salon de la question du jour').setRequired(true).addChannelTypes(ChannelType.GuildText))
+            .addRoleOption((o) => o.setName('role').setDescription('Rôle à mentionner à chaque question (vide : aucune mention)'))
+            .addIntegerOption((o) => o.setName('heure').setDescription('Heure d’envoi, heure de Paris (défaut : 18)').setMinValue(0).setMaxValue(23)),
+        )
+        .addSubcommand((s) => s.setName('desactiver').setDescription('Arrêter la question du jour.'))
+        .addSubcommand((s) => s.setName('envoyer').setDescription('Envoyer la question du jour tout de suite (elle compte pour aujourd’hui).')),
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false),
 
   async execute(interaction) {
     const guildId = interaction.guild.id;
     const sub = interaction.options.getSubcommand();
+    if (interaction.options.getSubcommandGroup(false) === 'question-du-jour') return questionOfTheDay(interaction, sub);
     const cfg = getQuiz(guildId);
 
     if (sub === 'desactiver') {
@@ -66,3 +84,41 @@ export default {
     });
   },
 };
+
+// /quiz question-du-jour activer | desactiver | envoyer (voir lib/qotd.js).
+async function questionOfTheDay(interaction, sub) {
+  const { guild } = interaction;
+  const cfg = getQotd(guild.id);
+  if (sub === 'desactiver') {
+    if (!cfg?.enabled) return interaction.reply({ content: 'ℹ️ La question du jour n’était pas activée.', ephemeral: true });
+    setQotd(guild.id, { ...cfg, enabled: false });
+    return interaction.reply({ content: '✅ Question du jour désactivée.', ephemeral: true });
+  }
+  if (sub === 'envoyer') {
+    if (!cfg?.channelId) return interaction.reply({ content: '❌ La question du jour n’est pas configurée. Lance `/quiz question-du-jour activer`.', ephemeral: true });
+    await interaction.deferReply({ ephemeral: true });
+    const message = await postQotd(guild);
+    return interaction.editReply(message ? `✅ Question du jour envoyée : ${message.url}` : '❌ Je n’ai pas pu l’envoyer (salon introuvable ou permissions).');
+  }
+
+  // activer : rôle vide = aucune mention.
+  const channel = interaction.options.getChannel('salon');
+  const role = interaction.options.getRole('role');
+  const hour = interaction.options.getInteger('heure') ?? cfg?.hour ?? 18;
+  setQotd(guild.id, { ...(cfg ?? {}), enabled: true, channelId: channel.id, roleId: role?.id ?? null, hour });
+  const perms = guild.members.me?.permissionsIn(channel);
+  const warnings = [];
+  const everyone = role?.id === guild.id;
+  if (role && (everyone || !role.mentionable) && !perms?.has(PermissionFlagsBits.MentionEveryone)) {
+    warnings.push('il me manque la permission « Mentionner @everyone, @here et tous les rôles » : la mention ne notifiera personne');
+  }
+  if (!perms?.has(PermissionFlagsBits.CreatePublicThreads)) warnings.push('il me manque la permission « Créer des fils publics » : pas de fil pour les réponses');
+  return interaction.reply({
+    content:
+      `✅ Question du jour activée dans ${channel} : chaque jour à **${hour} h** (heure de Paris), avec un fil pour les réponses.` +
+      (role ? `\n🔔 Chaque question mentionne ${everyone ? '@everyone' : role}.` : '') +
+      (warnings.length ? `\n⚠️ Attention : ${warnings.join(' ; ')}.` : '') +
+      '\n-# `/quiz question-du-jour envoyer` pour l’envoyer tout de suite.',
+    ephemeral: true,
+  });
+}

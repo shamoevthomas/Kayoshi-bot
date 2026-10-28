@@ -3,6 +3,7 @@ import { sendLog, Colors, findExecutor } from '../lib/logger.js';
 import { takeCachedAttachments } from '../lib/attachmentCache.js';
 import { removeSentEmbed } from '../lib/store.js';
 import { isGuessFlagChannel } from '../lib/guessflag.js';
+import { rememberDeleted } from '../lib/snipe.js';
 
 export default {
   name: Events.MessageDelete,
@@ -35,6 +36,8 @@ export default {
     // Photos/vidéos mises en cache à la création → on les ré-attache pour les afficher.
     const cached = takeCachedAttachments(message.id);
     const files = cached.map((f) => new AttachmentBuilder(f.buffer, { name: f.name }));
+    // « +snipe » (staff) : dernier message supprimé du salon.
+    rememberDeleted(message, cached);
 
     if (message.attachments?.size) {
       embed.addFields({
