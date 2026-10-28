@@ -20,6 +20,7 @@ import { handleQuizInteraction } from '../lib/quiz.js';
 import { handleCasinoInteraction } from '../lib/casino.js';
 import { handleDuelInteraction } from '../lib/duel.js';
 import { handleCounterInteraction } from '../lib/counting.js';
+import { handleStatChannelsInteraction } from '../lib/statchannels.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -48,6 +49,7 @@ export default {
         if (cid.startsWith('cas_')) return void (await handleCasinoInteraction(interaction));
         if (cid.startsWith('duel:')) return void (await handleDuelInteraction(interaction));
         if (cid.startsWith('cpt:')) return void (await handleCounterInteraction(interaction));
+        if (cid.startsWith('sst:')) return void (await handleStatChannelsInteraction(interaction));
         if (cid === 'shop_open') return void (await openShop(interaction));
         if (cid.startsWith('shop_')) return void (await handleShopInteraction(interaction));
       } catch (err) {

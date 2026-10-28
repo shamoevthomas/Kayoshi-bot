@@ -203,7 +203,7 @@ const CATEGORIES = [
     key: 'systems',
     emoji: '⚙️',
     name: 'Salons & systèmes',
-    summary: 'Logs, anti-liens, anti-spam, vocaux, confessions, bump',
+    summary: 'Logs, anti-liens, anti-spam, vocaux, confessions, bump, salons de stats, sauvegardes',
     about: 'Les systèmes automatiques du serveur : logs, protections, salons vocaux temporaires, confessions anonymes et rappel de bump.',
     lines: [
       ['/log', 'Salon des logs du serveur (les logs vocaux vont dans #voc-logs, créé automatiquement à côté)'],
@@ -219,6 +219,8 @@ const CATEGORIES = [
       ['/bremind', 'Activer / désactiver le rappel de bump Disboard (2 h après chaque /bump)'],
       ['/bremind-edit', 'Message de rappel, rôle à mentionner, message après avoir bump'],
       ['/reset', 'Supprimer un salon et le recréer à l’identique'],
+      ['/salon-stats', 'Panneau : salons vocaux verrouillés en haut du serveur dont le nom affiche un chiffre à jour (membres, en ligne, en vocal, boosts), toutes les 10 min'],
+      ['/backup', '`creer` `liste` `telecharger` `restaurer` — sauvegarde des rôles, salons et permissions (automatique chaque jour) ; la restauration recrée seulement ce qui manque, rien n’est supprimé (admin)'],
     ],
   },
   {
@@ -244,6 +246,8 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['/backup', 'sauvegarder et restaurer le serveur'],
+  ['/salon-stats', 'salons qui affichent les stats du serveur'],
   ['/casino', 'blackjack, poker, roulette, machine à sous'],
   ['/duel', 'morpion, puissance 4, pierre-feuille-ciseaux'],
   ['/top', 'tous les classements en onglets'],
@@ -257,8 +261,6 @@ const RECENT = [
   ['/argent', 'daily, dons et classement des plus riches'],
   ['/profilbot', 'profil du bot sur ce serveur'],
   ['/gif', 'transformer une image en GIF'],
-  ['/configconfessions', 'confessions anonymes'],
-  ['/renier', 'renier un enfant adopté'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).

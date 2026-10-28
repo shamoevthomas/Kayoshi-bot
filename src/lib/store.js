@@ -18,6 +18,11 @@ let statsCache = {};
 let statsTimer = null;
 const statsDirty = new Set();
 
+// Sauvegardes du serveur (/backup) : une ligne à part « backup:<guildId> », lue et écrite à la demande
+// (ni gardée en mémoire ni réécrite avec le reste : elle peut être grosse).
+const BACKUP_PREFIX = 'backup:';
+const localBackups = {}; // sans Supabase (tests)
+
 // À appeler UNE FOIS au démarrage (avant client.login).
 export async function initStore() {
   const url = process.env.SUPABASE_URL;
@@ -29,6 +34,7 @@ export async function initStore() {
   cache = {};
   statsCache = {};
   for (const row of data) {
+    if (row.guild_id.startsWith(BACKUP_PREFIX)) continue;
     if (row.guild_id.startsWith(STATS_PREFIX)) statsCache[row.guild_id.slice(STATS_PREFIX.length)] = row.data ?? {};
     else cache[row.guild_id] = row.data ?? {};
   }
@@ -106,6 +112,23 @@ async function flushStats() {
     console.error('Erreur flush stats Supabase:', error.message);
     for (const r of rows) markStatsDirty(r.guild_id.slice(STATS_PREFIX.length));
   }
+}
+
+// Liste des sauvegardes d'un serveur (/backup), de la plus récente à la plus ancienne.
+export async function loadBackups(guildId) {
+  if (!supabase) return localBackups[guildId] ?? [];
+  const { data, error } = await supabase.from(TABLE).select('data').eq('guild_id', BACKUP_PREFIX + guildId).maybeSingle();
+  if (error) throw error;
+  return data?.data?.list ?? [];
+}
+
+export async function saveBackups(guildId, list) {
+  if (!supabase) {
+    localBackups[guildId] = list;
+    return;
+  }
+  const { error } = await supabase.from(TABLE).upsert({ guild_id: BACKUP_PREFIX + guildId, data: { list }, updated_at: new Date().toISOString() });
+  if (error) throw error;
 }
 
 export function getGuildConfig(guildId) {

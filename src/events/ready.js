@@ -21,6 +21,8 @@ import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
 import { quizTick } from '../lib/quiz.js';
 import { refundHolds } from '../lib/bets.js';
 import { ensureShopLogChannel } from '../lib/shop.js';
+import { refreshAllStatChannels, REFRESH_MS } from '../lib/statchannels.js';
+import { autoBackups } from '../lib/backup.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -45,6 +47,12 @@ export default {
     client.user.setActivity('.gg/hanamifr', { type: ActivityType.Custom });
     // Casino et duels : les parties en cours sont perdues au redémarrage, les mises en jeu sont rendues.
     refundHolds(client);
+    // Salons de statistiques (/salon-stats) : noms mis à jour toutes les 10 min (limite de Discord).
+    setTimeout(() => refreshAllStatChannels(client).catch(() => {}), 40_000);
+    setInterval(() => refreshAllStatChannels(client).catch(() => {}), REFRESH_MS);
+    // Sauvegarde automatique de chaque serveur (/backup), une fois par jour (vérifié toutes les heures).
+    setTimeout(() => autoBackups(client).catch((err) => console.error('[backup]', err)), 120_000);
+    setInterval(() => autoBackups(client).catch((err) => console.error('[backup]', err)), 3_600_000);
     // Démarre le suivi arrivées/départs pour chaque serveur.
     for (const [guildId] of client.guilds.cache) ensureTracking(guildId);
     // Salon « voc-logs » des logs vocaux, créé dès le démarrage pour les serveurs qui ont des logs.
