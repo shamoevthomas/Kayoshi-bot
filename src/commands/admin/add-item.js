@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { addShopItem, getTicketConfig } from '../../lib/store.js';
-import { formatMoney } from '../../lib/shop.js';
+import { formatMoney, ensureShopLogChannel } from '../../lib/shop.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
 import { roleCommandProblem } from '../../lib/roles.js';
 
@@ -42,6 +42,8 @@ export default {
   },
 
   async execute(interaction) {
+    // Salon « logs-boutique » prêt dès le premier objet.
+    ensureShopLogChannel(interaction.guild).catch(() => {});
     const name = interaction.options.getString('nom', true).trim();
     const price = interaction.options.getInteger('prix', true);
     const type = interaction.options.getString('type', true);

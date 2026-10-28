@@ -43,8 +43,8 @@ function unitOption(o) {
 function reasonOption(o) {
   return o.setName('raison').setDescription('Raison (optionnelle)').setRequired(false);
 }
-function amountOption(o) {
-  return o.setName('montant').setDescription('Quantité (nombre positif)').setRequired(true).setMinValue(1);
+function levelsOption(o) {
+  return o.setName('niveaux').setDescription('Nombre de niveaux').setRequired(true).setMinValue(1);
 }
 function setAmountOption(o) {
   return o.setName('montant').setDescription('Valeur cible (0 ou plus)').setRequired(true).setMinValue(0);
@@ -59,19 +59,17 @@ export default {
     .addSubcommand((s) =>
       s
         .setName('ajouter')
-        .setDescription('Ajouter de l’XP (ou des niveaux) à un membre.')
+        .setDescription('Donner des niveaux à un membre.')
         .addUserOption((o) => o.setName('membre').setDescription('Le membre').setRequired(true))
-        .addIntegerOption(amountOption)
-        .addStringOption(unitOption)
+        .addIntegerOption(levelsOption)
         .addStringOption(reasonOption),
     )
     .addSubcommand((s) =>
       s
         .setName('retirer')
-        .setDescription('Retirer de l’XP (ou des niveaux) à un membre.')
+        .setDescription('Retirer des niveaux à un membre.')
         .addUserOption((o) => o.setName('membre').setDescription('Le membre').setRequired(true))
-        .addIntegerOption(amountOption)
-        .addStringOption(unitOption)
+        .addIntegerOption(levelsOption)
         .addStringOption(reasonOption),
     )
     .addSubcommand((s) =>
@@ -136,8 +134,9 @@ export default {
     const sub = interaction.options.getSubcommand();
     if (sub === 'evenement') return handleXpEvent(interaction, guildId);
     const target = interaction.options.getUser('membre');
-    const amount = interaction.options.getInteger('montant');
-    const unit = interaction.options.getString('unite') ?? 'xp';
+    // ajouter / retirer : directement en niveaux ; definir : XP (par défaut) ou niveau.
+    const amount = interaction.options.getInteger(sub === 'definir' ? 'montant' : 'niveaux');
+    const unit = sub === 'definir' ? (interaction.options.getString('unite') ?? 'xp') : 'niveaux';
     const reason = interaction.options.getString('raison') || 'Aucune raison précisée';
 
     if (target.bot) {

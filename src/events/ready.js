@@ -1,5 +1,5 @@
 import { Events, ActivityType } from 'discord.js';
-import { ensureTracking, getDueTempBans, removeTempBan } from '../lib/store.js';
+import { ensureTracking, getDueTempBans, removeTempBan, getShopItems } from '../lib/store.js';
 import { reconcileVerification, maybeRemindUnverified } from '../lib/verification.js';
 import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
@@ -20,6 +20,7 @@ import { processWeeklyTop } from '../lib/weeklytop.js';
 import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
 import { quizTick } from '../lib/quiz.js';
 import { refundHolds } from '../lib/bets.js';
+import { ensureShopLogChannel } from '../lib/shop.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -48,7 +49,11 @@ export default {
     for (const [guildId] of client.guilds.cache) ensureTracking(guildId);
     // Salon « voc-logs » des logs vocaux, créé dès le démarrage pour les serveurs qui ont des logs.
     setTimeout(() => {
-      for (const guild of client.guilds.cache.values()) ensureVoiceLogChannel(guild).catch(() => {});
+      for (const guild of client.guilds.cache.values()) {
+        ensureVoiceLogChannel(guild).catch(() => {});
+        // Salon « logs-boutique » pour les serveurs qui ont une boutique.
+        if (Object.keys(getShopItems(guild.id)).length) ensureShopLogChannel(guild).catch(() => {});
+      }
     }, 10_000);
     // Vérifie les bans temporaires arrivés à échéance, toutes les 60 s.
     processTempBans(client);

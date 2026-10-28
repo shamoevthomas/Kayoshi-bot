@@ -108,6 +108,48 @@ async function resolveVoiceLogChannel(guild) {
   return channel;
 }
 
+// Salons de logs à part (ex. « logs-boutique ») : réutilisé s'il existe (id gardé dans config[configKey],
+// ou un salon du même nom), sinon créé à côté du salon de logs du serveur (/log) avec ses permissions
+// (le staff qui voit les logs le voit), ou caché à @everyone s'il n'y a pas de salon de logs.
+// Une seule création à la fois par salon. Renvoie le salon, ou null si impossible.
+const extraLogPending = new Map(); // `${guildId}:${name}` → Promise
+const extraLogFailedAt = new Map();
+
+export function ensureExtraLogChannel(guild, { name, topic, configKey }) {
+  const key = `${guild.id}:${name}`;
+  if (!extraLogPending.has(key)) {
+    extraLogPending.set(key, resolveExtraLogChannel(guild, key, name, topic, configKey).finally(() => extraLogPending.delete(key)));
+  }
+  return extraLogPending.get(key);
+}
+
+async function resolveExtraLogChannel(guild, key, name, topic, configKey) {
+  const config = getGuildConfig(guild.id);
+  const current = await fetchChannel(guild, config[configKey]);
+  if (current?.isTextBased()) return current;
+  let channel = guild.channels.cache.find((c) => c.name === name && c.type === ChannelType.GuildText);
+  if (!channel) {
+    if (Date.now() - (extraLogFailedAt.get(key) ?? 0) < RETRY_AFTER_FAILURE_MS) return null;
+    const serverLogs = await fetchChannel(guild, config.logChannelId);
+    const botId = guild.client.user.id;
+    const overwrites = serverLogs
+      ? [...serverLogs.permissionOverwrites.cache.values()]
+          .filter((o) => o.id !== botId)
+          .map((o) => ({ id: o.id, type: o.type, allow: o.allow, deny: o.deny }))
+      : [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
+    overwrites.push({ id: botId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks] });
+    channel = await guild.channels
+      .create({ name, type: ChannelType.GuildText, topic, parent: serverLogs?.parentId ?? null, permissionOverwrites: overwrites })
+      .catch((err) => {
+        console.error(`[${name}] création impossible :`, err.message);
+        extraLogFailedAt.set(key, Date.now());
+        return null;
+      });
+  }
+  if (channel) setGuildConfig(guild.id, { [configKey]: channel.id });
+  return channel;
+}
+
 // Salon des logs vocaux (créé s'il le faut), ou null.
 export function ensureVoiceLogChannel(guild) {
   if (!voiceLogPending.has(guild.id)) {

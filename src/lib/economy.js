@@ -1,21 +1,17 @@
 import { EmbedBuilder } from 'discord.js';
 import { getMoney, addMoney, getBank, addBank, getHeist, patchHeist } from './store.js';
 import { formatMoney } from './shop.js';
-import { boostedMoney } from './levels.js';
-import { teamOf } from './teams.js';
 
-// Poche et banque (/argent solde, deposer, retirer), travail, vols et anti-vol (/argent travail, voler, antivol).
+// Poche et banque (/argent solde, deposer, retirer), vols et anti-vol (/argent voler, antivol).
 // L'argent gagné arrive en poche : c'est lui qu'on dépense, qu'on mise au casino… et qu'on peut se faire voler.
 // La banque est à l'abri des vols.
 const HOUR = 3_600_000;
-const WORK_COOLDOWN = HOUR;
-const WORK_MIN = 40;
-const WORK_MAX = 120;
 const ROB_COOLDOWN = HOUR;
 const ROB_SAFE_AFTER = 30 * 60_000; // un membre volé ne peut pas l'être à nouveau pendant 30 min
 const ROB_CHANCE = 0.45;
 const ROB_MIN = 100; // en poche, pour le voleur (de quoi payer l'amende) comme pour sa cible
 export const SHIELD_PRICE = 250;
+export const KEEP_IN_POCKET = 200; // minimum gardé en poche quand on dépose à la banque
 const SHIELD_MS = 12 * HOUR;
 const SHIELD_MAX = 48 * HOUR;
 
@@ -49,19 +45,17 @@ export async function showBalance(interaction) {
   const pocket = getMoney(guild.id, user.id);
   const bank = getBank(guild.id, user.id);
   const shield = shieldEnd(guild.id, user.id);
-  const team = teamOf(guild.id, user.id);
   const lines = [
     `👛 **Poche :** 💰 ${formatMoney(pocket)}  _(peut être volée)_`,
     `🏦 **Banque :** 💰 ${formatMoney(bank)}  _(à l’abri)_`,
     `💎 **Total :** 💰 ${formatMoney(pocket + bank)}`,
     '',
     `🛡️ **Anti-vol :** ${shield ? `actif, fin ${ts(shield)}` : 'aucun'}`,
-    `👥 **Team :** ${team ? team.name : 'aucune'}`,
   ];
   if (user.id === interaction.user.id) {
     const h = getHeist(guild.id, user.id);
     const ready = (at, cd) => (at && Date.now() - at < cd ? ts(at + cd) : 'disponible ✅');
-    lines.push(`⏳ **Travail :** ${ready(h.work, WORK_COOLDOWN)} · **Vol :** ${ready(h.rob, ROB_COOLDOWN)}`);
+    lines.push(`⏳ **Prochain vol :** ${ready(h.rob, ROB_COOLDOWN)}`);
   }
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)
@@ -72,16 +66,29 @@ export async function showBalance(interaction) {
 }
 
 // Poche → banque (deposer) ou banque → poche (retirer). Sans montant : tout.
+// Pour déposer, il faut garder au moins KEEP_IN_POCKET en poche (« tout » = tout sauf ça).
 export async function moveMoney(interaction, toBank) {
   const { guild, user } = interaction;
   const from = toBank ? getMoney(guild.id, user.id) : getBank(guild.id, user.id);
-  const amount = parseAmount(interaction.options.getString('montant') ?? 'tout', from);
+  const max = toBank ? Math.max(0, from - KEEP_IN_POCKET) : from;
+  if (toBank && !max) {
+    return interaction.reply({
+      content: `❌ Tu dois garder au moins 💰 **${KEEP_IN_POCKET}** en poche : tu as 💰 **${formatMoney(from)}**, tu ne peux rien déposer pour l’instant.`,
+      ephemeral: true,
+    });
+  }
+  const amount = parseAmount(interaction.options.getString('montant') ?? 'tout', max);
   if (amount === null || amount <= 0) {
-    if (!from) return interaction.reply({ content: `❌ Tu n’as rien ${toBank ? 'en poche' : 'à la banque'}.`, ephemeral: true });
+    if (!from) return interaction.reply({ content: '❌ Tu n’as rien à la banque.', ephemeral: true });
     return interaction.reply({ content: '❌ Montant invalide (ex : `500`, `2k`, `moitié` ou `tout`).', ephemeral: true });
   }
-  if (amount > from) {
-    return interaction.reply({ content: `❌ Tu n’as que 💰 **${formatMoney(from)}** ${toBank ? 'en poche' : 'à la banque'}.`, ephemeral: true });
+  if (amount > max) {
+    return interaction.reply({
+      content: toBank
+        ? `❌ Tu dois garder au moins 💰 **${KEEP_IN_POCKET}** en poche : tu peux déposer au maximum 💰 **${formatMoney(max)}**.`
+        : `❌ Tu n’as que 💰 **${formatMoney(from)}** à la banque.`,
+      ephemeral: true,
+    });
   }
   addMoney(guild.id, user.id, toBank ? -amount : amount);
   addBank(guild.id, user.id, toBank ? amount : -amount);
@@ -92,44 +99,6 @@ export async function moveMoney(interaction, toBank) {
   });
 }
 
-const JOBS = [
-  '🏹 En archer d’élite, chaque flèche a fait mouche',
-  '🍕 Tu as livré des pizzas toute la soirée',
-  '💻 Tu as réparé l’ordinateur de ta voisine',
-  '🎸 Tu as joué de la guitare dans le métro',
-  '🧹 Tu as fait le ménage dans un château',
-  '🐕 Tu as promené les chiens du quartier',
-  '👨‍🍳 Tu as cuisiné dans un restaurant étoilé',
-  '🚕 Tu as fait le taxi toute la nuit',
-  '🎨 Tu as vendu une de tes peintures',
-  '🍓 Tu as aidé à la récolte des fraises',
-  '📦 Tu as trié des colis à l’entrepôt',
-  '🎮 Tu as testé un jeu vidéo pas encore sorti',
-  '✂️ Tu as tenu le salon de coiffure (feur)',
-  '📚 Tu as donné des cours particuliers de maths',
-  '🎤 Tu as chanté au karaoké et récolté les pourboires',
-  '🧙 Tu as fait des tours de magie à un anniversaire',
-  '🏗️ Tu as passé la journée sur un chantier',
-  '🐟 Tu as vendu ta pêche du jour au marché',
-];
-
-export async function work(interaction) {
-  const { guild, user } = interaction;
-  const last = getHeist(guild.id, user.id).work;
-  if (last && Date.now() - last < WORK_COOLDOWN) {
-    return interaction.reply({ content: `⏳ Tu as déjà travaillé. Reviens ${ts(last + WORK_COOLDOWN)}.`, ephemeral: true });
-  }
-  patchHeist(guild.id, user.id, { work: Date.now() });
-  const gain = boostedMoney(interaction.member, Math.round(rand(WORK_MIN, WORK_MAX)));
-  const pocket = addMoney(guild.id, user.id, gain);
-  const embed = new EmbedBuilder()
-    .setColor(0xf1c40f)
-    .setTitle('💼 Travail')
-    .setDescription(`${JOBS[Math.floor(Math.random() * JOBS.length)]} et gagné 💰 **+${formatMoney(gain)}** !`)
-    .setFooter({ text: `Poche : ${formatMoney(pocket)} · prochain travail dans 1 h` });
-  return interaction.reply({ embeds: [embed] });
-}
-
 export async function rob(interaction) {
   const { guild, user } = interaction;
   const target = interaction.options.getMember('membre');
@@ -137,8 +106,6 @@ export async function rob(interaction) {
   if (!target) return reply('❌ Ce membre n’est pas sur le serveur.');
   if (target.user.bot) return reply('❌ On ne peut pas voler un bot.');
   if (target.id === user.id) return reply('❌ Tu ne peux pas te voler toi-même.');
-  const myTeam = teamOf(guild.id, user.id);
-  if (myTeam && myTeam.members.includes(target.id)) return reply(`❌ ${target} est dans ta team (**${myTeam.name}**).`);
 
   const now = Date.now();
   const me = getHeist(guild.id, user.id);

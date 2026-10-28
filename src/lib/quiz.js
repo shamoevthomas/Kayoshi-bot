@@ -102,7 +102,11 @@ export async function postQuiz(guild) {
     .setTitle('🧠 Quiz !')
     .setDescription(`**${q.question}**\n\nLe premier qui trouve gagne 💰 **${formatMoney(cfg.reward)}** — une seule réponse par personne.`)
     .setFooter({ text: [CATEGORIES[q.category], DIFFICULTY[q.difficulty], 'Fin dans 3 min'].filter(Boolean).join(' · ') });
-  const message = await channel.send({ embeds: [embed], components: [buttons(choices)] }).catch(() => null);
+  // Rôle mentionné à chaque question (/quiz activer role) : @everyone s'il a été choisi.
+  let ping = { allowedMentions: { parse: [] } };
+  if (cfg.roleId === guild.id) ping = { content: '@everyone', allowedMentions: { parse: ['everyone'] } };
+  else if (cfg.roleId) ping = { content: `<@&${cfg.roleId}>`, allowedMentions: { roles: [cfg.roleId] } };
+  const message = await channel.send({ ...ping, embeds: [embed], components: [buttons(choices)] }).catch(() => null);
   if (!message) return null;
   active.set(message.id, { guildId: guild.id, correct, answer: q.answer, choices, tried: new Set(), done: false, reward: cfg.reward });
   setTimeout(() => expire(message), EXPIRE_MS);

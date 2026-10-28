@@ -417,7 +417,7 @@ export function setWheelSpin(guildId, userId, at) {
 }
 
 // --- Quiz de culture générale (/quiz) ---
-// quiz = { enabled, channelId, everyMin, reward } ; quizScores = { userId: bonnes réponses }.
+// quiz = { enabled, channelId, everyMin, reward, roleId } (roleId : rôle mentionné à chaque question) ; quizScores = { userId: bonnes réponses }.
 export function getQuiz(guildId) {
   return getGuildConfig(guildId).quiz ?? null;
 }
@@ -1286,24 +1286,14 @@ export function getFortuneLeaderboard(guildId) {
     .sort((a, b) => b.money - a.money);
 }
 
-// Travail, vols et anti-vol (/argent travail, voler, antivol) :
-// data[guildId].heist = { userId: { work, rob, robbed, shield } } (dates en ms ; shield = fin de l'anti-vol).
+// Vols et anti-vol (/argent voler, antivol) :
+// data[guildId].heist = { userId: { rob, robbed, shield } } (dates en ms ; shield = fin de l'anti-vol).
 export function getHeist(guildId, userId) {
   return getGuildConfig(guildId).heist?.[userId] ?? {};
 }
 
 export function patchHeist(guildId, userId, patch) {
   return setEntry(guildId, 'heist', userId, { ...getHeist(guildId, userId), ...patch });
-}
-
-// Teams (/team) : data[guildId].teams = { teamId: { name, ownerId, members: [ids], vault, soldiers, locks,
-// wins, losses, lastAttack, lastAttacked, createdAt } }.
-export function getTeams(guildId) {
-  return getGuildConfig(guildId).teams ?? {};
-}
-
-export function setTeam(guildId, teamId, team) {
-  return setEntry(guildId, 'teams', teamId, team);
 }
 
 // Mises en jeu pendant une partie (casino, duels) : data[guildId].casinoHolds = { key: { userId, amount, at } }.

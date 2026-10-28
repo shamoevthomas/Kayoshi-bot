@@ -4,10 +4,10 @@ import { formatMoney } from '../../lib/shop.js';
 import { countQuestAction, checkQuests } from '../../lib/quests.js';
 import { boostedMoney, roleBoost } from '../../lib/levels.js';
 import { spinWheel } from '../../lib/wheel.js';
-import { showBalance, moveMoney, work, rob, buyShield, SHIELD_PRICE } from '../../lib/economy.js';
+import { showBalance, moveMoney, rob, buyShield, SHIELD_PRICE, KEEP_IN_POCKET } from '../../lib/economy.js';
 
 // Économie des membres : récompense quotidienne (avec série de jours), dons entre membres, roue de la
-// fortune (lib/wheel.js), poche/banque, travail, vols et anti-vol (lib/economy.js). Classements dans /top.
+// fortune (lib/wheel.js), poche/banque, vols et anti-vol (lib/economy.js). Classements dans /top.
 // L'argent se gagne aussi en écrivant et en passant des niveaux, et se dépense dans /shop.
 const DAILY_BASE = 100;
 const DAILY_STREAK_BONUS = 10; // en plus par jour de série
@@ -17,7 +17,7 @@ const DAY = 86_400_000;
 export default {
   data: new SlashCommandBuilder()
     .setName('argent')
-    .setDescription('Solde, banque, daily, travail, vols, anti-vol, roue de la fortune et dons entre membres.')
+    .setDescription('Solde, banque, daily, vols, anti-vol, roue de la fortune et dons entre membres.')
     .addSubcommand((s) =>
       s
         .setName('solde')
@@ -33,7 +33,6 @@ export default {
         .addIntegerOption((o) => o.setName('montant').setDescription('Combien donner').setRequired(true).setMinValue(1)),
     )
     .addSubcommand((s) => s.setName('roue').setDescription('Tourner la roue de la fortune (une fois par jour) : argent, XP, booster… ou rien.'))
-    .addSubcommand((s) => s.setName('travail').setDescription('Travailler pour gagner de l’argent (une fois par heure).'))
     .addSubcommand((s) =>
       s
         .setName('voler')
@@ -43,8 +42,8 @@ export default {
     .addSubcommand((s) =>
       s
         .setName('deposer')
-        .setDescription('Mettre de l’argent à la banque, à l’abri des vols.')
-        .addStringOption((o) => o.setName('montant').setDescription('Ex : 500, 2k, moitié (tout par défaut)')),
+        .setDescription(`Mettre de l’argent à la banque, à l’abri des vols (tu gardes au moins ${KEEP_IN_POCKET} en poche).`)
+        .addStringOption((o) => o.setName('montant').setDescription(`Ex : 500, 2k, moitié (par défaut : tout sauf ${KEEP_IN_POCKET})`)),
     )
     .addSubcommand((s) =>
       s
@@ -60,7 +59,6 @@ export default {
     if (sub === 'daily') return daily(interaction);
     if (sub === 'donner') return give(interaction);
     if (sub === 'solde') return showBalance(interaction);
-    if (sub === 'travail') return work(interaction);
     if (sub === 'voler') return rob(interaction);
     if (sub === 'deposer') return moveMoney(interaction, true);
     if (sub === 'retirer') return moveMoney(interaction, false);

@@ -1,6 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { getLevelLeaderboard, getMoneyLeaderboard, getFortuneLeaderboard, getInviteLeaderboard, getQuizScores } from './store.js';
-import { teamLeaderboard } from './teams.js';
 import { levelFromXp } from './levels.js';
 import { serverStats } from './stats.js';
 import { formatMoney } from './shop.js';
@@ -16,8 +15,7 @@ const voiceText = (seconds) => {
   return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
 };
 
-// Chaque onglet : titre, couleur, et la liste complète triée [{ userId, text }]
-// (ou [{ name, members, text }] pour les teams : la place affichée est celle de la team de qui regarde).
+// Chaque onglet : titre, couleur, et la liste complète triée [{ userId, text }].
 export const TABS = {
   niveaux: {
     label: 'Niveaux',
@@ -39,13 +37,6 @@ export const TABS = {
     color: 0xf1c40f,
     note: 'argent qu’on peut voler',
     rows: (g) => getMoneyLeaderboard(g).map((r) => ({ userId: r.userId, text: `👛 **${formatMoney(r.money)}**` })),
-  },
-  teams: {
-    label: 'Teams',
-    emoji: '👥',
-    color: 0x9b59b6,
-    note: 'par coffre',
-    rows: (g) => teamLeaderboard(g),
   },
   messages: {
     label: 'Messages',
@@ -97,8 +88,8 @@ export function topMessage(guild, tab, viewerId) {
   const key = TABS[tab] ? tab : 'niveaux';
   const t = TABS[key];
   const rows = t.rows(guild.id);
-  const lines = rows.slice(0, SHOWN).map((r, i) => `${MEDALS[i] ?? `**${i + 1}.**`} ${r.userId ? `<@${r.userId}>` : `**${r.name}**`} — ${r.text}`);
-  const place = rows.findIndex((r) => r.userId === viewerId || r.members?.includes(viewerId));
+  const lines = rows.slice(0, SHOWN).map((r, i) => `${MEDALS[i] ?? `**${i + 1}.**`} <@${r.userId}> — ${r.text}`);
+  const place = rows.findIndex((r) => r.userId === viewerId);
   const embed = new EmbedBuilder()
     .setColor(t.color)
     .setTitle(`${t.emoji} Classement — ${t.label}${t.note ? ` (${t.note})` : ''}`)

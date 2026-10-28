@@ -1,11 +1,11 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { TABS, topMessage } from '../../lib/leaderboards.js';
 
-// Tous les classements (niveaux, argent, poche, teams, messages, vocal, invitations, quiz) : voir lib/leaderboards.js.
+// Tous les classements (niveaux, argent, poche, messages, vocal, invitations, quiz) : voir lib/leaderboards.js.
 export default {
   data: new SlashCommandBuilder()
     .setName('top')
-    .setDescription('Classements : niveaux, argent, poche, teams, messages, vocal, invitations et quiz.')
+    .setDescription('Classements : niveaux, argent, poche, messages, vocal, invitations et quiz.')
     .addStringOption((o) =>
       o
         .setName('classement')

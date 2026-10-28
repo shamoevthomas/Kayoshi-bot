@@ -13,6 +13,7 @@ import {
 import { getMoney, addMoney, getShopItems, getShopItem, addPurchase, getPurchases, getShopConfig, setTempRole, getXpBoost, setXpBoost } from './store.js';
 import { openTicketFor } from './tickets.js';
 import { formatDuration } from './time.js';
+import { ensureExtraLogChannel } from './logger.js';
 
 // Couleur par défaut de la boutique, et parseur de couleur hex pour /configshop.
 const DEFAULT_COLOR = 0x2ecc71;
@@ -152,6 +153,31 @@ export function inventoryEmbed(guild, userId, title = '🎒 Ton inventaire') {
     .setFooter({ text: `Solde : ${formatMoney(balance)} ${COIN}  ·  ${purchases.length} achat(s)` });
 }
 
+// --- Logs des achats : salon « logs-boutique », créé à côté du salon de logs du serveur ---
+const TYPE_LABELS = { personnalise: 'Personnalisé (ticket)', role: 'Rôle permanent', role_temp: 'Rôle temporaire', xp_boost: 'Booster d’XP' };
+
+export const ensureShopLogChannel = (guild) =>
+  ensureExtraLogChannel(guild, { name: 'logs-boutique', topic: 'Achats de la boutique (/shop) — Kayoshi.', configKey: 'shopLogChannelId' });
+
+async function logPurchase(interaction, item, price, balance, effect) {
+  const { guild, user } = interaction;
+  const channel = await ensureShopLogChannel(guild);
+  if (!channel) return;
+  const embed = new EmbedBuilder()
+    .setColor(DEFAULT_COLOR)
+    .setAuthor({ name: '🛒 Achat dans la boutique', iconURL: user.displayAvatarURL() })
+    .setDescription(`${user} (${user.username}) a acheté **${item.name}**`)
+    .addFields(
+      { name: 'Prix', value: `${COIN} ${formatMoney(price)}${price < item.price ? ` _(promo du jour, au lieu de ${formatMoney(item.price)})_` : ''}`, inline: true },
+      { name: 'Type', value: TYPE_LABELS[item.type ?? 'personnalise'] ?? item.type, inline: true },
+      { name: 'Solde après', value: `${COIN} ${formatMoney(balance)}`, inline: true },
+      { name: 'Effet', value: effect },
+    )
+    .setFooter({ text: `ID : ${user.id}` })
+    .setTimestamp();
+  await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+}
+
 // --- Achat --- Renvoie le message à afficher (ne répond pas lui-même).
 async function buy(interaction, itemId) {
   const guildId = interaction.guild.id;
@@ -169,6 +195,8 @@ async function buy(interaction, itemId) {
 
   const after = addMoney(guildId, userId, -price);
   addPurchase(guildId, { userId, itemId, name: item.name, price, type: item.type ?? 'personnalise' });
+  // En arrière-plan : la boutique doit être rafraîchie dans les 3 s du clic.
+  logPurchase(interaction, item, price, after, outcome.log).catch((err) => console.error('[logs-boutique]', err));
   return (
     `✅ Tu as acheté **${item.name}** pour ${COIN} **${formatMoney(price)}**${price < item.price ? ` (promo du jour -${PROMO_PERCENT} %)` : ''} !\n` +
     `Nouveau solde : ${COIN} **${formatMoney(after)}**.\n${outcome.note}`
@@ -188,7 +216,10 @@ async function fulfill(interaction, item) {
     const boost = { multiplier: Math.max(item.multiplier ?? 2, active?.multiplier ?? 1), endsAt: (active?.endsAt ?? now) + item.durationMs };
     setXpBoost(guild.id, user.id, boost);
     const end = Math.floor(boost.endsAt / 1000);
-    return { note: `⚡ XP ×${boost.multiplier} jusqu’à <t:${end}:t> (<t:${end}:R>).${active ? ' Le temps s’ajoute à ton booster en cours.' : ''}` };
+    return {
+      note: `⚡ XP ×${boost.multiplier} jusqu’à <t:${end}:t> (<t:${end}:R>).${active ? ' Le temps s’ajoute à ton booster en cours.' : ''}`,
+      log: `⚡ XP ×${boost.multiplier} jusqu’à <t:${end}:f>${active ? ' (ajouté au booster en cours)' : ''}`,
+    };
   }
 
   if (type === 'role' || type === 'role_temp') {
@@ -204,9 +235,13 @@ async function fulfill(interaction, item) {
     if (!given) return { error: 'Impossible de te donner le rôle.' };
     if (type === 'role_temp') {
       setTempRole(guild.id, { userId: user.id, roleId: role.id, removeAt: Date.now() + item.durationMs, by: guild.client.user.id });
-      return { note: `🎖️ Tu as le rôle ${role} pendant **${formatDuration(item.durationMs)}**.` };
+      const end = Math.floor((Date.now() + item.durationMs) / 1000);
+      return {
+        note: `🎖️ Tu as le rôle ${role} pendant **${formatDuration(item.durationMs)}**.`,
+        log: `🎖️ Rôle ${role} donné pour ${formatDuration(item.durationMs)} (retiré <t:${end}:f>)`,
+      };
     }
-    return { note: `🎖️ Tu as reçu le rôle ${role}.` };
+    return { note: `🎖️ Tu as reçu le rôle ${role}.`, log: `🎖️ Rôle ${role} donné` };
   }
 
   // personnalisé : ouvre un ticket (système 1) avec le motif choisi.
@@ -216,6 +251,7 @@ async function fulfill(interaction, item) {
     note: result.already
       ? `🎫 Tu as déjà un ticket ouvert pour ça : ${result.channel}.`
       : `🎫 Un ticket a été ouvert pour ta demande : ${result.channel}.`,
+    log: `🎫 À livrer par le staff — ticket ${result.already ? 'déjà ouvert' : 'ouvert'} : ${result.channel}`,
   };
 }
 

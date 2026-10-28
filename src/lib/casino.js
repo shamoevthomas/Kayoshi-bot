@@ -174,8 +174,8 @@ export function rulesEmbed() {
       {
         name: '💰 Et aussi',
         value:
-          '`/argent travail` (salaire toutes les heures) · `/argent voler` (vole la poche d’un membre) · `/argent deposer` (banque, à l’abri) · ' +
-          '`/argent antivol` · `/team` (teams, coffre, soldats et cadenas) · `/duel` · classements : `/top poche`',
+          '`/argent voler` (vole la poche d’un membre) · `/argent deposer` (banque, à l’abri) · ' +
+          '`/argent antivol` · `/duel` (avec une mise) · classements : `/top poche`',
       },
     );
 }
