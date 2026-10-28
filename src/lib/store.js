@@ -338,7 +338,7 @@ export function addSanction(guildId, userId, record) {
 
 // --- Économie automatique (/configeconomie) ---
 // moneyDrops = { enabled, channelIds, min, max, everyMin } : argent à ramasser dans les salons actifs.
-// weeklyTop = { enabled, channelId, roleId, rewards: { m1, m2, m3, v1, v2, v3 }, lastWeek } :
+// weeklyTop = { enabled, channelId, roleId, rewards: { m1, m2, m3, v1, v2, v3 }, lastWeek, lastMessageId } :
 //   récompenses du lundi pour le top 3 messages et le top 3 vocal ; lastWeek = lundi de la
 //   dernière semaine récompensée (« 2026-10-19 »).
 export function getMoneyDrops(guildId) {
@@ -1208,7 +1208,7 @@ export function removeLevelReward(guildId, level) {
 }
 
 // --- Monnaie & boutique (/shop, /add-item…) ---
-// data[guildId].money = { userId: solde }
+// data[guildId].money = { userId: solde en poche } (la banque est dans data[guildId].bank)
 // data[guildId].shop = { items: { itemId: { name, price, description, role, createdAt } }, purchases: [ { id, userId, itemId, name, price, at } ] }
 export function getMoney(guildId, userId) {
   return getGuildConfig(guildId).money?.[userId] ?? 0;
@@ -1250,6 +1250,70 @@ export function setMoney(guildId, userId, amount) {
   data[guildId] = g;
   save(data, guildId);
   return g.money[userId];
+}
+
+// Une entrée d'un objet du serveur (data[guildId][field][key]) ; value null = supprimer.
+function setEntry(guildId, field, key, value) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g[field] = g[field] ?? {};
+  if (value === null) delete g[field][key];
+  else g[field][key] = value;
+  data[guildId] = g;
+  save(data, guildId);
+  return value;
+}
+
+// Banque (/argent deposer, retirer) : data[guildId].bank = { userId: montant }.
+// L'argent « money » est celui en poche (volable, misé au casino, dépensé en boutique), la banque est à l'abri.
+export function getBank(guildId, userId) {
+  return getGuildConfig(guildId).bank?.[userId] ?? 0;
+}
+
+export function addBank(guildId, userId, delta) {
+  return setEntry(guildId, 'bank', userId, Math.max(0, Math.round(getBank(guildId, userId) + delta)));
+}
+
+// Classement de la fortune (/top argent) : poche + banque, du plus riche au moins riche.
+export function getFortuneLeaderboard(guildId) {
+  const g = getGuildConfig(guildId);
+  const total = {};
+  for (const [userId, n] of Object.entries(g.money ?? {})) total[userId] = (total[userId] ?? 0) + n;
+  for (const [userId, n] of Object.entries(g.bank ?? {})) total[userId] = (total[userId] ?? 0) + n;
+  return Object.entries(total)
+    .map(([userId, money]) => ({ userId, money, bank: g.bank?.[userId] ?? 0 }))
+    .filter((r) => r.money > 0)
+    .sort((a, b) => b.money - a.money);
+}
+
+// Travail, vols et anti-vol (/argent travail, voler, antivol) :
+// data[guildId].heist = { userId: { work, rob, robbed, shield } } (dates en ms ; shield = fin de l'anti-vol).
+export function getHeist(guildId, userId) {
+  return getGuildConfig(guildId).heist?.[userId] ?? {};
+}
+
+export function patchHeist(guildId, userId, patch) {
+  return setEntry(guildId, 'heist', userId, { ...getHeist(guildId, userId), ...patch });
+}
+
+// Teams (/team) : data[guildId].teams = { teamId: { name, ownerId, members: [ids], vault, soldiers, locks,
+// wins, losses, lastAttack, lastAttacked, createdAt } }.
+export function getTeams(guildId) {
+  return getGuildConfig(guildId).teams ?? {};
+}
+
+export function setTeam(guildId, teamId, team) {
+  return setEntry(guildId, 'teams', teamId, team);
+}
+
+// Mises en jeu pendant une partie (casino, duels) : data[guildId].casinoHolds = { key: { userId, amount, at } }.
+// Déjà retirées de la poche ; rendues au démarrage si le bot a redémarré en pleine partie.
+export function getCasinoHolds(guildId) {
+  return getGuildConfig(guildId).casinoHolds ?? {};
+}
+
+export function setCasinoHold(guildId, key, hold) {
+  return setEntry(guildId, 'casinoHolds', key, hold);
 }
 
 // Apparence de la boutique (/configshop) : { title, description, color }.

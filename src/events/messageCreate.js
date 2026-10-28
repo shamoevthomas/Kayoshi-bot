@@ -13,6 +13,7 @@ import { handleLoveCommand } from '../lib/lovecalc.js';
 import { handleAvatarCommand } from '../lib/avatarcommand.js';
 import { handleQuoteCommand } from '../lib/quote.js';
 import { handleActionCommand } from '../lib/actions.js';
+import { handleBoostSystemMessage } from '../lib/boost.js';
 import { noteQuizActivity } from '../lib/quiz.js';
 import { grantMessageXp, grantMessageMoney } from '../lib/levels.js';
 import { maybeDropMoney } from '../lib/moneydrops.js';
@@ -28,6 +29,8 @@ const POURQUOI_RE = /(?:^|\s)pourquoi\s*[?!.…]*$/i;
 export default {
   name: Events.MessageCreate,
   async execute(message) {
+    // Message système « … a boosté le serveur » : message de boost (/configboost), rien d'autre.
+    if (await handleBoostSystemMessage(message).catch((err) => console.error('[boost]', err))) return;
     // /bump réussi avec Disboard → remerciement + rappel dans 2 h (/bremind).
     await handleDisboardBump(message).catch((err) => console.error(err));
 

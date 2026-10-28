@@ -17,6 +17,9 @@ import { handleDropInteraction } from '../lib/moneydrops.js';
 import { handleStatusRoleModal } from '../lib/statusrole.js';
 import { handleTopInteraction } from '../lib/leaderboards.js';
 import { handleQuizInteraction } from '../lib/quiz.js';
+import { handleCasinoInteraction } from '../lib/casino.js';
+import { handleDuelInteraction } from '../lib/duel.js';
+import { handleTeamInteraction } from '../lib/teams.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -42,6 +45,9 @@ export default {
         if (cid.startsWith('stat_kw:')) return void (await handleStatusRoleModal(interaction));
         if (cid.startsWith('top:')) return void (await handleTopInteraction(interaction));
         if (cid.startsWith('quiz_ans:')) return void (await handleQuizInteraction(interaction));
+        if (cid.startsWith('cas_')) return void (await handleCasinoInteraction(interaction));
+        if (cid.startsWith('duel:')) return void (await handleDuelInteraction(interaction));
+        if (cid.startsWith('team_inv:')) return void (await handleTeamInteraction(interaction));
         if (cid === 'shop_open') return void (await openShop(interaction));
         if (cid.startsWith('shop_')) return void (await handleShopInteraction(interaction));
       } catch (err) {

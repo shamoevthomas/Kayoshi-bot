@@ -105,7 +105,7 @@ const CATEGORIES = [
       'Un palier peut aussi donner de l’argent.',
     lines: [
       ['/niveau', 'Voir ton niveau, ton XP, ta progression et tes bonus d’XP en cours (ou ceux d’un membre)'],
-      ['/top', 'Classements en onglets : niveaux, argent, messages, vocal, invitations et quiz'],
+      ['/top', 'Classements en onglets : niveaux, argent, poche, teams, messages, vocal, invitations et quiz'],
       ['/xp', '`ajouter` `retirer` `definir` — gérer l’XP ou le niveau d’un membre ; `evenement` — XP ×2 ou ×3 pour tout le serveur pendant une durée ; `recompense` — paliers : rôle (addition ou évolutif) et/ou argent (admin)'],
       ['/configniveau', '`activer` `desactiver` `voir` `message` — activer le système et personnaliser l’annonce de passage de niveau (admin)'],
     ],
@@ -117,11 +117,12 @@ const CATEGORIES = [
     summary: 'Daily, roue, dons, quêtes, drops, membres de la semaine, rôles boostés, boutique',
     about:
       'L’argent se gagne en écrivant (💰 5 par message, 25 au-delà de 125 caractères), en passant des niveaux (💰 200), ' +
-      'avec le daily, la roue de la fortune, les drops d’argent à ramasser dans les salons et les récompenses des membres de la ' +
+      'avec le daily, le travail, la roue de la fortune, les drops d’argent à ramasser dans les salons et les récompenses des membres de la ' +
       'semaine (top 3 messages et top 3 vocal, chaque lundi). Un rôle boosté (ex : VIP ×1,5) fait gagner plus en étant actif. ' +
-      'L’argent se dépense dans la boutique : rôles, rôles temporaires, boosters d’XP, ou objets personnalisés qui ouvrent un ticket.',
+      'L’argent gagné arrive dans la **poche** et se dépense dans la boutique : rôles, rôles temporaires, boosters d’XP, ' +
+      'objets personnalisés qui ouvrent un ticket. Banque, vols et jeux d’argent : catégorie 🎰 Casino.',
     lines: [
-      ['/argent', '`daily` (100, +10 par jour de série jusqu’à 200) · `roue` (une fois par jour : argent, XP, booster… ou rien) · `donner` (à un membre) — classement des plus riches : `/top`'],
+      ['/argent', '`solde` (poche et banque) · `daily` (100, +10 par jour de série jusqu’à 200) · `travail` (toutes les heures) · `roue` (une fois par jour : argent, XP, booster… ou rien) · `donner` (à un membre) — classements : `/top`'],
       ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,5) (admin)'],
       ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire — chaque jour, un objet en promo à -10 %'],
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
@@ -134,14 +135,31 @@ const CATEGORIES = [
     ],
   },
   {
+    key: 'casino',
+    emoji: '🎰',
+    name: 'Casino',
+    summary: 'Blackjack, poker, roulette, machine à sous, vols, banque, teams, duels',
+    about:
+      'On mise l’argent de sa **poche** (`500`, `2k`, `moitié` ou `tout`), et 🔁 **Rejouer** relance avec la même mise. ' +
+      'La poche peut se faire voler : mets ton argent à la **banque** ou achète un anti-vol. ' +
+      'Les teams mettent leur argent en commun et s’attaquent entre elles pour piller les coffres. Classements : `/top poche` et `/top teams`.',
+    lines: [
+      ['/casino', '`blackjack` `poker` (avec images des cartes) · `roulette` · `machine-a-sous` · `pile-ou-face` · `regles` (règles et gains de chaque jeu)'],
+      ['/argent', '`voler` (la poche d’un membre, 45 % de réussite, amende sinon, une fois par heure) · `deposer` `retirer` (banque, à l’abri des vols) · `antivol` (12 h de protection, 💰 250) · `solde` · `travail`'],
+      ['/team', '`creer` (💰 500) `inviter` `quitter` `expulser` `dissoudre` `info` · `deposer` `retirer` (coffre commun) · `acheter` (🪖 soldats, 🔒 cadenas) · `attaquer` (piller le coffre d’une autre team, toutes les 2 h ; chaque cadenas bloque une attaque)'],
+      ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux contre un membre, avec une mise : le gagnant remporte tout'],
+    ],
+  },
+  {
     key: 'fun',
     emoji: '🎮',
     name: 'Mini-jeux & fun',
-    summary: 'Tu préfères, drapeaux, comptage, love calc, citations, GIF',
-    about: 'De quoi animer le serveur : jeux dans un salon, votes, pourcentages d’amour et citations en image.',
+    summary: 'Duels, tu préfères, drapeaux, quiz, comptage, love calc, citations, GIF',
+    about: 'De quoi animer le serveur : duels entre membres, jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
+      ['/duel', 'Défier un membre au morpion, au puissance 4 ou à pierre-feuille-ciseaux (2 manches gagnantes), avec une mise facultative : le gagnant remporte tout'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
-      ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; réponses supprimées après 2 s et notées dans #logs-drapeau)'],
+      ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
       ['/quiz', '`activer` `desactiver` `question` — quiz de culture générale dans un salon : le premier qui trouve gagne de l’argent (classement dans `/top`)'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
@@ -196,8 +214,8 @@ const CATEGORIES = [
       ['/one-message', '`activer` `desactiver` `liste` — messages supprimés automatiquement'],
       ['/configvocal', 'Salons vocaux temporaires (Join to Create)'],
       ['/join', 'Faire rejoindre un salon vocal au bot (il y reste, même vide)'],
-      ['/configstat', 'Salon du classement des membres les plus actifs'],
-      ['/configboost', 'Message quand quelqu’un boost le serveur'],
+      ['/configstat', 'Salon du classement des membres les plus actifs de la semaine (nouveau message chaque semaine, l’ancien est supprimé)'],
+      ['/configboost', 'Message quand quelqu’un boost le serveur (envoyé 10 s après, re-boosts compris)'],
       ['/configconfessions', 'Confessions anonymes (texte et/ou image, réponses dans un fil, MP à l’auteur) + salon de logs pour le staff'],
       ['/bremind', 'Activer / désactiver le rappel de bump Disboard (2 h après chaque /bump)'],
       ['/bremind-edit', 'Message de rappel, rôle à mentionner, message après avoir bump'],
@@ -227,6 +245,9 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['/casino', 'blackjack, poker, roulette, machine à sous'],
+  ['/team', 'teams avec coffre, soldats et cadenas'],
+  ['/duel', 'morpion, puissance 4, pierre-feuille-ciseaux'],
   ['/top', 'tous les classements en onglets'],
   ['/quiz', 'quiz de culture générale'],
   ['/boostrole', 'rôles qui gagnent plus d’XP et d’argent'],
@@ -239,24 +260,21 @@ const RECENT = [
   ['/profilbot', 'profil du bot sur ce serveur'],
   ['/gif', 'transformer une image en GIF'],
   ['/configconfessions', 'confessions anonymes'],
-  ['/renier', 'renier un enfant adopté'],
-  ['/fuguer', 'quitter son parent adoptif'],
-  ['/money', 'donner ou retirer de l’argent (admin)'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
-  ['/guessflag', 'réponses supprimées après 2 s, salon #logs-drapeau'],
+  ['/argent', 'poche et banque, `travail`, `voler`, `antivol`, `solde`'],
+  ['/top', 'onglets Poche et Teams ; Argent = poche + banque'],
+  ['/configboost', 'attend 10 s (plusieurs boosts = un message), les re-boosts aussi, variable `[boosts]`'],
+  ['/configstat', 'un nouveau classement chaque semaine, l’ancien est supprimé'],
+  ['/guessflag', '❌ sur les mauvaises réponses, supprimées après 2 s, salon #logs-drapeau'],
   ['/shop', 'promo du jour : un objet à -10 %'],
-  ['/argent', '`roue` : roue de la fortune ; le classement passe dans /top'],
   ['/lock', 'verrouille pour le rôle Membre au lieu de @everyone (pareil pour /unlock)'],
   ['/save', 'une seule commande : emplacement save1 à save5, enregistrer ou envoyer'],
   ['/delwarn', 'option `tout` : retirer tous les avertissements'],
   ['/casier', 'numéro des avertissements affiché'],
-  ['/xp', '`evenement` : XP ×2 ou ×3 pour tout le serveur'],
-  ['/add-item', 'nouveau type : booster d’XP'],
-  ['/niveau', 'bonus d’XP en cours affichés'],
 ];
 
 const HOME = 'home';

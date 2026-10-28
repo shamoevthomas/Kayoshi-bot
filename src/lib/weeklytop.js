@@ -6,6 +6,7 @@ import { TIME_ZONE } from './stats.js';
 // Membres de la semaine (/configeconomie semaine) : chaque lundi (heure de Paris), le top 3 des
 // messages et le top 3 du vocal de la semaine écoulée (lundi → dimanche, stats de s?u) reçoivent
 // l'argent choisi ; les deux premiers reçoivent le rôle facultatif, retiré aux gagnants précédents.
+// L'annonce de la semaine précédente est supprimée quand la nouvelle est postée.
 const DAY_MS = 86_400_000;
 const MEDALS = ['🥇', '🥈', '🥉'];
 const dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -85,7 +86,10 @@ async function awardWeek(guild, cfg, monday) {
     .setTimestamp();
   if (role && roleWinners.length) embed.addFields({ name: 'Rôle', value: `${role} pour ${roleWinners.map((id) => `<@${id}>`).join(' et ')} cette semaine.` });
   const winners = [...new Set([...topMessages, ...topVoice].map((r) => r.id))];
-  await channel.send({ content: winners.map((id) => `<@${id}>`).join(' ') || undefined, embeds: [embed], allowedMentions: { users: winners } });
+  // Une seule annonce dans le salon : celle de la semaine d'avant est supprimée.
+  if (cfg.lastMessageId) await channel.messages.delete(cfg.lastMessageId).catch(() => {});
+  const sent = await channel.send({ content: winners.map((id) => `<@${id}>`).join(' ') || undefined, embeds: [embed], allowedMentions: { users: winners } });
+  setWeeklyTop(guild.id, { ...getWeeklyTop(guild.id), lastMessageId: sent.id });
 }
 
 // Appelée toutes les heures : récompense la semaine écoulée une seule fois, dès le lundi.

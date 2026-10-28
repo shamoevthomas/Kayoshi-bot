@@ -5,7 +5,7 @@ import {
   getActivityLeaderboard,
   getVoiceLeaderboard,
 } from './store.js';
-import { getWeekRange } from './week.js';
+import { getWeekRange, getWeekKey } from './week.js';
 import { flushVoiceSessions } from './voiceactivity.js';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -91,7 +91,8 @@ export async function postStatMessage(guild, channel) {
   return msg.id;
 }
 
-// Met à jour le message + synchronise les rôles des 1ers.
+// Met à jour le message + synchronise les rôles des 1ers. Un message par semaine : à la nouvelle
+// semaine, celui de la semaine passée est supprimé et un nouveau est posté.
 export async function refreshStatMessage(client, guildId) {
   const cfg = getStatConfig(guildId);
   if (!cfg?.channelId) return;
@@ -110,12 +111,19 @@ export async function refreshStatMessage(client, guildId) {
   const channel = await resolveChannel(guild, cfg.channelId);
   if (!channel?.isTextBased()) return;
   const embed = buildStatEmbed(guild, cfg);
-  const existing = cfg.messageId ? await channel.messages.fetch(cfg.messageId).catch(() => null) : null;
+  const week = getWeekKey();
+  let existing = cfg.messageId ? await channel.messages.fetch(cfg.messageId).catch(() => null) : null;
+  // Semaine passée (weekKey absent = message d'avant ce suivi : gardé pour la semaine en cours).
+  if (existing && cfg.weekKey && cfg.weekKey !== week) {
+    await existing.delete().catch(() => {});
+    existing = null;
+  }
   if (existing) {
     await existing.edit({ embeds: [embed] }).catch(() => {});
+    if (cfg.weekKey !== week) patchStatConfig(guildId, { weekKey: week });
   } else {
     const sent = await channel.send({ embeds: [embed] }).catch(() => null);
-    if (sent) patchStatConfig(guildId, { messageId: sent.id });
+    if (sent) patchStatConfig(guildId, { messageId: sent.id, weekKey: week });
   }
 }
 

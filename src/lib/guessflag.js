@@ -249,22 +249,28 @@ export const isGuessFlagChannel = (guildId, channelId) => Boolean(channelId) && 
 // drapeau suivant (tout de suite). Renvoie true si le message était dans le salon du jeu.
 export async function handleGuessFlagMessage(message) {
   if (!message.guild || message.author.bot || !isGuessFlagChannel(message.guild.id, message.channelId)) return false;
-  setTimeout(() => message.delete().catch(() => {}), DELETE_AFTER_MS);
   let found = null;
+  let expected = null;
   await withLock(message.guild.id, async () => {
     const state = getGuessFlag(message.guild.id);
-    if (state?.current && isCorrect(message.content, state.current.code)) {
-      found = state.current.code;
+    expected = state?.current?.code ?? null;
+    if (expected && isCorrect(message.content, expected)) {
+      found = expected;
       await nextFlag(message.channel, { by: 'guess', userId: message.author.id });
     }
   });
+  // Mauvaise réponse : ❌ sur le message, visible 2 s avant qu'il soit supprimé.
+  if (!found) await message.react('❌').catch(() => {});
+  setTimeout(() => message.delete().catch(() => {}), DELETE_AFTER_MS);
+
   const logChannel = await ensureLogChannel(message.guild, message.channel);
   const answer = (message.content || '(sans texte)').replace(/\s+/g, ' ').slice(0, 200);
+  const flag = (code) => `${flagEmoji(code)} ${countryName(code)}`;
   await logChannel
     ?.send({
       content: found
-        ? `✅ ${message.author} : « ${answer} » — bonne réponse, ${flagEmoji(found)} ${countryName(found)}`
-        : `❌ ${message.author} : « ${answer} »`,
+        ? `✅ ${message.author} : « ${answer} » — bonne réponse, ${flag(found)}`
+        : `❌ ${message.author} : « ${answer} » — faux${expected ? `, c’était ${flag(expected)}` : ''}`,
       allowedMentions: { parse: [] },
     })
     .catch(() => {});

@@ -19,6 +19,7 @@ import { processTempRoles } from '../lib/roles.js';
 import { processWeeklyTop } from '../lib/weeklytop.js';
 import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
 import { quizTick } from '../lib/quiz.js';
+import { refundHolds } from '../lib/bets.js';
 
 async function processTempBans(client) {
   for (const { guildId, userId } of getDueTempBans()) {
@@ -41,6 +42,8 @@ export default {
     await cacheAllInvites(client).catch((err) => console.error(err));
     // Statut du bot.
     client.user.setActivity('.gg/hanamifr', { type: ActivityType.Custom });
+    // Casino et duels : les parties en cours sont perdues au redémarrage, les mises en jeu sont rendues.
+    refundHolds(client);
     // Démarre le suivi arrivées/départs pour chaque serveur.
     for (const [guildId] of client.guilds.cache) ensureTracking(guildId);
     // Salon « voc-logs » des logs vocaux, créé dès le démarrage pour les serveurs qui ont des logs.
