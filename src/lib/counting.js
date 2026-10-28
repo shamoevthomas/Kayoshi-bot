@@ -3,8 +3,10 @@ import { getCounting, setCounting } from './store.js';
 
 // Comptage (/compteur) : dans le salon choisi, les membres écrivent 1, 2, 3… à tour de rôle, sans fin
 // (BigInt : aucune limite de taille). Un message qui commence par un nombre compte ; le reste est de la
-// discussion et n'est pas touché. Mauvais nombre, ou deux fois de suite le même membre : on repart à 1.
+// discussion et n'est pas touché. Mauvais nombre, ou deux fois de suite le même membre : le message est
+// refusé (❌ puis effacé avec un rappel du bon nombre), le compteur ne repart jamais à zéro.
 const NUMBER = /^(\d+)(?!\S)/;
+const ERROR_VISIBLE_MS = 4000;
 
 export async function handleCountingMessage(message) {
   if (!message.guild || message.author.bot) return;
@@ -17,7 +19,7 @@ export async function handleCountingMessage(message) {
   const expected = current + 1n;
   const said = BigInt(match[1]);
   let problem = null;
-  if (message.author.id === cfg.lastUserId) problem = 'on ne compte pas deux fois de suite';
+  if (message.author.id === cfg.lastUserId) problem = `tu ne peux pas compter deux fois de suite : laisse quelqu’un d’autre écrire **${expected}**`;
   else if (said !== expected) problem = `il fallait écrire **${expected}**`;
 
   if (!problem) {
@@ -33,20 +35,20 @@ export async function handleCountingMessage(message) {
     return;
   }
 
-  setCounting(message.guild.id, { ...cfg, current: '0', lastUserId: null });
+  // Erreur : le compteur ne bouge pas. ❌, rappel du bon nombre, puis les deux messages sont effacés.
   await message.react('❌').catch(() => {});
-  const text =
-    current === 0n
-      ? `❌ ${message.author}, ${problem} : on commence par **1** !`
-      : `❌ ${message.author} a cassé la série à **${current}** : ${problem}. On recommence à **1** ! (record : **${cfg.record ?? current}**)`;
-  await message.channel.send({ content: text, allowedMentions: { parse: [] } }).catch(() => {});
+  const notice = await message.channel.send({ content: `❌ ${message.author}, ${problem}.`, allowedMentions: { parse: [] } }).catch(() => null);
+  setTimeout(() => {
+    message.delete().catch(() => {});
+    notice?.delete().catch(() => {});
+  }, ERROR_VISIBLE_MS);
 }
 
 // --- Panneau de /compteur : boutons « cpt:activer », « cpt:desactiver », « cpt:voir » et menu « cpt:salon »
 // (routés par interactionCreate, marchent après un redémarrage). Réservé à « Gérer le serveur ». ---
 const ABOUT =
   'Dans le salon choisi, les membres écrivent **1, 2, 3…** sans fin, chacun leur tour (pas deux fois de suite). ' +
-  'Une erreur remet le compteur à 1, le record est gardé.';
+  'Une erreur est refusée (❌ puis effacée) : le compteur ne recommence jamais à zéro.';
 
 export function counterPanel(guildId, notice = null, pickChannel = false) {
   const active = Boolean(getCounting(guildId)?.channelId);
@@ -81,7 +83,7 @@ async function activate(guildId, channel) {
   });
   const next = same ? BigInt(cfg.current ?? '0') + 1n : 1n;
   await channel
-    .send(`🔢 **Comptage !** Écrivez les nombres dans l’ordre, chacun votre tour, sans fin. Prochain nombre : **${next}**.\n-# Un mauvais nombre, ou deux fois de suite la même personne, et on recommence à 1.`)
+    .send(`🔢 **Comptage !** Écrivez les nombres dans l’ordre, chacun votre tour, sans fin. Prochain nombre : **${next}**.\n-# Un mauvais nombre, ou deux fois de suite la même personne, est refusé : le compteur continue.`)
     .catch(() => {});
 }
 
@@ -105,7 +107,7 @@ export async function handleCounterInteraction(interaction) {
   if (action === 'desactiver') {
     if (!cfg?.channelId) return interaction.update(counterPanel(guild.id, 'ℹ️ Le comptage n’était pas activé.'));
     setCounting(guild.id, { ...cfg, channelId: null });
-    return interaction.update(counterPanel(guild.id, '⏹️ Comptage désactivé (le record est gardé).'));
+    return interaction.update(counterPanel(guild.id, '⏹️ Comptage désactivé (le nombre atteint est gardé).'));
   }
   // voir
   return interaction.update(

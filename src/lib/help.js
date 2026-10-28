@@ -166,7 +166,7 @@ const CATEGORIES = [
       ['/gif', 'Transformer une image (fichier ou lien) en GIF, pour l’ajouter à tes GIF favoris'],
       ['kayo pp · kayo banner', 'Photo de profil ou bannière d’un membre (ou la tienne) ; `server` pour celles du serveur (`hana` marche aussi)'],
       ['/coiffeur', 'Répondre « feur » quand un message finit par « quoi »'],
-      ['/compteur', 'Panneau avec les boutons Activer (choix du salon), Désactiver et Voir — salon de comptage : 1, 2, 3… à tour de rôle, sans fin (une erreur remet à 1, record gardé)'],
+      ['/compteur', 'Panneau avec les boutons Activer (choix du salon), Désactiver et Voir — salon de comptage : 1, 2, 3… à tour de rôle, sans fin (une erreur est refusée, le compteur ne recommence jamais)'],
     ],
   },
   {
@@ -264,7 +264,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
-  ['/compteur', 'un panneau avec les boutons Activer, Désactiver et Voir'],
+  ['/compteur', 'panneau à boutons ; une erreur ne remet plus à 1 (message refusé puis effacé)'],
   ['/argent', '`deposer` : on garde au moins 💰 200 en poche ; `travail` retiré'],
   ['/quiz', '`activer` : rôle à mentionner à chaque question (facultatif)'],
   ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],
