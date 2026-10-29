@@ -1,11 +1,14 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendSanctionLog, Colors, findAuditEntry } from '../lib/logger.js';
+import { noteAction } from '../lib/antinuke.js';
 
 export default {
   name: Events.GuildBanAdd,
   async execute(ban) {
     const guild = ban.guild;
     const entry = await findAuditEntry(guild, AuditLogEvent.MemberBanAdd, ban.user.id);
+    // Anti-nuke : bannissements en masse.
+    noteAction(guild, entry?.executor, 'ban').catch(() => {});
 
     // Évite le doublon : la commande /ban du bot loggue déjà elle-même.
     if (entry?.executor?.id === guild.client.user.id) return;

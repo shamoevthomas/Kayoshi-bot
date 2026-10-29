@@ -6,6 +6,7 @@ import { onMemberLeave } from '../lib/verification.js';
 import { rememberQuarantineOnLeave } from '../lib/blacklist.js';
 import { syncInviteRankRole } from '../lib/inviterank.js';
 import { deleteTicketsOnLeave } from '../lib/tickets.js';
+import { noteAction } from '../lib/antinuke.js';
 import { deletePartnerMentionsOnLeave } from '../lib/partners.js';
 import { isRecentAccount } from '../lib/accountage.js';
 
@@ -51,6 +52,8 @@ export default {
     // Détecte si ce départ est en fait une expulsion (kick) faite via Discord/un autre bot.
     // La commande /kick du bot loggue déjà elle-même → on ignore si l'exécuteur est le bot.
     const kick = await findAuditEntry(member.guild, AuditLogEvent.MemberKick, member.id);
+    // Anti-nuke : expulsions en masse.
+    if (kick) noteAction(member.guild, kick.executor, 'kick').catch(() => {});
     if (kick && kick.executor?.id !== member.guild.client.user.id) {
       await sendSanctionLog(
         member.guild,

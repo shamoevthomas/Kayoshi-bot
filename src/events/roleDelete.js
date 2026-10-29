@@ -1,11 +1,14 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
+import { noteAction } from '../lib/antinuke.js';
 
 export default {
   name: Events.GuildRoleDelete,
   async execute(role) {
     if (!role.guild) return;
     const executor = await findExecutor(role.guild, AuditLogEvent.RoleDelete, role.id);
+    // Anti-nuke : suppressions / créations en masse.
+    noteAction(role.guild, executor, 'roleDelete').catch(() => {});
 
     const embed = new EmbedBuilder()
       .setColor(Colors.delete)

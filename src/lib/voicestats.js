@@ -22,12 +22,12 @@ export async function handleVoiceStatsCommand(message) {
     .setThumbnail(guild.iconURL({ size: 256 }) ?? null)
     .setDescription(
       [
-        `Membres : **${members}**`,
-        `En Ligne : **${online}**`,
-        `En Vocal : **${states.size}**`,
-        `Actif : **${count((s) => !s.mute && !s.deaf)}**`,
-        `En Stream : **${count((s) => s.streaming)}**`,
-        `Mute : **${count((s) => s.mute || s.deaf)}**`,
+        `👥 Membres : **${members}**`,
+        `🟢 En Ligne : **${online}**`,
+        `🔊 En Vocal : **${states.size}**`,
+        `🎙️ Actif : **${count((s) => !s.mute && !s.deaf)}**`,
+        `🖥️ En Stream : **${count((s) => s.streaming)}**`,
+        `🔇 Mute : **${count((s) => s.mute || s.deaf)}**`,
       ].join('\n'),
     );
 

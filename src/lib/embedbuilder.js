@@ -391,6 +391,12 @@ function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, m
             .setStyle(ButtonStyle.Secondary)
             .setEmoji('➕')
             .setDisabled(motifs.length >= MAX_OPTIONS),
+          new ButtonBuilder()
+            .setCustomId('emb_tmotiforder')
+            .setLabel('Réorganiser les motifs')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('↕️')
+            .setDisabled(motifs.length < 2),
         ),
       );
     }
@@ -1006,6 +1012,44 @@ function applyMotifModal(interaction, motifId, motifs) {
   };
 }
 
+// Formulaire de l'ordre des motifs : la liste actuelle, une ligne par motif, à remettre dans l'ordre voulu.
+function motifOrderModal(motifs) {
+  const list = motifs.map((m, i) => `${i + 1}. ${m.label}`).join('\n');
+  return new ModalBuilder()
+    .setCustomId('emb_tmotiforderm')
+    .setTitle('Ordre des motifs')
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel('Remets les lignes dans l’ordre voulu')
+        .setDescription('Ou tape les numéros, ex : « 3 1 2 » (les oubliés suivent dans l’ordre actuel)')
+        .setTextInputComponent(new TextInputBuilder().setCustomId('order').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(4000).setValue(list)),
+    );
+}
+
+// Nouvel ordre des motifs : des numéros (« 3 1 2 »), ou les lignes de la liste dans un autre ordre.
+// Les motifs absents gardent leur ordre, à la suite. Renvoie les motifs, ou lève une erreur.
+export function reorderMotifs(motifs, input) {
+  const text = input.trim();
+  let picked;
+  if (/^[\d\s,;.-]+$/.test(text) && !/\n\s*\d+\.\s*\S/.test(text)) {
+    picked = text.split(/[\s,;.-]+/).filter(Boolean).map((n) => motifs[Number(n) - 1]);
+    if (picked.some((m) => !m)) throw new Error(`Numéro invalide : il y a ${motifs.length} motifs (1 à ${motifs.length}).`);
+  } else {
+    const norm = (s) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    picked = text
+      .split('\n')
+      .map((line) => norm(line.replace(/^\s*\d+\s*[.)]\s*/, '')))
+      .filter(Boolean)
+      .map((line) => {
+        const motif = motifs.find((m) => norm(m.label) === line);
+        if (!motif) throw new Error(`Motif « ${line.slice(0, 50)} » introuvable : garde les titres tels quels, change seulement l’ordre des lignes.`);
+        return motif;
+      });
+  }
+  const order = [...new Set(picked)];
+  return [...order, ...motifs.filter((m) => !order.includes(m))];
+}
+
 const errorReply = (interaction, text) => interaction.reply({ content: `❌ ${text}`, ephemeral: true }).catch(() => {});
 
 // Routeur des interactions du créateur d'embed (préfixe "emb_").
@@ -1106,6 +1150,22 @@ export async function handleEmbedBuilderInteraction(interaction) {
   if (interaction.isButton() && action === 'emb_tmotifadd') {
     if (state.motifs.length >= MAX_OPTIONS) return errorReply(interaction, `${MAX_OPTIONS} motifs maximum dans le panneau.`);
     return interaction.showModal(motifModal(null));
+  }
+
+  if (interaction.isButton() && action === 'emb_tmotiforder') {
+    if (state.motifs.length < 2) return errorReply(interaction, 'Il faut au moins deux motifs pour changer leur ordre.');
+    return interaction.showModal(motifOrderModal(state.motifs));
+  }
+
+  if (interaction.isModalSubmit() && action === 'emb_tmotiforderm') {
+    let motifs;
+    try {
+      motifs = reorderMotifs(state.motifs, interaction.fields.getTextInputValue('order') ?? '');
+    } catch (err) {
+      return errorReply(interaction, err.message);
+    }
+    const order = motifs.map((m, i) => `${i + 1}. ${m.label}`).join(' · ');
+    return interaction.update(builderPayload(currentEmbed(interaction), `↕️ Nouvel ordre : ${order} — clique sur 💾 pour l’enregistrer.`, { ...state, motifs }));
   }
 
   if (interaction.isModalSubmit() && action === 'emb_tmotifmodal') {

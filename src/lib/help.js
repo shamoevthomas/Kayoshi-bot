@@ -201,7 +201,7 @@ const CATEGORIES = [
     lines: [
       ['/announce', 'Publier une annonce dans un salon précis'],
       ['/embed', 'Créer un embed (aperçu modifiable) : envoi, role-react (boutons ou sélecteur de rôle), partenariat, ou bienvenue / départ'],
-      ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs)'],
+      ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs, qu’on peut réorganiser)'],
       ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants) ou prix personnalisé (ex : Nitro)'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
       ['/save', '`emplacement` (save1 à save5, avec aperçu) · `action` : enregistrer un message ou envoyer celui enregistré'],
@@ -212,7 +212,7 @@ const CATEGORIES = [
     key: 'systems',
     emoji: '⚙️',
     name: 'Salons & systèmes',
-    summary: 'Logs, anti-liens, anti-spam, vocaux, confessions, bump, salons de stats, sauvegardes',
+    summary: 'Logs, anti-liens, anti-spam, anti-nuke, vocaux, confessions, bump, stats, sauvegardes',
     about: 'Les systèmes automatiques du serveur : logs, protections, salons vocaux temporaires, confessions anonymes et rappel de bump.',
     lines: [
       ['/log', 'Salon des logs du serveur (les logs vocaux vont dans #voc-logs, créé automatiquement à côté)'],
@@ -230,6 +230,7 @@ const CATEGORIES = [
       ['/reset', 'Supprimer un salon et le recréer à l’identique'],
       ['/salon-stats', 'Panneau : salons vocaux verrouillés en haut du serveur dont le nom affiche un chiffre à jour (membres, en ligne, en vocal, boosts), toutes les 10 min'],
       ['/backup', '`creer` `liste` `telecharger` `restaurer` — sauvegarde des rôles, salons et permissions (automatique chaque jour) ; la restauration recrée seulement ce qui manque, rien n’est supprimé (admin)'],
+      ['/antinuke', '`voir` `activer` `desactiver` `ajouter` `retirer` — suppressions de salons / rôles, bans ou expulsions en masse (en moins d’une minute) : rôles retirés, propriétaire prévenu ; membres de confiance jamais visés (réglages : propriétaire du serveur)'],
     ],
   },
   {
@@ -255,6 +256,7 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['/antinuke', 'protection contre les nukes'],
   ['.team', 'teams : coffre, soldats, cadenas, attaques'],
   ['.shop', 'bâtiments, anti-rob et wagon'],
   ['.help', 'le casino en commandes « . »'],
@@ -269,12 +271,12 @@ const RECENT = [
   ['/boostrole', 'rôles qui gagnent plus d’XP et d’argent'],
   ['/statut', 'rôle selon un mot-clé du statut'],
   ['/compteur', 'salon de comptage, sans fin'],
-  ['/quetes', 'quêtes de la semaine (argent, niveaux)'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/modifierembed', 'panneau de tickets : bouton pour réorganiser les motifs'],
   ['+vc', 'nouvel embed : membres, en ligne, en vocal, actifs, en stream, mute'],
   ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
   ['/money', '`tous` : donner à tous les membres ; option `monnaie` : argent ou coins'],
@@ -284,7 +286,6 @@ const RECENT_CHANGES = [
   ['/xp', '`ajouter` et `retirer` donnent ou retirent directement des niveaux'],
   ['/configboost', 'attend 10 s (plusieurs boosts = un message), les re-boosts aussi, variable `[boosts]`'],
   ['/configstat', 'un nouveau classement chaque semaine, l’ancien est supprimé'],
-  ['/guessflag', '❌ sur les mauvaises réponses, supprimées après 2 s, salon #logs-drapeau'],
 ];
 
 const HOME = 'home';

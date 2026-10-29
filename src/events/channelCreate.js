@@ -1,5 +1,6 @@
 import { Events, EmbedBuilder, AuditLogEvent, ChannelType } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
+import { noteAction } from '../lib/antinuke.js';
 
 const typeNames = {
   [ChannelType.GuildText]: 'Texte',
@@ -15,6 +16,8 @@ export default {
   async execute(channel) {
     if (!channel.guild) return;
     const executor = await findExecutor(channel.guild, AuditLogEvent.ChannelCreate, channel.id);
+    // Anti-nuke : suppressions / créations en masse.
+    noteAction(channel.guild, executor, 'channelCreate').catch(() => {});
 
     const embed = new EmbedBuilder()
       .setColor(Colors.channel)
