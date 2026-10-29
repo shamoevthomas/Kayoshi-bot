@@ -1,12 +1,15 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { getQuiz, addMoney, addQuizWin } from './store.js';
 import { formatMoney } from './shop.js';
+import { ANIME_QUESTIONS } from './quizanime.js';
+import { GAME_QUESTIONS } from './quizgames.js';
 
 // Quiz de culture générale (/quiz) : de temps en temps, une question à 4 réponses (boutons) dans le
 // salon choisi ; le premier qui trouve gagne de l'argent (+1 au classement « Quiz » de /top). Une seule
-// réponse par personne et par question. Questions en français de QuizzAPI (quizzapi.jomoreschi.fr),
-// avec une petite réserve intégrée si l'API ne répond pas. Pas de question si le serveur est calme.
-const EXPIRE_MS = 3 * 60_000;
+// réponse par personne et par question, 30 min pour trouver. Un tiers de culture générale (QuizzAPI,
+// quizzapi.jomoreschi.fr, avec une réserve si l'API ne répond pas), un tiers de jeux vidéo (QuizzAPI et
+// lib/quizgames.js), un tiers d'animés (lib/quizanime.js). Pas de question si le serveur est calme.
+const EXPIRE_MS = 30 * 60_000;
 const ACTIVE_WINDOW_MS = 30 * 60_000; // une question seulement si quelqu'un a écrit dans les 30 dernières min
 const LETTERS = ['A', 'B', 'C', 'D'];
 const CATEGORIES = {
@@ -25,6 +28,7 @@ const CATEGORIES = {
   gastronomie: '🍽️ Gastronomie',
   nature: '🌿 Nature',
   bd: '💬 BD',
+  anime: '🎌 Animé & manga',
 };
 const DIFFICULTY = { facile: '🟢 Facile', normal: '🟡 Moyen', difficile: '🔴 Difficile' };
 
@@ -50,6 +54,10 @@ const BACKUP = [
   ['Quelle est la langue la plus parlée au Brésil ?', 'Le portugais', ['L’espagnol', 'Le brésilien', 'L’anglais'], 'geographie'],
   ['Combien de cordes a une guitare classique ?', '6', ['4', '5', '7'], 'musique'],
   ['Quel personnage de Nintendo est un plombier moustachu ?', 'Mario', ['Link', 'Wario', 'Kirby'], 'jeux_videos'],
+  ['Comment s’appelle le héros de la série « The Legend of Zelda » ?', 'Link', ['Zelda', 'Ganon', 'Navi'], 'jeux_videos'],
+  ['Dans « Minecraft », quelle créature verte explose quand elle s’approche ?', 'Le creeper', ['Le zombie', 'L’enderman', 'Le slime'], 'jeux_videos'],
+  ['Quel hérisson bleu est la mascotte de Sega ?', 'Sonic', ['Shadow', 'Knuckles', 'Tails'], 'jeux_videos'],
+  ['Dans « Pac-Man », que mange le personnage ?', 'Des pac-gommes', ['Des pièces', 'Des étoiles', 'Des champignons'], 'jeux_videos'],
 ];
 
 const active = new Map(); // messageId → { correct, answer, tried: Set, done, reward }
@@ -63,14 +71,37 @@ export function noteQuizActivity(message) {
   if (message.guild && !message.author.bot) lastActivity.set(message.guild.id, Date.now());
 }
 
-async function fetchQuestion() {
+// Banques de questions du bot (animés, jeux populaires). Celles posées récemment (par serveur et par
+// banque) ne reviennent pas avant que la moitié des autres soit passée.
+const LOCAL = { anime: ANIME_QUESTIONS, jeux_videos: GAME_QUESTIONS };
+const recent = new Map(); // `${guildId}:${banque}` → [indices]
+
+function localQuestion(guildId, category) {
+  const bank = LOCAL[category];
+  const key = `${guildId}:${category}`;
+  const seen = recent.get(key) ?? [];
+  const free = bank.map((_, i) => i).filter((i) => !seen.includes(i));
+  const index = free[Math.floor(Math.random() * free.length)];
+  recent.set(key, [...seen, index].slice(-Math.floor(bank.length / 2)));
+  const [question, answer, wrong] = bank[index];
+  return { question, answer, wrong, category, difficulty: null };
+}
+
+// Une question sur trois de chaque thème : culture générale (toutes catégories), jeux vidéo, animés.
+// Jeux vidéo : une fois sur deux les jeux populaires du bot (Fortnite, Valorant, Minecraft, GTA…), sinon QuizzAPI.
+async function fetchQuestion(guildId) {
+  const theme = ['general', 'jeux_videos', 'anime'][Math.floor(Math.random() * 3)];
+  if (theme === 'anime' || (theme === 'jeux_videos' && Math.random() < 0.5)) return localQuestion(guildId, theme);
+  const filter = theme === 'jeux_videos' ? '&category=jeux_videos' : '';
   try {
-    const res = await fetch('https://quizzapi.jomoreschi.fr/api/v2/quiz?limit=1', { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(`https://quizzapi.jomoreschi.fr/api/v2/quiz?limit=1${filter}`, { signal: AbortSignal.timeout(5000) });
     const q = res.ok ? (await res.json()).quizzes?.[0] : null;
     if (q?.question && q.answer && q.badAnswers?.length >= 3) {
       return { question: q.question, answer: q.answer, wrong: q.badAnswers.slice(0, 3), category: q.category, difficulty: q.difficulty };
     }
   } catch {}
+  // L'API ne répond pas : jeux vidéo → la banque du bot, sinon la petite réserve.
+  if (theme === 'jeux_videos') return localQuestion(guildId, theme);
   const [question, answer, wrong, category] = BACKUP[Math.floor(Math.random() * BACKUP.length)];
   return { question, answer, wrong, category, difficulty: null };
 }
@@ -94,14 +125,16 @@ export async function postQuiz(guild) {
   const cfg = getQuiz(guild.id);
   const channel = cfg?.channelId && guild.channels.cache.get(cfg.channelId);
   if (!channel?.isTextBased?.()) return null;
-  const q = await fetchQuestion();
+  const q = await fetchQuestion(guild.id);
   const choices = shuffle([q.answer, ...q.wrong]);
   const correct = choices.indexOf(q.answer);
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle('🧠 Quiz !')
-    .setDescription(`**${q.question}**\n\nLe premier qui trouve gagne 💰 **${formatMoney(cfg.reward)}** — une seule réponse par personne.`)
-    .setFooter({ text: [CATEGORIES[q.category], DIFFICULTY[q.difficulty], 'Fin dans 3 min'].filter(Boolean).join(' · ') });
+    .setDescription(
+      `**${q.question}**\n\nLe premier qui trouve gagne 💰 **${formatMoney(cfg.reward)}** — une seule réponse par personne.\n⏳ Fin <t:${Math.floor((Date.now() + EXPIRE_MS) / 1000)}:R>`,
+    )
+    .setFooter({ text: [CATEGORIES[q.category], DIFFICULTY[q.difficulty], '30 min pour trouver'].filter(Boolean).join(' · ') });
   // Rôle mentionné à chaque question (/quiz activer role) : @everyone s'il a été choisi.
   let ping = { allowedMentions: { parse: [] } };
   if (cfg.roleId === guild.id) ping = { content: '@everyone', allowedMentions: { parse: ['everyone'] } };

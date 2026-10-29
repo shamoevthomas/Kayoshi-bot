@@ -1,0 +1,50 @@
+// Questions « Jeux vidéo » du quiz sur les jeux populaires (Fortnite, Valorant, Minecraft, GTA…), en plus
+// de celles de QuizzAPI. [question, bonne réponse, [3 mauvaises réponses]]
+export const GAME_QUESTIONS = [
+  // Fortnite
+  ['Dans « Fortnite », comment s’appelle le mode où 100 joueurs s’affrontent jusqu’au dernier ?', 'Battle Royale', ['Sauver le monde', 'Créatif', 'LEGO Fortnite']],
+  ['Dans « Fortnite », comment s’appelle la monnaie du jeu ?', 'Les V-bucks', ['Les Robux', 'Les points Valorant', 'Les gemmes']],
+  ['Dans « Fortnite », comment s’appelle le véhicule qui dépose les joueurs sur l’île ?', 'Le Bus de combat', ['Le Party Bus', 'Le Battle Van', 'Le Dirigeable']],
+  ['Quel studio développe « Fortnite » ?', 'Epic Games', ['Riot Games', 'Activision', 'Ubisoft']],
+  ['Dans « Fortnite », que fait la tempête ?', 'Elle rétrécit la zone et blesse les joueurs dehors', ['Elle soigne les joueurs', 'Elle fait apparaître des coffres', 'Elle donne des V-bucks']],
+  ['Dans « Fortnite », avec quel matériau ne peut-on PAS construire ?', 'Le verre', ['Le bois', 'La pierre', 'Le métal']],
+  ['Quel rappeur a donné un concert géant dans « Fortnite » en 2020 ?', 'Travis Scott', ['Drake', 'Kanye West', 'Booba']],
+  // Valorant
+  ['Quel studio développe « Valorant » ?', 'Riot Games', ['Epic Games', 'Blizzard', 'Valve']],
+  ['Dans « Valorant », combien de manches faut-il gagner pour remporter une partie (sans prolongations) ?', '13', ['10', '12', '16']],
+  ['Dans « Valorant », comment s’appelle l’objet que les attaquants doivent poser ?', 'Le Spike', ['La bombe C4', 'Le Noyau', 'Le Drapeau']],
+  ['Dans « Valorant », quel agent peut ressusciter un coéquipier ?', 'Sage', ['Jett', 'Phoenix', 'Sova']],
+  ['Dans « Valorant », quelle agente se déplace avec un dash et lance des couteaux en ultime ?', 'Jett', ['Reyna', 'Raze', 'Neon']],
+  ['Dans « Valorant », quel est le fusil de précision le plus puissant ?', 'L’Operator', ['Le Vandal', 'Le Phantom', 'Le Marshal']],
+  // Minecraft
+  ['Dans « Minecraft », quel minerai donne la meilleure armure avant la Netherite ?', 'Le diamant', ['Le fer', 'L’or', 'L’émeraude']],
+  ['Dans « Minecraft », comment s’appelle le boss de l’End ?', 'L’Ender Dragon', ['Le Wither', 'Le Warden', 'Le Gardien']],
+  ['Dans « Minecraft », avec quel bloc construit-on un portail du Nether ?', 'L’obsidienne', ['La pierre', 'La bedrock', 'La netherrack']],
+  ['Dans « Minecraft », avec quoi allume-t-on un portail du Nether ?', 'Un briquet', ['Une perle de l’Ender', 'Une torche', 'Un seau d’eau']],
+  ['Qui a créé « Minecraft » ?', 'Markus « Notch » Persson', ['Gabe Newell', 'Hideo Kojima', 'Shigeru Miyamoto']],
+  ['Dans « Minecraft », quelle créature se téléporte et déplace des blocs ?', 'L’Enderman', ['Le creeper', 'Le squelette', 'Le blaze']],
+  // GTA
+  ['Dans quelle ville fictive se déroule « GTA V » ?', 'Los Santos', ['Liberty City', 'Vice City', 'San Fierro']],
+  ['Quel studio développe « GTA » ?', 'Rockstar Games', ['Ubisoft', 'Bethesda', 'Electronic Arts']],
+  ['Quels sont les trois personnages jouables de « GTA V » ?', 'Michael, Franklin et Trevor', ['Niko, Roman et Luis', 'CJ, Ryder et Big Smoke', 'Tommy, Lance et Ken']],
+  ['Comment s’appelle le héros de « GTA San Andreas » ?', 'Carl « CJ » Johnson', ['Tommy Vercetti', 'Niko Bellic', 'Claude']],
+  ['Que veut dire « GTA » ?', 'Grand Theft Auto', ['Great Tactical Action', 'Grand Total Arena', 'Gangster Town Adventure']],
+  ['Quelle ville réelle a inspiré Vice City ?', 'Miami', ['Los Angeles', 'New York', 'Las Vegas']],
+  ['Dans quel État fictif se déroule « GTA VI » ?', 'Leonida', ['San Andreas', 'Liberty State', 'Alderney']],
+  // Autres jeux populaires
+  ['Dans « League of Legends », combien de joueurs compte une équipe sur la Faille de l’invocateur ?', '5', ['3', '4', '6']],
+  ['Dans « Roblox », comment s’appelle la monnaie ?', 'Les Robux', ['Les V-bucks', 'Les pièces', 'Les diamants']],
+  ['Dans « Among Us », comment s’appelle le traître qui élimine l’équipage ?', 'L’imposteur', ['Le saboteur', 'Le tueur', 'Le menteur']],
+  ['Dans « Call of Duty: Warzone », où se bat-on en 1 contre 1 pour revenir dans la partie ?', 'Au Goulag', ['À l’Arène', 'Dans la Cage', 'Au Bunker']],
+  ['Dans « Rocket League », avec quoi joue-t-on au football ?', 'Des voitures', ['Des robots', 'Des motos', 'Des chevaux']],
+  ['Dans « Counter-Strike », quelles sont les deux équipes ?', 'Terroristes et antiterroristes', ['Attaquants et défenseurs', 'Rouges et bleus', 'Soldats et rebelles']],
+  ['Quel studio a créé « Elden Ring » ?', 'FromSoftware', ['Capcom', 'Square Enix', 'CD Projekt']],
+  ['Quel studio développe « Clash Royale » et « Brawl Stars » ?', 'Supercell', ['Riot Games', 'King', 'Rovio']],
+  ['Quelle entreprise a créé « Pokémon GO » ?', 'Niantic', ['Supercell', 'Ubisoft', 'Epic Games']],
+  ['Quel est le Pokémon n°1 du Pokédex national ?', 'Bulbizarre', ['Pikachu', 'Salamèche', 'Mew']],
+  ['Comment s’appelle le frère de Mario ?', 'Luigi', ['Wario', 'Toad', 'Yoshi']],
+  ['Qui enlève souvent la princesse Peach ?', 'Bowser', ['Wario', 'Donkey Kong', 'King Boo']],
+  ['Dans « The Legend of Zelda: Breath of the Wild », comment s’appelle le royaume ?', 'Hyrule', ['Termina', 'Le Royaume Champignon', 'Holodrum']],
+  ['Comment s’appelle le jeu de football d’EA qui a remplacé FIFA en 2023 ?', 'EA Sports FC', ['PES', 'eFootball', 'Football Manager']],
+  ['De quel pays vient « Tetris » ?', 'La Russie (URSS)', ['Le Japon', 'Les États-Unis', 'La Corée du Sud']],
+];

@@ -168,7 +168,7 @@ const CATEGORIES = [
       ['/duel', 'Défier un membre au morpion, au puissance 4 ou à pierre-feuille-ciseaux (2 manches gagnantes), avec une mise facultative : le gagnant remporte tout'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
-      ['/quiz', '`activer` `desactiver` `question` — quiz de culture générale dans un salon : le premier qui trouve gagne de l’argent (classement dans `/top`) ; un rôle peut être mentionné à chaque question · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
+      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale, jeux vidéo et animés, 30 min pour répondre) : le premier qui trouve gagne de l’argent (classement dans `/top`) ; un rôle peut être mentionné à chaque question · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
@@ -277,7 +277,7 @@ const RECENT = [
 const RECENT_CHANGES = [
   ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
   ['/money', '`tous` : donner à tous les membres ; option `monnaie` : argent ou coins'],
-  ['/quiz', '`question-du-jour` : une question chaque jour, rôle mentionné et fil pour les réponses'],
+  ['/quiz', 'questions de jeux vidéo et d’animés, 30 min pour répondre ; `question-du-jour` avec fil pour les réponses'],
   ['/compteur', 'panneau à boutons ; une erreur ne remet plus à 1 (message refusé puis effacé)'],
   ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],
   ['/xp', '`ajouter` et `retirer` donnent ou retirent directement des niveaux'],
