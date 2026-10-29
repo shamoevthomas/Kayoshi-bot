@@ -147,15 +147,19 @@ const CATEGORIES = [
     lines: [
       ['.help', 'La liste des commandes du casino, et `.help <commande>` pour les détails'],
       ['.balance · .dep · .with · .livret', 'Poche, banque et livret A d’un membre · déposer (on garde 💰 200 en poche) · retirer · livret A (1 % d’intérêts par jour, plafond 25 000, historique)'],
-      ['.shop · .buy', 'Boutique du casino : bâtiments qui rapportent toutes les 2 h (Bar 2 000 → +100 … Mairie 8 000 → +600), anti-rob (3 h, 💰 3 000), wagon (💰 1 500, débloque `.mine` et `.wagon`)'],
+      ['.shop · .buy', 'Boutique du casino : bâtiments qui rapportent toutes les 2 h (Bar 2 000 → +100 … Mairie 8 000 → +600), anti-rob (3 h, 🪙 3 000), wagon (🪙 1 500, débloque `.mine` et `.wagon`), canne à pêche (🪙 1 500, débloque `.fish`)'],
       ['.daily · .work · .slut · .gift · .roue', 'Daily (100, +10 par jour de série jusqu’à 200) · petit boulot (1 h) · soirée à risque (1 h) · trois cartes, une seule cache le gros lot (2 h) · roue de la fortune (une fois par jour : coins, XP, booster… ou rien)'],
       ['.mine · .wagon', 'Avec un wagon : miner des minerais (1 h), qui vont dans le wagon · voir le wagon et tout revendre'],
+      ['.fish', 'Avec une canne à pêche : pêcher un poisson (1 h), revendu aussitôt — du poisson doré au requin… ou une vieille botte'],
       ['.rob · .antivol', 'Voler la poche d’un membre (45 %, amende sinon, 1 h) · acheter l’anti-rob de la boutique (3 h de protection)'],
       ['.pay · .trade · .rep', 'Donner des coins · acheter un objet à un membre (il accepte avec un bouton, noté dans les logs) · +1 de réputation à un membre ou une team (1 par jour)'],
       ['.team', '`creer` (🪙 500) `inviter` `quitter` `expulser` `dissoudre` `info` · `deposer` `retirer` (coffre commun) · `acheter soldats|cadenas` · `attaquer <nom>` (piller le coffre d’une autre team, toutes les 2 h ; chaque cadenas bloque une attaque)'],
       ['.activity', 'Lance Poker Night, l’activité casino de Discord, dans ton salon vocal'],
       ['.bj · .poker · .roulette · .slots · .pf', 'Blackjack et poker (avec images des cartes), roulette, machine à sous, pile ou face — bouton 🔁 Rejouer'],
-      ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux contre un membre, avec une mise en coins : le gagnant remporte tout'],
+      ['.mines · .hilo · .crash · .course', 'Démineur (encaisse avant la bombe) · carte plus haute ou plus basse · multiplicateur qui monte jusqu’au crash · course de chevaux (×4,75)'],
+      ['.loterie · .braquage', 'Tickets à 🪙 100, tirage de toute la cagnotte chaque dimanche à minuit · braquage de la banque à plusieurs (60 s pour rejoindre, 3 h entre deux)'],
+      ['Happy hour', 'Chaque jour, 1 h au hasard entre 15 h et 22 h : les gains de `.work`, `.slut`, `.gift`, `.fish` et du `.wagon` sont doublés (annoncée dans le salon du casino)'],
+      ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux contre un membre ou contre le bot (sans membre), avec une mise en coins : le gagnant remporte tout'],
     ],
   },
   {
@@ -165,10 +169,10 @@ const CATEGORIES = [
     summary: 'Duels, tu préfères, drapeaux, quiz, comptage, love calc, citations, GIF',
     about: 'De quoi animer le serveur : duels entre membres, jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
-      ['/duel', 'Défier un membre au morpion, au puissance 4 ou à pierre-feuille-ciseaux (2 manches gagnantes), avec une mise facultative : le gagnant remporte tout'],
+      ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux (2 manches gagnantes) contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
-      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale, jeux vidéo et animés, 30 min pour répondre) : le premier qui trouve gagne de l’argent (classement dans `/top`) ; un rôle peut être mentionné à chaque question · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
+      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité ni politique, jeux vidéo et animés, 30 min pour répondre) : le premier qui trouve gagne de l’argent et 🪙 500 coins (classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
@@ -256,6 +260,10 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['.mines', 'démineur du casino'],
+  ['.crash', 'encaisse avant le crash'],
+  ['.loterie', 'loterie de la semaine'],
+  ['.braquage', 'braquage à plusieurs'],
   ['/antinuke', 'protection contre les nukes'],
   ['.team', 'teams : coffre, soldats, cadenas, attaques'],
   ['.shop', 'bâtiments, anti-rob et wagon'],
@@ -267,15 +275,13 @@ const RECENT = [
   ['/salon-stats', 'salons qui affichent les stats du serveur'],
   ['/duel', 'morpion, puissance 4, pierre-feuille-ciseaux'],
   ['/top', 'tous les classements en onglets'],
-  ['/quiz', 'quiz de culture générale'],
-  ['/boostrole', 'rôles qui gagnent plus d’XP et d’argent'],
-  ['/statut', 'rôle selon un mot-clé du statut'],
-  ['/compteur', 'salon de comptage, sans fin'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/quiz', '`qui-a-dit` ; 🪙 500 coins par bonne réponse ; plus d’actualité ni de politique'],
+  ['/duel', '`membre` facultatif : sans membre, on joue contre le bot'],
   ['/profilbot', 'changements notés dans #logs-profil, avec qui les a faits'],
   ['/gw', '`start` : option `role_gagne`, rôle donné automatiquement aux gagnants'],
   ['/role', '`create` (couleur, dégradé) et `rename` ; l’ajout/retrait passe dans `/role membre`'],
@@ -284,8 +290,6 @@ const RECENT_CHANGES = [
   ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
   ['/money', '`tous` : donner à tous les membres ; option `monnaie` : argent ou coins'],
   ['/quiz', 'questions de jeux vidéo et d’animés, 30 min pour répondre ; `question-du-jour` avec fil pour les réponses'],
-  ['/compteur', 'panneau à boutons ; une erreur ne remet plus à 1 (message refusé puis effacé)'],
-  ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],
 ];
 
 const HOME = 'home';

@@ -3,7 +3,7 @@ import { getCoins, addCoins, getBank, getCasinoInv, patchCasinoInv, getAllCasino
 import { formatMoney } from './shop.js';
 
 // Boutique du casino (.shop, .buy) : des bâtiments qui rapportent de l'argent toutes les 2 h (un exemplaire
-// de chaque), l'anti-rob (protection de 3 h contre .rob) et le wagon (débloque .mine et .wagon).
+// de chaque), l'anti-rob (protection de 3 h contre .rob), le wagon (débloque .mine et .wagon) et la canne à pêche (.fish).
 // Payé avec l'argent de la poche. Menu « cshop:<membre> » routé par interactionCreate.
 export const BUILDINGS = [
   { id: 'bar', name: 'Bar', emoji: '🍺', price: 2000, gain: 100 },
@@ -15,15 +15,16 @@ export const BUILDINGS = [
 ];
 export const ANTI_ROB = { id: 'anti-rob', name: 'anti-rob', emoji: '🛡️', price: 3000, ms: 3 * 3_600_000 };
 export const WAGON = { id: 'wagon', name: 'wagon', emoji: '🛒', price: 1500 };
+export const CANNE = { id: 'canne', name: 'canne à pêche', emoji: '🎣', price: 1500 };
 export const PAYOUT_MS = 2 * 3_600_000;
 const RENEW_BEFORE_MS = 3_600_000;
 const MAX_MISSED = 12; // après une coupure du bot, au plus 24 h de revenus rattrapés
-const ITEMS = [...BUILDINGS, ANTI_ROB, WAGON];
+const ITEMS = [...BUILDINGS, ANTI_ROB, WAGON, CANNE];
 const ts = (ms) => `<t:${Math.floor(ms / 1000)}:R>`;
 
 // « Cinéma », « cinema », « antirob », « antivol »… → l'objet.
 const normalize = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[\s_-]/g, '');
-const ALIASES = { antivol: 'anti-rob', antirob: 'anti-rob' };
+const ALIASES = { antivol: 'anti-rob', antirob: 'anti-rob', cannealpeche: 'canne', cannepeche: 'canne', peche: 'canne' };
 export function findItem(query) {
   const q = normalize(query);
   const id = ALIASES[q] ?? q;
@@ -40,6 +41,7 @@ export function shopEmbed(guild, userId) {
     ...BUILDINGS.map((b) => `• ${b.emoji} **${b.name}**${owned(b.id)}\nPrix: ${formatMoney(b.price)}\nGain: ${formatMoney(b.gain)}`),
     `**${ANTI_ROB.emoji} ${ANTI_ROB.name}**${shield > Date.now() ? ` _(actif, fin ${ts(shield)})_` : ''}\nPrix: ${formatMoney(ANTI_ROB.price)}\nDéfini le temps d’anti-rob à 3 heures`,
     `**${WAGON.emoji} ${WAGON.name}**${inv.wagon ? ' ✅' : ''}\nPrix: ${formatMoney(WAGON.price)}\nAccès aux commandes \`mine\` et \`wagon\``,
+    `**${CANNE.emoji} ${CANNE.name}**${inv.canne ? ' ✅' : ''}\nPrix: ${formatMoney(CANNE.price)}\nAccès à la commande \`fish\``,
     '-# Les récompenses des bâtiments sont attribuées toutes les 2 heures',
   ];
   return new EmbedBuilder()
@@ -51,11 +53,11 @@ export function shopEmbed(guild, userId) {
 
 export function shopMenu(guild, userId) {
   const inv = getCasinoInv(guild.id, userId);
-  const options = ITEMS.filter((it) => !inv.buildings.includes(it.id) && !(it === WAGON && inv.wagon)).map((it) => ({
+  const options = ITEMS.filter((it) => !inv.buildings.includes(it.id) && !(it === WAGON && inv.wagon) && !(it === CANNE && inv.canne)).map((it) => ({
     label: `${it.name[0].toUpperCase()}${it.name.slice(1)} — ${formatMoney(it.price)}`,
     value: it.id,
     emoji: it.emoji,
-    description: it.gain ? `Rapporte ${formatMoney(it.gain)} toutes les 2 h` : it === ANTI_ROB ? 'Protection contre .rob pendant 3 h' : 'Débloque .mine et .wagon',
+    description: it.gain ? `Rapporte ${formatMoney(it.gain)} toutes les 2 h` : it === ANTI_ROB ? 'Protection contre .rob pendant 3 h' : it === CANNE ? 'Débloque .fish' : 'Débloque .mine et .wagon',
   }));
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder().setCustomId(`cshop:${userId}`).setPlaceholder('🛒 Acheter…').addOptions(options),
@@ -68,6 +70,7 @@ export function buyItem(guild, userId, item) {
   const pocket = getCoins(guild.id, userId);
   if (inv.buildings.includes(item.id)) return { ok: false, text: `❌ Tu as déjà un **${item.name}**.` };
   if (item === WAGON && inv.wagon) return { ok: false, text: '❌ Tu as déjà un wagon.' };
+  if (item === CANNE && inv.canne) return { ok: false, text: '❌ Tu as déjà une canne à pêche.' };
   const shield = getHeist(guild.id, userId).shield ?? 0;
   // Racheter l'anti-rob le remet à 3 h : seulement quand il reste moins d'1 h (sinon on paie pour presque rien).
   if (item === ANTI_ROB && shield - Date.now() > RENEW_BEFORE_MS) {
@@ -81,6 +84,10 @@ export function buyItem(guild, userId, item) {
   if (item === ANTI_ROB) {
     patchHeist(guild.id, userId, { shield: Date.now() + ANTI_ROB.ms });
     return { ok: true, text: `🛡️ Anti-rob acheté (🪙 ${formatMoney(item.price)}) : personne ne peut te voler jusqu’à ${ts(Date.now() + ANTI_ROB.ms)}.` };
+  }
+  if (item === CANNE) {
+    patchCasinoInv(guild.id, userId, { canne: true });
+    return { ok: true, text: `🎣 Canne à pêche achetée (🪙 ${formatMoney(item.price)}) : pêche avec .fish (toutes les heures).` };
   }
   if (item === WAGON) {
     patchCasinoInv(guild.id, userId, { wagon: true });

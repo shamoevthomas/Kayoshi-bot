@@ -1392,7 +1392,7 @@ export function setLivretDay(guildId, day) {
 }
 
 // Boutique du casino (.shop) : data[guildId].casinoInv = { userId: { buildings: [ids], lastPayout, wagon, ores: { id: n } } }.
-const EMPTY_INV = { buildings: [], lastPayout: null, wagon: false, ores: {} };
+const EMPTY_INV = { buildings: [], lastPayout: null, wagon: false, canne: false, ores: {} };
 export function getCasinoInv(guildId, userId) {
   return { ...EMPTY_INV, ...(getGuildConfig(guildId).casinoInv?.[userId] ?? {}) };
 }

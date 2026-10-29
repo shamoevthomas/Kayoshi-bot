@@ -1,5 +1,5 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getQuiz, addMoney, addQuizWin } from './store.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, PermissionFlagsBits, SnowflakeUtil } from 'discord.js';
+import { getQuiz, addMoney, addCoins, addQuizWin } from './store.js';
 import { formatMoney } from './shop.js';
 import { ANIME_QUESTIONS } from './quizanime.js';
 import { GAME_QUESTIONS } from './quizgames.js';
@@ -10,6 +10,7 @@ import { GAME_QUESTIONS } from './quizgames.js';
 // quizzapi.jomoreschi.fr, avec une réserve si l'API ne répond pas), un tiers de jeux vidéo (QuizzAPI et
 // lib/quizgames.js), un tiers d'animés (lib/quizanime.js). Pas de question si le serveur est calme.
 const EXPIRE_MS = 30 * 60_000;
+const QUIZ_COINS = 500; // coins du casino pour la bonne réponse, en plus de l'argent
 const ACTIVE_WINDOW_MS = 30 * 60_000; // une question seulement si quelqu'un a écrit dans les 30 dernières min
 const LETTERS = ['A', 'B', 'C', 'D'];
 const CATEGORIES = {
@@ -20,7 +21,6 @@ const CATEGORIES = {
   histoire: '🏛️ Histoire',
   sport: '⚽ Sport',
   tv_cinema: '🎬 TV & cinéma',
-  actu_politique: '📰 Actualité & politique',
   musique: '🎵 Musique',
   jeux_videos: '🎮 Jeux vidéo',
   informatique: '💻 Informatique',
@@ -30,6 +30,8 @@ const CATEGORIES = {
   bd: '💬 BD',
   anime: '🎌 Animé & manga',
 };
+// Catégories de QuizzAPI jamais posées.
+const EXCLUDED = new Set(['actu_politique']);
 const DIFFICULTY = { facile: '🟢 Facile', normal: '🟡 Moyen', difficile: '🔴 Difficile' };
 
 // Réserve si l'API ne répond pas.
@@ -94,11 +96,11 @@ async function fetchQuestion(guildId) {
   if (theme === 'anime' || (theme === 'jeux_videos' && Math.random() < 0.5)) return localQuestion(guildId, theme);
   const filter = theme === 'jeux_videos' ? '&category=jeux_videos' : '';
   try {
-    const res = await fetch(`https://quizzapi.jomoreschi.fr/api/v2/quiz?limit=1${filter}`, { signal: AbortSignal.timeout(5000) });
-    const q = res.ok ? (await res.json()).quizzes?.[0] : null;
-    if (q?.question && q.answer && q.badAnswers?.length >= 3) {
-      return { question: q.question, answer: q.answer, wrong: q.badAnswers.slice(0, 3), category: q.category, difficulty: q.difficulty };
-    }
+    // 5 questions d'un coup : on écarte l'actualité et la politique (vite dépassées, sujets qui fâchent).
+    const res = await fetch(`https://quizzapi.jomoreschi.fr/api/v2/quiz?limit=5${filter}`, { signal: AbortSignal.timeout(5000) });
+    const list = res.ok ? ((await res.json()).quizzes ?? []) : [];
+    const q = list.find((x) => !EXCLUDED.has(x.category) && x.question && x.answer && x.badAnswers?.length >= 3);
+    if (q) return { question: q.question, answer: q.answer, wrong: q.badAnswers.slice(0, 3), category: q.category, difficulty: q.difficulty };
   } catch {}
   // L'API ne répond pas : jeux vidéo → la banque du bot, sinon la petite réserve.
   if (theme === 'jeux_videos') return localQuestion(guildId, theme);
@@ -132,7 +134,7 @@ export async function postQuiz(guild) {
     .setColor(0x5865f2)
     .setTitle('🧠 Quiz !')
     .setDescription(
-      `**${q.question}**\n\nLe premier qui trouve gagne 💰 **${formatMoney(cfg.reward)}** — une seule réponse par personne.\n⏳ Fin <t:${Math.floor((Date.now() + EXPIRE_MS) / 1000)}:R>`,
+      `**${q.question}**\n\nLe premier qui trouve gagne 💰 **${formatMoney(cfg.reward)}** et 🪙 **${formatMoney(QUIZ_COINS)}** — une seule réponse par personne.\n⏳ Fin <t:${Math.floor((Date.now() + EXPIRE_MS) / 1000)}:R>`,
     )
     .setFooter({ text: [CATEGORIES[q.category], DIFFICULTY[q.difficulty], '30 min pour trouver'].filter(Boolean).join(' · ') });
   // Rôle mentionné à chaque question (/quiz activer role) : @everyone s'il a été choisi.
@@ -143,6 +145,66 @@ export async function postQuiz(guild) {
   if (!message) return null;
   active.set(message.id, { guildId: guild.id, correct, answer: q.answer, choices, tried: new Set(), done: false, reward: cfg.reward });
   setTimeout(() => expire(message), EXPIRE_MS);
+  return message;
+}
+
+// --- « Qui a dit ? » (/quiz qui-a-dit) : un vieux message du serveur, à qui est-il ? ---
+// Seulement dans les salons que tout le monde voit (jamais un salon du staff), d'un membre encore là.
+const WHO_EXPIRE_MS = 5 * 60_000;
+const DAY_MS = 86_400_000;
+
+async function randomOldMessage(guild) {
+  if (guild.members.cache.size < guild.memberCount) await guild.members.fetch().catch(() => {});
+  const me = guild.members.me;
+  const channels = guild.channels.cache.filter(
+    (c) =>
+      c.type === ChannelType.GuildText &&
+      !c.nsfw &&
+      c.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel) &&
+      c.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory]),
+  );
+  for (let attempt = 0; attempt < 8 && channels.size; attempt++) {
+    const channel = channels.random();
+    const to = Date.now() - DAY_MS;
+    if (to <= channel.createdTimestamp) continue;
+    const at = channel.createdTimestamp + Math.random() * (to - channel.createdTimestamp);
+    const batch = await channel.messages.fetch({ before: SnowflakeUtil.generate({ timestamp: Math.floor(at) }).toString(), limit: 100 }).catch(() => null);
+    if (!batch) continue;
+    const humans = batch.filter((m) => !m.author.bot && guild.members.cache.has(m.author.id));
+    // Texte seul, ni trop court ni trop long, sans lien, mention ni commande.
+    const ok = humans.filter((m) => m.content.length >= 15 && m.content.length <= 300 && !/https?:\/\/|discord\.gg|<[@#]|^[./+!?]/i.test(m.content));
+    if (ok.size) return { message: ok.random(), authors: [...new Set(humans.map((m) => m.author.id))] };
+  }
+  return null;
+}
+
+// Pose « Qui a dit ? » dans `channel`. Renvoie le message, ou une raison d'échec (texte).
+export async function postWhoSaid(guild, channel) {
+  const found = await randomOldMessage(guild);
+  if (!found) return 'Je n’ai pas trouvé de vieux message utilisable (il faut des salons publics avec un peu d’historique).';
+  const author = found.message.author.id;
+  // Mauvaises réponses : d'autres membres du même salon à la même époque, puis d'autres membres au hasard.
+  const others = [...found.authors.filter((id) => id !== author)];
+  const pool = [...guild.members.cache.filter((m) => !m.user.bot && m.id !== author && !others.includes(m.id)).keys()];
+  while (others.length < 3 && pool.length) others.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  if (others.length < 3) return 'Il faut au moins 4 membres sur le serveur.';
+  const ids = shuffle([author, ...shuffle(others).slice(0, 3)]);
+  const nameOf = (id) => guild.members.cache.get(id)?.displayName ?? 'Inconnu';
+  const choices = ids.map(nameOf);
+  const correct = ids.indexOf(author);
+  const reward = getQuiz(guild.id)?.reward ?? 100;
+  const date = new Date(found.message.createdTimestamp).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long', year: 'numeric' });
+  const embed = new EmbedBuilder()
+    .setColor(0xeb459e)
+    .setTitle('🗨️ Qui a dit ?')
+    .setDescription(
+      `**« ${found.message.content.replace(/\n+/g, ' ')} »**\n\nLe premier qui trouve gagne 💰 **${formatMoney(reward)}** et 🪙 **${formatMoney(QUIZ_COINS)}** — une seule réponse par personne.\n⏳ Fin <t:${Math.floor((Date.now() + WHO_EXPIRE_MS) / 1000)}:R>`,
+    )
+    .setFooter({ text: `Message du ${date} · 5 min pour trouver` });
+  const message = await channel.send({ embeds: [embed], components: [buttons(choices)], allowedMentions: { parse: [] } }).catch(() => null);
+  if (!message) return 'Je ne peux pas écrire dans ce salon.';
+  active.set(message.id, { guildId: guild.id, correct, answer: choices[correct], choices, tried: new Set(), done: false, reward });
+  setTimeout(() => expire(message), WHO_EXPIRE_MS);
   return message;
 }
 
@@ -168,11 +230,12 @@ export async function handleQuizInteraction(interaction) {
   }
   state.done = true;
   addMoney(state.guildId, interaction.user.id, state.reward);
+  addCoins(state.guildId, interaction.user.id, QUIZ_COINS);
   addQuizWin(state.guildId, interaction.user.id);
   const original = interaction.message.embeds[0];
   const embed = EmbedBuilder.from(original)
     .setColor(0x57f287)
-    .setDescription(`${original.description.split('\n\n')[0]}\n\n✅ ${interaction.user} a trouvé : **${state.answer}** (+💰 ${formatMoney(state.reward)}) !`);
+    .setDescription(`${original.description.split('\n\n')[0]}\n\n✅ ${interaction.user} a trouvé : **${state.answer}** (+💰 ${formatMoney(state.reward)} et +🪙 ${formatMoney(QUIZ_COINS)}) !`);
   await interaction.update({ embeds: [embed], components: [buttons(state.choices, { correct: state.correct, disabled: true })] });
 }
 

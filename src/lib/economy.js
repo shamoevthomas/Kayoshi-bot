@@ -12,7 +12,7 @@ import { countQuestAction, checkQuests } from './quests.js';
 // Les fonctions reçoivent une « interaction » : celle que lib/prefix.js fabrique à partir du message.
 const HOUR = 3_600_000;
 // Délai entre deux utilisations (affichés dans .balance). L'anti-rob s'achète dans .shop (lib/casinoshop.js).
-export const COOLDOWNS = { work: HOUR, slut: HOUR, mine: HOUR, gift: 2 * HOUR, rob: HOUR, rep: 24 * HOUR };
+export const COOLDOWNS = { work: HOUR, slut: HOUR, mine: HOUR, fish: HOUR, gift: 2 * HOUR, rob: HOUR, rep: 24 * HOUR };
 const ROB_SAFE_AFTER = 30 * 60_000; // un membre volé ne peut pas l'être à nouveau pendant 30 min
 const ROB_CHANCE = 0.45;
 const ROB_MIN = 100; // en poche, pour le voleur (de quoi payer l'amende) comme pour sa cible
@@ -85,7 +85,7 @@ export async function showBalance(interaction) {
       const left = cooldownLeft(guild.id, user.id, key);
       return left ? ts(left) : '✅';
     };
-    lines.push(`⏳ \`.work\` ${ready('work')} · \`.slut\` ${ready('slut')} · \`.mine\` ${ready('mine')} · \`.gift\` ${ready('gift')} · \`.rob\` ${ready('rob')}`);
+    lines.push(`⏳ \`.work\` ${ready('work')} · \`.slut\` ${ready('slut')} · \`.mine\` ${ready('mine')} · \`.fish\` ${ready('fish')} · \`.gift\` ${ready('gift')} · \`.rob\` ${ready('rob')}`);
   }
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)

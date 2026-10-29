@@ -4,8 +4,10 @@ import { formatMoney } from './shop.js';
 import { boostedMoney } from './levels.js';
 import { COOLDOWNS, cooldownLeft, rand, ts } from './economy.js';
 import { findTeam, repTeam } from './teams.js';
+import { happyBoost } from './happyhour.js';
 
-// Gagner de l'argent avec les commandes « . » : .work, .slut (risqué), .mine et .wagon (avec un wagon), .gift (3 cartes) et .rep.
+// Gagner de l'argent avec les commandes « . » : .work, .slut (risqué), .mine et .wagon (avec un wagon), .fish (avec une
+// canne à pêche), .gift (3 cartes) et .rep. Pendant la happy hour (lib/happyhour.js), les gains sont doublés.
 // Chaque commande a son délai (COOLDOWNS dans lib/economy.js). Gains en poche, boostés par /boostrole.
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const between = (min, max) => Math.round(rand(min, max));
@@ -43,12 +45,12 @@ export async function work(interaction) {
   const busy = wait(interaction, 'work', 'Tu as déjà travaillé.');
   if (busy) return busy;
   patchHeist(guild.id, user.id, { work: Date.now() });
-  const gain = boostedMoney(interaction.member, between(40, 120));
+  const { amount: gain, note } = happyBoost(guild.id, boostedMoney(interaction.member, between(40, 120)));
   addCoins(guild.id, user.id, gain);
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
     .setTitle('💼 Work')
-    .setDescription(`${pick(JOBS)} et tu gagnes 🪙 **+${formatMoney(gain)}** !`)
+    .setDescription(`${pick(JOBS)} et tu gagnes 🪙 **+${formatMoney(gain)}** !${note}`)
     .setFooter({ text: footer(guild.id, user.id, COOLDOWNS.work) });
   return interaction.reply({ embeds: [embed] });
 }
@@ -77,9 +79,9 @@ export async function slut(interaction) {
   patchHeist(guild.id, user.id, { slut: Date.now() });
   const embed = new EmbedBuilder().setTitle('🌙 Slut');
   if (Math.random() < 0.65) {
-    const gain = boostedMoney(interaction.member, between(80, 250));
+    const { amount: gain, note } = happyBoost(guild.id, boostedMoney(interaction.member, between(80, 250)));
     addCoins(guild.id, user.id, gain);
-    embed.setColor(0x9b59b6).setDescription(`${pick(NIGHT_WIN)} : 🪙 **+${formatMoney(gain)}** !`);
+    embed.setColor(0x9b59b6).setDescription(`${pick(NIGHT_WIN)} : 🪙 **+${formatMoney(gain)}** !${note}`);
   } else {
     const loss = Math.min(getCoins(guild.id, user.id), between(40, 120));
     addCoins(guild.id, user.id, -loss);
@@ -163,11 +165,45 @@ export async function handleWagonInteraction(interaction) {
   const inv = getCasinoInv(guild.id, userId);
   const value = wagonValue(inv.ores);
   if (!value) return interaction.update({ embeds: [wagonEmbed({})], components: [] });
-  const gain = boostedMoney(interaction.member, value);
+  const { amount: gain } = happyBoost(guild.id, boostedMoney(interaction.member, value));
   patchCasinoInv(guild.id, userId, { ores: {} });
   addCoins(guild.id, userId, gain);
   const embed = wagonEmbed(inv.ores, '🛒 Wagon vendu').setColor(0x2ecc71).setFooter({ text: `+${formatMoney(gain)} · poche : ${formatMoney(getCoins(guild.id, userId))}` });
   return interaction.update({ embeds: [embed], components: [] });
+}
+
+// --- .fish : pêcher un poisson (revendu aussitôt), avec une canne à pêche (.shop) ---
+const FISH = [
+  { name: null, weight: 15 }, // une vieille botte : rien
+  { name: 'Sardine', emoji: '🐟', weight: 30, price: [15, 30] },
+  { name: 'Truite', emoji: '🐟', weight: 22, price: [40, 70] },
+  { name: 'Saumon', emoji: '🍣', weight: 15, price: [80, 130] },
+  { name: 'Thon', emoji: '🐠', weight: 10, price: [150, 250] },
+  { name: 'Requin', emoji: '🦈', weight: 5, price: [300, 500] },
+  { name: 'Poisson doré', emoji: '✨', weight: 3, price: [600, 1000] },
+];
+const FISH_WEIGHT = FISH.reduce((n, f) => n + f.weight, 0);
+
+export async function fish(interaction) {
+  const { guild, user } = interaction;
+  if (!getCasinoInv(guild.id, user.id).canne) {
+    return interaction.reply({ content: '🎣 Il te faut une **canne à pêche** : 🪙 1 500 dans la boutique (`.shop` ou `.buy canne`).', ephemeral: true });
+  }
+  const busy = wait(interaction, 'fish', 'Les poissons ne mordent plus pour l’instant.');
+  if (busy) return busy;
+  patchHeist(guild.id, user.id, { fish: Date.now() });
+  let roll = Math.random() * FISH_WEIGHT;
+  const catchOf = FISH.find((f) => (roll -= f.weight) < 0) ?? FISH[1];
+  const embed = new EmbedBuilder().setTitle('🎣 Pêche');
+  if (!catchOf.name) embed.setColor(0x95a5a6).setDescription('👢 Tu remontes… une vieille botte. Rien à vendre !');
+  else {
+    const { amount: gain, note } = happyBoost(guild.id, boostedMoney(interaction.member, between(...catchOf.price)));
+    addCoins(guild.id, user.id, gain);
+    const rare = catchOf.weight <= 5 ? ' **Quelle prise !**' : '';
+    embed.setColor(0x3498db).setDescription(`Tu as pêché ${catchOf.emoji} **${catchOf.name}**${rare} et tu le revends 🪙 **+${formatMoney(gain)}** !${note}`);
+  }
+  embed.setFooter({ text: footer(guild.id, user.id, COOLDOWNS.fish) });
+  return interaction.reply({ embeds: [embed] });
 }
 
 // --- .gift : trois cartes retournées, une seule cache le gros lot ---
@@ -192,7 +228,7 @@ export async function gift(interaction) {
   const busy = wait(interaction, 'gift', 'Tu as déjà ouvert un cadeau.');
   if (busy) return busy;
   patchHeist(guild.id, user.id, { gift: Date.now() });
-  const prizes = [between(80, 200), between(10, 30), 0].map((p) => (p ? boostedMoney(interaction.member, p) : 0));
+  const prizes = [between(80, 200), between(10, 30), 0].map((p) => (p ? happyBoost(guild.id, boostedMoney(interaction.member, p)).amount : 0));
   for (let i = prizes.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [prizes[i], prizes[j]] = [prizes[j], prizes[i]];

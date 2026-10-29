@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.js';
 import { getQuiz, setQuiz, getQotd, setQotd } from '../../lib/store.js';
-import { postQuiz } from '../../lib/quiz.js';
+import { postQuiz, postWhoSaid } from '../../lib/quiz.js';
 import { postQotd } from '../../lib/qotd.js';
 import { formatMoney } from '../../lib/shop.js';
 
@@ -21,6 +21,7 @@ export default {
     )
     .addSubcommand((s) => s.setName('desactiver').setDescription('Arrêter le quiz.'))
     .addSubcommand((s) => s.setName('question').setDescription('Poser une question tout de suite.'))
+    .addSubcommand((s) => s.setName('qui-a-dit').setDescription('« Qui a dit ? » : un vieux message du serveur, à deviner qui l’a écrit (dans ce salon).'))
     .addSubcommandGroup((g) =>
       g
         .setName('question-du-jour')
@@ -49,6 +50,11 @@ export default {
       if (!cfg?.enabled) return interaction.reply({ content: 'ℹ️ Le quiz n’était pas activé.', ephemeral: true });
       setQuiz(guildId, { ...cfg, enabled: false });
       return interaction.reply({ content: '✅ Quiz désactivé (le classement est gardé).', ephemeral: true });
+    }
+    if (sub === 'qui-a-dit') {
+      await interaction.deferReply({ ephemeral: true });
+      const result = await postWhoSaid(interaction.guild, interaction.channel);
+      return interaction.editReply(typeof result === 'string' ? `❌ ${result}` : `✅ « Qui a dit ? » posé : ${result.url}`);
     }
     if (sub === 'question') {
       if (!cfg?.channelId) return interaction.reply({ content: '❌ Le quiz n’est pas configuré. Lance `/quiz activer`.', ephemeral: true });

@@ -1,6 +1,9 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, InviteTargetType } from 'discord.js';
 import { showBalance, moveMoney, rob, daily, pay, COOLDOWNS, KEEP_IN_POCKET } from './economy.js';
-import { work, slut, mine, wagon, gift, rep } from './earnings.js';
+import { work, slut, mine, wagon, fish, gift, rep } from './earnings.js';
+import { startHeist, HORSES, RACE_PAYS } from './casinogames.js';
+import { lottery, TICKET_PRICE } from './lottery.js';
+import { noteCasinoChannel } from './happyhour.js';
 import { shop, buy, ANTI_ROB } from './casinoshop.js';
 import { TEAM_ACTIONS, TEAM_PRICE, SOLDIER_PRICE, LOCK_PRICE, teamOf } from './teams.js';
 import { livret, RATE, PLAFOND } from './livret.js';
@@ -214,6 +217,30 @@ const MONEY = [
     run: (m) => buy(ctx(m, { objet: 'anti-rob' })),
   },
   { name: 'roue', aliases: ['wheel'], usage: '.roue', short: 'Roue de la fortune, une fois par jour', details: 'Argent, XP, booster d’XP… ou rien.', run: (m) => spinWheel(ctx(m)) },
+  {
+    name: 'fish',
+    aliases: ['peche', 'pêche'],
+    usage: '.fish',
+    short: 'Pêche des poissons',
+    details: `Il faut une **canne à pêche** (\`.shop\`). Sardine, truite, saumon… et parfois un requin ou le poisson doré, revendus aussitôt. Toutes les ${hours(COOLDOWNS.fish)}.`,
+    run: (m) => fish(ctx(m)),
+  },
+  {
+    name: 'loterie',
+    aliases: ['lottery', 'lotto'],
+    usage: '.loterie [nombre]',
+    short: 'Achète des tickets, tirage chaque dimanche',
+    details: `🪙 ${TICKET_PRICE} le ticket. Chaque dimanche à minuit, un gagnant est tiré au sort (plus il a de tickets, plus il a de chances) et remporte toute la cagnotte. \`.loterie\` seul : la cagnotte et tes chances.`,
+    run: (m, a) => lottery(ctx(m, { nombre: a[0] })),
+  },
+  {
+    name: 'braquage',
+    aliases: ['heist'],
+    usage: '.braquage',
+    short: 'Braque la banque centrale à plusieurs',
+    details: 'Lance un braquage : les autres ont 60 s pour rejoindre avec le bouton (2 braqueurs minimum, 🪙 200 en poche). Chances : 25 % +10 % par braqueur (80 % max). Réussi : chacun gagne 200 à 600 ; raté : chacun paie une amende. Toutes les 3 h.',
+    run: (m) => startHeist(ctx(m)),
+  },
 ];
 
 const ROULETTE_HELP = Object.keys(ROULETTE_BETS).filter((k) => k !== 'numero').join(', ');
@@ -243,6 +270,47 @@ const GAMES = [
       const side = (a[1] ?? '').toLowerCase();
       if (!a[0] || !['pile', 'face'].includes(side)) return m.reply({ content: '❌ Utilisation : `.pf <mise> <pile|face>`.', allowedMentions: { repliedUser: false } });
       return playGame(ctx(m), 'pf', a[0], side);
+    },
+  },
+  {
+    name: 'mines',
+    usage: '.mines <mise> [bombes]',
+    short: 'Démineur : encaisse avant de tomber sur une bombe',
+    details: '20 cases, 3 bombes par défaut (1 à 10). Chaque case sûre fait monter le gain ; encaisse quand tu veux. Une bombe = mise perdue. Plus il y a de bombes, plus ça rapporte.',
+    run: (m, a) => {
+      const bombs = a[1] === undefined ? 3 : Number(a[1]);
+      if (!a[0] || !Number.isInteger(bombs) || bombs < 1 || bombs > 10) return m.reply({ content: '❌ Utilisation : `.mines <mise> [bombes 1 à 10]`.', allowedMentions: { repliedUser: false } });
+      return playGame(ctx(m), 'mn', a[0], String(bombs));
+    },
+  },
+  {
+    name: 'hilo',
+    usage: '.hilo <mise>',
+    short: 'La carte suivante : plus haute ou plus basse ?',
+    details: 'Devine si la prochaine carte sera plus haute (ou égale) ou plus basse (ou égale). Chaque bonne réponse multiplie le gain, encaisse quand tu veux. As = 1, Roi = 13.',
+    run: (m, a) => (a[0] ? playGame(ctx(m), 'hl', a[0]) : needBet(m, '.hilo <mise>')),
+  },
+  {
+    name: 'crash',
+    usage: '.crash <mise> [auto]',
+    short: 'Le multiplicateur monte : encaisse avant le crash',
+    details: 'Le multiplicateur grimpe (×2 vers 6 s, ×10 vers 19 s) jusqu’à exploser au hasard. Encaisse avant ! `auto` encaisse tout seul, ex : `.crash 500 2` à ×2.',
+    run: (m, a) => {
+      const auto = a[1] === undefined ? '' : Number(String(a[1]).replace(',', '.').replace(/x$/i, ''));
+      if (!a[0] || (auto !== '' && !(auto >= 1.01 && auto <= 100))) return m.reply({ content: '❌ Utilisation : `.crash <mise> [auto entre 1,01 et 100]`.', allowedMentions: { repliedUser: false } });
+      return playGame(ctx(m), 'cr', a[0], String(auto));
+    },
+  },
+  {
+    name: 'course',
+    aliases: ['race'],
+    usage: '.course <mise> <cheval 1-5>',
+    short: `Course de chevaux, gain ×${RACE_PAYS.toLocaleString('fr-FR')}`,
+    details: `Mise sur un des 5 chevaux (${HORSES.map((h, i) => `${i + 1}. ${h}`).join(', ')}). S’il arrive premier : mise ×${RACE_PAYS.toLocaleString('fr-FR')}.`,
+    run: (m, a) => {
+      const horse = Number(a[1]);
+      if (!a[0] || !Number.isInteger(horse) || horse < 1 || horse > 5) return m.reply({ content: '❌ Utilisation : `.course <mise> <cheval 1 à 5>`.', allowedMentions: { repliedUser: false } });
+      return playGame(ctx(m), 'co', a[0], String(horse - 1));
     },
   },
 ];
@@ -283,6 +351,8 @@ export async function handlePrefixCommand(message) {
   }
   const command = LOOKUP.get(key);
   if (!command) return false;
+  // Salon du casino : la happy hour y est annoncée.
+  noteCasinoChannel(message.guild.id, message.channelId);
   await command.run(message, args);
   return true;
 }
