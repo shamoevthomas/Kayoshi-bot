@@ -42,7 +42,7 @@ const CATEGORIES = [
       'Gestion des rôles à la main (un modérateur ne peut pas donner un rôle au niveau du sien ou au-dessus), ' +
       'annonces de rank / derank, et rôles donnés automatiquement selon le statut, le tag du serveur ou des incompatibilités.',
     lines: [
-      ['/role', 'Ajouter ou retirer un rôle à un membre (bascule)'],
+      ['/role', '`membre` — ajouter ou retirer un rôle à un membre (bascule) · `create` — créer un rôle (nom, couleur, dégradé ou holographique) · `rename` — renommer un rôle'],
       ['/roletempo', 'Donner un rôle à un membre pour une durée (ex : `15m`), retiré automatiquement à la fin'],
       ['/massrole', '`donner` `retirer` un rôle à plusieurs membres'],
       ['/rank', 'Donner un ou deux rôles à un membre et l’annoncer en embed (« Rank up par @staff »)'],
@@ -276,6 +276,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/role', '`create` (couleur, dégradé) et `rename` ; l’ajout/retrait passe dans `/role membre`'],
   ['/modifierembed', 'panneau de tickets : bouton pour réorganiser les motifs'],
   ['+vc', 'nouvel embed : membres, en ligne, en vocal, actifs, en stream, mute'],
   ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
@@ -285,7 +286,6 @@ const RECENT_CHANGES = [
   ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],
   ['/xp', '`ajouter` et `retirer` donnent ou retirent directement des niveaux'],
   ['/configboost', 'attend 10 s (plusieurs boosts = un message), les re-boosts aussi, variable `[boosts]`'],
-  ['/configstat', 'un nouveau classement chaque semaine, l’ancien est supprimé'],
 ];
 
 const HOME = 'home';
