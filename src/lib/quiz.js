@@ -20,7 +20,6 @@ const CATEGORIES = {
   geographie: '🌍 Géographie',
   histoire: '🏛️ Histoire',
   sport: '⚽ Sport',
-  tv_cinema: '🎬 TV & cinéma',
   musique: '🎵 Musique',
   jeux_videos: '🎮 Jeux vidéo',
   informatique: '💻 Informatique',
@@ -30,8 +29,8 @@ const CATEGORIES = {
   bd: '💬 BD',
   anime: '🎌 Animé & manga',
 };
-// Catégories de QuizzAPI jamais posées.
-const EXCLUDED = new Set(['actu_politique']);
+// Catégories de QuizzAPI jamais posées : actualité et politique, TV et cinéma.
+const EXCLUDED = new Set(['actu_politique', 'tv_cinema']);
 const DIFFICULTY = { facile: '🟢 Facile', normal: '🟡 Moyen', difficile: '🔴 Difficile' };
 
 // Réserve si l'API ne répond pas.
@@ -96,7 +95,7 @@ async function fetchQuestion(guildId) {
   if (theme === 'anime' || (theme === 'jeux_videos' && Math.random() < 0.5)) return localQuestion(guildId, theme);
   const filter = theme === 'jeux_videos' ? '&category=jeux_videos' : '';
   try {
-    // 5 questions d'un coup : on écarte l'actualité et la politique (vite dépassées, sujets qui fâchent).
+    // 5 questions d'un coup : on écarte les catégories exclues (EXCLUDED).
     const res = await fetch(`https://quizzapi.jomoreschi.fr/api/v2/quiz?limit=5${filter}`, { signal: AbortSignal.timeout(5000) });
     const list = res.ok ? ((await res.json()).quizzes ?? []) : [];
     const q = list.find((x) => !EXCLUDED.has(x.category) && x.question && x.answer && x.badAnswers?.length >= 3);

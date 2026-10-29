@@ -362,7 +362,7 @@ export function addSanction(guildId, userId, record) {
 
 // --- Économie automatique (/configeconomie) ---
 // moneyDrops = { enabled, channelIds, min, max, everyMin } : argent à ramasser dans les salons actifs.
-// weeklyTop = { enabled, channelId, roleId, rewards: { m1, m2, m3, v1, v2, v3 }, lastWeek, lastMessageId } :
+// weeklyTop = { enabled, channelId, roleId, rewards: { m1, m2, m3, v1, v2, v3 }, lastWeek, lastMessageId, infoMessageId } :
 //   récompenses du lundi pour le top 3 messages et le top 3 vocal ; lastWeek = lundi de la
 //   dernière semaine récompensée (« 2026-10-19 »).
 export function getMoneyDrops(guildId) {

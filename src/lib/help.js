@@ -172,7 +172,7 @@ const CATEGORIES = [
       ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux (2 manches gagnantes) contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
-      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité ni politique, jeux vidéo et animés, 30 min pour répondre) : le premier qui trouve gagne de l’argent et 🪙 500 coins (classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
+      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : le premier qui trouve gagne de l’argent et 🪙 500 coins (classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
@@ -247,7 +247,7 @@ const CATEGORIES = [
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre, `s?t` le top, `s?m` les messages, `s?v` le vocal'],
       ['+vc', 'Statistiques du serveur : membres, en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute'],
       ['/serverinfo', 'Statistiques du serveur'],
-      ['/userinfo', 'Fiche d’un membre'],
+      ['/userinfo', 'Fiche d’un membre : niveau, argent, coins (poche, banque, livret), réputation, team, famille, activité, invitations, quiz, avertissements, rôles'],
       ['/pseudo', 'Envoyer le pseudo d’un membre'],
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
       ['/emoji', '`rename` `delete` `image` — renommer, supprimer un emoji du serveur, ou envoyer son image'],
@@ -280,7 +280,8 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
-  ['/quiz', '`qui-a-dit` ; 🪙 500 coins par bonne réponse ; plus d’actualité ni de politique'],
+  ['/userinfo', 'niveau, argent, coins, réputation, team, famille, activité…'],
+  ['/quiz', '`qui-a-dit` ; 🪙 500 coins par bonne réponse ; plus d’actualité, de politique, de TV ni de cinéma'],
   ['/duel', '`membre` facultatif : sans membre, on joue contre le bot'],
   ['/profilbot', 'changements notés dans #logs-profil, avec qui les a faits'],
   ['/gw', '`start` : option `role_gagne`, rôle donné automatiquement aux gagnants'],
@@ -289,7 +290,6 @@ const RECENT_CHANGES = [
   ['+vc', 'nouvel embed : membres, en ligne, en vocal, actifs, en stream, mute'],
   ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
   ['/money', '`tous` : donner à tous les membres ; option `monnaie` : argent ou coins'],
-  ['/quiz', 'questions de jeux vidéo et d’animés, 30 min pour répondre ; `question-du-jour` avec fil pour les réponses'],
 ];
 
 const HOME = 'home';
