@@ -202,7 +202,7 @@ const CATEGORIES = [
       ['/announce', 'Publier une annonce dans un salon précis'],
       ['/embed', 'Créer un embed (aperçu modifiable) : envoi, role-react (boutons ou sélecteur de rôle), partenariat, ou bienvenue / départ'],
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs, qu’on peut réorganiser)'],
-      ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants) ou prix personnalisé (ex : Nitro)'],
+      ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants), prix personnalisé (ex : Nitro) et/ou rôle à gagner (`role_gagne`, donné automatiquement)'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
       ['/save', '`emplacement` (save1 à save5, avec aperçu) · `action` : enregistrer un message ou envoyer celui enregistré'],
       ['/profilbot', '`modifier` `reinitialiser` — photo, bannière et bio du bot sur ce serveur uniquement'],
@@ -276,6 +276,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/gw', '`start` : option `role_gagne`, rôle donné automatiquement aux gagnants'],
   ['/role', '`create` (couleur, dégradé) et `rename` ; l’ajout/retrait passe dans `/role membre`'],
   ['/modifierembed', 'panneau de tickets : bouton pour réorganiser les motifs'],
   ['+vc', 'nouvel embed : membres, en ligne, en vocal, actifs, en stream, mute'],
@@ -285,7 +286,6 @@ const RECENT_CHANGES = [
   ['/compteur', 'panneau à boutons ; une erreur ne remet plus à 1 (message refusé puis effacé)'],
   ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],
   ['/xp', '`ajouter` et `retirer` donnent ou retirent directement des niveaux'],
-  ['/configboost', 'attend 10 s (plusieurs boosts = un message), les re-boosts aussi, variable `[boosts]`'],
 ];
 
 const HOME = 'home';

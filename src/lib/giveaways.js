@@ -135,12 +135,14 @@ async function announceWinners(channel, gw, winners, reroll = false) {
   const gagne = plural ? 'vous avez gagné' : 'tu as gagné';
   const votre = plural ? 'votre' : 'ton';
   const prefix = reroll ? '🔁 **Nouveau tirage !** ' : '';
-  // Argent : déjà crédité (voir payWinners) ; prix personnalisé : à réclamer à l'organisateur.
-  const next = gw.rewardMoney
-    ? plural
-      ? 'L’argent a été ajouté à vos soldes.'
-      : 'L’argent a été ajouté à ton solde.'
-    : `Va MP <@${gw.hostId}> pour recevoir ${votre} prix.`;
+  // Argent et rôle : déjà donnés (voir payWinners) ; prix personnalisé : à réclamer à l'organisateur.
+  // Anciens giveaways (sans customPrize) : personnalisé s'il n'y avait pas d'argent.
+  const custom = gw.customPrize ?? !gw.rewardMoney;
+  const notes = [];
+  if (gw.rewardMoney) notes.push(plural ? 'L’argent a été ajouté à vos soldes.' : 'L’argent a été ajouté à ton solde.');
+  if (gw.rewardRoleId) notes.push(plural ? 'Le rôle vous a été donné.' : 'Le rôle t’a été donné.');
+  if (custom) notes.push(`Va MP <@${gw.hostId}> pour recevoir ${votre} prix.`);
+  const next = notes.join(' ');
   await channel
     .send({
       content: `${prefix}🎉 Bien joué ${mentions}, ${gagne} **${gw.prize}** ! ${next}`,
@@ -149,10 +151,21 @@ async function announceWinners(channel, gw, winners, reroll = false) {
     .catch(() => {});
 }
 
-// Giveaway d'argent : chaque gagnant reçoit le montant.
-function payWinners(gw, winners) {
-  if (!gw.rewardMoney) return;
-  for (const id of winners) addMoney(gw.guildId, id, gw.rewardMoney);
+// Chaque gagnant reçoit le montant (giveaway d'argent) et le rôle à gagner (role_gagne).
+async function payWinners(client, gw, winners) {
+  if (gw.rewardMoney) for (const id of winners) addMoney(gw.guildId, id, gw.rewardMoney);
+  if (gw.rewardRoleId) await setRewardRole(client, gw, winners, true);
+}
+
+// Donne (ou reprend, au reroll) le rôle à gagner.
+async function setRewardRole(client, gw, userIds, give) {
+  const guild = client.guilds.cache.get(gw.guildId);
+  const role = guild?.roles.cache.get(gw.rewardRoleId);
+  if (!role) return;
+  for (const id of userIds) {
+    const member = await guild.members.fetch(id).catch(() => null);
+    if (member) await (give ? member.roles.add(role, 'Giveaway gagné') : member.roles.remove(role, 'Giveaway : nouveau tirage')).catch(() => {});
+  }
 }
 
 // Termine un giveaway maintenant : tire les gagnants, met à jour le message, annonce.
@@ -164,7 +177,7 @@ export async function endGiveawayNow(client, guildId, messageId) {
   const winners = pickWinners(gw, gw.winners);
   updateGiveaway(guildId, messageId, { ended: true, winnerIds: winners });
   clearTimer(messageId);
-  payWinners(gw, winners);
+  await payWinners(client, gw, winners);
 
   const channel = await resolveChannel(client, gw);
   if (channel?.isTextBased()) {
@@ -193,10 +206,12 @@ export async function rerollGiveaway(client, guildId, messageId) {
   if (!winners.length) winners = pickWinners(gw, gw.winners); // repli : tout le monde
   if (!winners.length) return { ok: false, reason: 'no-eligible' };
 
-  // Giveaway d'argent : les anciens gagnants sont remplacés, leur gain leur est repris.
-  if (gw.rewardMoney) {
-    for (const id of gw.winnerIds ?? []) if (!winners.includes(id)) addMoney(guildId, id, -gw.rewardMoney);
-    payWinners(gw, winners.filter((id) => !(gw.winnerIds ?? []).includes(id)));
+  // Les anciens gagnants sont remplacés : leur argent et leur rôle leur sont repris.
+  if (gw.rewardMoney || gw.rewardRoleId) {
+    const replaced = (gw.winnerIds ?? []).filter((id) => !winners.includes(id));
+    if (gw.rewardMoney) for (const id of replaced) addMoney(guildId, id, -gw.rewardMoney);
+    if (gw.rewardRoleId) await setRewardRole(client, gw, replaced, false);
+    await payWinners(client, gw, winners.filter((id) => !(gw.winnerIds ?? []).includes(id)));
   }
   updateGiveaway(guildId, messageId, { winnerIds: winners });
 

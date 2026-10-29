@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { parseDuration } from '../../lib/time.js';
 import { formatMoney } from '../../lib/shop.js';
+import { roleCommandProblem } from '../../lib/roles.js';
 import {
   getGiveaway,
   getGuildGiveaways,
@@ -44,12 +45,12 @@ export default {
         .addStringOption((o) =>
           o
             .setName('type')
-            .setDescription('Argent (crédité automatiquement aux gagnants) ou prix personnalisé (ex : Nitro)')
-            .setRequired(true)
+            .setDescription('Argent (crédité automatiquement) ou prix personnalisé — facultatif avec un rôle à gagner')
             .addChoices({ name: 'Argent', value: 'argent' }, { name: 'Personnalisé (ex : Nitro)', value: 'perso' }),
         )
         .addStringOption((o) => o.setName('prix').setDescription('Pour « Personnalisé » : le prix (ex : Nitro Boost 1 mois)'))
         .addIntegerOption((o) => o.setName('montant').setDescription('Pour « Argent » : montant gagné par chaque gagnant').setMinValue(1))
+        .addRoleOption((o) => o.setName('role_gagne').setDescription('(Facultatif) rôle donné automatiquement aux gagnants (ex : VIP)'))
         .addIntegerOption((o) =>
           o
             .setName('messages_requis')
@@ -98,16 +99,28 @@ export default {
 
   async start(interaction, guildId) {
     const role = interaction.options.getRole('role');
-    // Argent : crédité automatiquement à chaque gagnant ; personnalisé : à remettre par l'organisateur.
-    const isMoney = interaction.options.getString('type') === 'argent';
+    // Argent : crédité automatiquement à chaque gagnant ; personnalisé : à remettre par l'organisateur ;
+    // rôle à gagner (seul ou en plus) : donné automatiquement à la fin.
+    const type = interaction.options.getString('type');
+    const rewardRole = interaction.options.getRole('role_gagne');
+    if (!type && !rewardRole) {
+      return interaction.reply({ content: '❌ Choisis un `type` (argent ou personnalisé), un `role_gagne`, ou les deux.', ephemeral: true });
+    }
+    if (rewardRole) {
+      const problem = roleCommandProblem(interaction, rewardRole, 'donner');
+      if (problem) return interaction.reply({ content: problem, ephemeral: true });
+    }
+    const isMoney = type === 'argent';
     const rewardMoney = isMoney ? interaction.options.getInteger('montant') : null;
-    const prize = isMoney ? `💰 ${formatMoney(rewardMoney ?? 0)}` : interaction.options.getString('prix')?.trim();
+    const custom = type === 'perso' ? interaction.options.getString('prix')?.trim() : null;
     if (isMoney && !rewardMoney) {
       return interaction.reply({ content: '❌ Pour un giveaway d’argent, indique le `montant` gagné par chaque gagnant.', ephemeral: true });
     }
-    if (!isMoney && !prize) {
+    if (type === 'perso' && !custom) {
       return interaction.reply({ content: '❌ Pour un prix personnalisé, indique le `prix` (ex : Nitro Boost 1 mois).', ephemeral: true });
     }
+    // Prix affiché : le nom du rôle (pas une mention, pour ne pas notifier tout le rôle).
+    const prize = [isMoney ? `💰 ${formatMoney(rewardMoney)}` : custom, rewardRole ? `Rôle « ${rewardRole.name} »` : null].filter(Boolean).join(' + ');
     const dureeStr = interaction.options.getString('duree');
     const winners = interaction.options.getInteger('gagnants');
     const host = interaction.options.getUser('organisateur');
@@ -133,6 +146,8 @@ export default {
       channelId: interaction.channelId,
       prize,
       rewardMoney,
+      rewardRoleId: rewardRole?.id ?? null,
+      customPrize: Boolean(custom),
       winners,
       endsAt,
       hostId: host.id,
