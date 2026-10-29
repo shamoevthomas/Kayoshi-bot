@@ -127,7 +127,7 @@ const CATEGORIES = [
       ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire — chaque jour, un objet en promo à -10 % ; chaque achat est noté dans #logs-boutique'],
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
       ['/configeconomie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
-      ['/money', '`ajouter` `retirer` — donner / retirer de l’argent ou des coins (option `monnaie`) à un membre (admin)'],
+      ['/money', '`ajouter` `retirer` — donner / retirer de l’argent ou des coins (option `monnaie`) à un membre · `tous` — à tous les membres du serveur (admin)'],
       ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire, booster d’XP (admin)'],
       ['/change-item', 'Modifier le nom, le prix ou la description d’un objet (admin)'],
       ['/configshop', 'Titre, description et couleur de la boutique (admin)'],
@@ -276,7 +276,7 @@ const RECENT = [
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
   ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
-  ['/money', 'option `monnaie` : argent des niveaux ou coins du casino'],
+  ['/money', '`tous` : donner à tous les membres ; option `monnaie` : argent ou coins'],
   ['/quiz', '`question-du-jour` : une question chaque jour, rôle mentionné et fil pour les réponses'],
   ['/compteur', 'panneau à boutons ; une erreur ne remet plus à 1 (message refusé puis effacé)'],
   ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],

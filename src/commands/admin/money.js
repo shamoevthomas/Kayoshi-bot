@@ -30,6 +30,13 @@ export default {
     )
     .addSubcommand((s) =>
       s
+        .setName('tous')
+        .setDescription('Donner de l’argent ou des coins à tous les membres du serveur (sans les bots).')
+        .addIntegerOption((o) => o.setName('montant').setDescription('Montant pour chaque membre').setRequired(true).setMinValue(1))
+        .addStringOption(currencyOption),
+    )
+    .addSubcommand((s) =>
+      s
         .setName('retirer')
         .setDescription('Retirer de l’argent ou des coins à un membre.')
         .addUserOption((o) => o.setName('membre').setDescription('Le membre').setRequired(true))
@@ -39,9 +46,10 @@ export default {
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
-    const target = interaction.options.getUser('membre', true);
     const amount = interaction.options.getInteger('montant', true);
     const currency = CURRENCY[interaction.options.getString('monnaie') ?? 'argent'];
+    if (sub === 'tous') return giveEveryone(interaction, amount, currency);
+    const target = interaction.options.getUser('membre', true);
     if (target.bot) return interaction.reply({ content: '❌ Un bot n’a pas de porte-monnaie.', ephemeral: true });
 
     const add = sub === 'ajouter';
@@ -65,3 +73,23 @@ export default {
     });
   },
 };
+
+// /money tous : le même montant pour chaque membre du serveur (les bots sont ignorés).
+async function giveEveryone(interaction, amount, currency) {
+  const { guild } = interaction;
+  await interaction.deferReply({ ephemeral: true });
+  const members = await guild.members.fetch().catch(() => null);
+  if (!members) return interaction.editReply('❌ Je n’ai pas pu récupérer la liste des membres.');
+  const humans = [...members.values()].filter((m) => !m.user.bot);
+  for (const m of humans) currency.add(guild.id, m.id, amount);
+  await sendLog(
+    guild,
+    new EmbedBuilder()
+      .setColor(Colors.join)
+      .setAuthor({ name: `${currency.emoji} ${currency.label} donné à tout le serveur` })
+      .setDescription(`+${formatMoney(amount)} ${currency.emoji} pour chacun des **${humans.length}** membres`)
+      .addFields({ name: 'Par', value: `${interaction.user}`, inline: true })
+      .setTimestamp(),
+  );
+  return interaction.editReply(`✅ +${currency.emoji} **${formatMoney(amount)}** donnés à chacun des **${humans.length}** membres du serveur.`);
+}

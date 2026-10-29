@@ -150,7 +150,7 @@ export function ensureTracking(guildId) {
   if (!g.trackingSince) {
     g.trackingSince = Date.now();
     data[guildId] = g;
-    save(data);
+    save(data, guildId);
   }
 }
 
@@ -243,7 +243,7 @@ export function addBonusInvites(guildId, userId, n) {
   const s = statsFor(g, userId);
   s.bonus += n;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return { bonus: s.bonus, total: s.real + s.bonus };
 }
 
@@ -312,7 +312,7 @@ export function addWarn(guildId, userId, { reason, moderatorId }) {
   list.push(warn);
   g.warns[userId] = list;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return { warn, warns: list };
 }
 
@@ -324,7 +324,7 @@ export function removeWarn(guildId, userId, warnId) {
   if (next.length === list.length) return false;
   g.warns[userId] = next;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return true;
 }
 
@@ -335,7 +335,7 @@ export function clearWarns(guildId, userId) {
   const count = g.warns[userId].length;
   delete g.warns[userId];
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return count;
 }
 
@@ -485,7 +485,7 @@ export function addTempBan(guildId, userId, unbanAt) {
   g.tempBans = (g.tempBans ?? []).filter((b) => b.userId !== userId);
   g.tempBans.push({ userId, unbanAt });
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
 }
 
 export function removeTempBan(guildId, userId) {
@@ -493,7 +493,7 @@ export function removeTempBan(guildId, userId) {
   const g = data[guildId];
   if (!g?.tempBans) return;
   g.tempBans = g.tempBans.filter((b) => b.userId !== userId);
-  save(data);
+  save(data, guildId);
 }
 
 // --- Rôles temporaires (/roletempo) ---
@@ -678,7 +678,7 @@ export function addStatutRule(guildId, keyword, roleId) {
   if (g.statutRules.some((r) => r.keyword === kw && r.roleId === roleId)) return false;
   g.statutRules.push({ keyword: kw, roleId });
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return true;
 }
 
@@ -690,7 +690,7 @@ export function removeStatutRule(guildId, keyword, roleId = null) {
   const before = g.statutRules.length;
   g.statutRules = g.statutRules.filter((r) => !(r.keyword === kw && (roleId ? r.roleId === roleId : true)));
   const removed = before - g.statutRules.length;
-  if (removed) save(data);
+  if (removed) save(data, guildId);
   return removed;
 }
 
@@ -825,7 +825,7 @@ export function addTempVoice(guildId, channelId, ownerId) {
   g.voiceConfig.temp = g.voiceConfig.temp ?? {};
   g.voiceConfig.temp[channelId] = { ownerId };
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
 }
 
 export function getTempVoice(guildId, channelId) {
@@ -837,7 +837,7 @@ export function updateTempVoice(guildId, channelId, patch) {
   const temp = data[guildId]?.voiceConfig?.temp;
   if (!temp?.[channelId]) return;
   temp[channelId] = { ...temp[channelId], ...patch };
-  save(data);
+  save(data, guildId);
 }
 
 export function removeTempVoice(guildId, channelId) {
@@ -845,7 +845,7 @@ export function removeTempVoice(guildId, channelId) {
   const temp = data[guildId]?.voiceConfig?.temp;
   if (!temp?.[channelId]) return;
   delete temp[channelId];
-  save(data);
+  save(data, guildId);
 }
 
 export function getAllTempVoice(guildId) {
@@ -864,7 +864,7 @@ export function setGreetConfig(guildId, type, cfg) {
   g.greetConfig = g.greetConfig ?? {};
   g.greetConfig[type] = cfg;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return cfg;
 }
 
@@ -1082,7 +1082,7 @@ export function patchStatConfig(guildId, patch) {
   const g = data[guildId] ?? {};
   g.statConfig = { ...(g.statConfig ?? {}), ...patch };
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return g.statConfig;
 }
 
@@ -1622,7 +1622,7 @@ export function enableOneMessage(guildId, channelId, memberId = null) {
   g.oneMessage = map;
   delete g.oneMessageChannels;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return map[channelId];
 }
 
@@ -1659,7 +1659,7 @@ export function disableOneMessage(guildId, channelId, memberId = null) {
   g.oneMessage = map;
   delete g.oneMessageChannels;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return { status };
 }
 
@@ -1672,7 +1672,7 @@ export function setOneMessageTargets(guildId, channelId, targets) {
   g.oneMessage = map;
   delete g.oneMessageChannels;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
 }
 
 // Retire complètement un salon (compat /reset).
@@ -1692,7 +1692,7 @@ export function setSavedMessage(guildId, slot, record) {
   g.savedMessages = g.savedMessages ?? {};
   g.savedMessages[slot] = record;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return record;
 }
 
@@ -1701,7 +1701,7 @@ export function deleteSavedMessage(guildId, slot) {
   const g = data[guildId];
   if (!g?.savedMessages?.[slot]) return false;
   delete g.savedMessages[slot];
-  save(data);
+  save(data, guildId);
   return true;
 }
 
@@ -1797,7 +1797,7 @@ export function createGiveaway(guildId, messageId, gw) {
   g.giveaways = g.giveaways ?? {};
   g.giveaways[messageId] = gw;
   data[guildId] = g;
-  save(data);
+  save(data, guildId);
   return gw;
 }
 
@@ -1810,7 +1810,7 @@ export function updateGiveaway(guildId, messageId, patch) {
   const gws = data[guildId]?.giveaways;
   if (!gws?.[messageId]) return null;
   gws[messageId] = { ...gws[messageId], ...patch };
-  save(data);
+  save(data, guildId);
   return gws[messageId];
 }
 
@@ -1819,7 +1819,7 @@ export function deleteGiveaway(guildId, messageId) {
   const gws = data[guildId]?.giveaways;
   if (!gws?.[messageId]) return;
   delete gws[messageId];
-  save(data);
+  save(data, guildId);
 }
 
 export function getGuildGiveaways(guildId) {
@@ -1833,7 +1833,7 @@ export function addGiveawayParticipant(guildId, messageId, userId) {
   gw.participants = gw.participants ?? [];
   if (gw.participants.includes(userId)) return { ok: true, already: true };
   gw.participants.push(userId);
-  save(data);
+  save(data, guildId);
   return { ok: true, already: false };
 }
 
@@ -1842,7 +1842,7 @@ export function removeGiveawayParticipant(guildId, messageId, userId) {
   const gw = data[guildId]?.giveaways?.[messageId];
   if (!gw) return false;
   gw.participants = (gw.participants ?? []).filter((id) => id !== userId);
-  save(data);
+  save(data, guildId);
   return true;
 }
 
