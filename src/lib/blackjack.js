@@ -1,10 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getMoney } from './store.js';
+import { getCoins } from './store.js';
 import { newDeck, cardText, renderBlackjack } from './cards.js';
 import { holdBet, raiseHold, settleHold, againRow, newGameId } from './bets.js';
 import { formatMoney } from './shop.js';
 
-// Blackjack (/casino blackjack) contre le croupier : approcher 21 sans dépasser. Le croupier tire jusqu'à 17.
+// Blackjack (.bj) contre le croupier : approcher 21 sans dépasser. Le croupier tire jusqu'à 17.
 // Gagné = mise ×2, blackjack d'entrée (as + figure/10) = mise ×2,5, égalité = mise rendue.
 // Boutons cas_bj:<partie>:<hit|stand|double> ; sans action pendant 60 s, le joueur reste sur sa main.
 const TURN_MS = 60_000;
@@ -102,7 +102,7 @@ async function view(game) {
   const p = handValue(game.player);
   const d = handValue(dealerCards);
   const lines = [
-    `💰 **Mise : ${formatMoney(game.bet)}**${game.doubled ? ' _(doublée)_' : ''}`,
+    `🪙 **Mise : ${formatMoney(game.bet)}**${game.doubled ? ' _(doublée)_' : ''}`,
     '',
     `🧑 **Ta main** : ${game.player.map((c) => `\`${cardText(c)}\``).join(' ')} — **${p}**`,
     `🤖 **Croupier** : ${dealerCards.map((c) => `\`${cardText(c)}\``).join(' ')}${game.done ? '' : ' `?`'} — **${d}**`,
@@ -112,7 +112,7 @@ async function view(game) {
     const [text, c] = RESULTS[game.outcome];
     color = c;
     const delta = game.payout - game.bet;
-    lines.push('', delta > 0 ? `${text} 💰 **+${formatMoney(delta)}**` : delta < 0 ? `${text} 💰 **-${formatMoney(game.bet)}**` : text);
+    lines.push('', delta > 0 ? `${text} 🪙 **+${formatMoney(delta)}**` : delta < 0 ? `${text} 🪙 **-${formatMoney(game.bet)}**` : text);
     if (game.timedOut) lines.push('-# Temps écoulé : tu es resté sur ta main.');
   }
   const tag = (cards, total, shown) =>
@@ -133,7 +133,7 @@ async function view(game) {
   let components;
   if (game.done) components = [againRow(game.userId, 'bj', game.bet)];
   else {
-    const canDouble = game.player.length === 2 && getMoney(game.guildId, game.userId) >= game.bet;
+    const canDouble = game.player.length === 2 && getCoins(game.guildId, game.userId) >= game.bet;
     components = [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`cas_bj:${game.id}:hit`).setLabel('Tirer').setEmoji('🃏').setStyle(ButtonStyle.Primary),
@@ -141,7 +141,7 @@ async function view(game) {
         new ButtonBuilder()
           .setCustomId(`cas_bj:${game.id}:double`)
           .setLabel('Doubler')
-          .setEmoji('💰')
+          .setEmoji('🪙')
           .setStyle(ButtonStyle.Danger)
           .setDisabled(!canDouble),
       ),
@@ -154,7 +154,7 @@ export async function handleBlackjackButton(interaction, id, action) {
   const game = games.get(id);
   if (!game) return interaction.reply({ content: '⌛ Cette partie est terminée.', ephemeral: true });
   if (interaction.user.id !== game.userId) {
-    return interaction.reply({ content: '❌ Ce n’est pas ta partie : lance la tienne avec `/casino blackjack`.', ephemeral: true });
+    return interaction.reply({ content: '❌ Ce n’est pas ta partie : lance la tienne avec `.bj <mise>`.', ephemeral: true });
   }
   if (game.busy) return interaction.deferUpdate().catch(() => {});
   game.busy = true;
@@ -163,8 +163,8 @@ export async function handleBlackjackButton(interaction, id, action) {
       game.player.push(game.deck.pop());
       if (handValue(game.player) >= 21) finish(game);
     } else if (action === 'double') {
-      if (game.player.length !== 2 || getMoney(game.guildId, game.userId) < game.bet) {
-        return interaction.reply({ content: `❌ Pour doubler, il te faut encore 💰 **${formatMoney(game.bet)}** en poche.`, ephemeral: true });
+      if (game.player.length !== 2 || getCoins(game.guildId, game.userId) < game.bet) {
+        return interaction.reply({ content: `❌ Pour doubler, il te faut encore 🪙 **${formatMoney(game.bet)}** en poche.`, ephemeral: true });
       }
       raiseHold(game.guildId, holdKey(game), game.bet);
       game.bet *= 2;

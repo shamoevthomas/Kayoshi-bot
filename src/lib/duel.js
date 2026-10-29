@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getMoney } from './store.js';
+import { getCoins } from './store.js';
 import { checkBet, holdBet, settleHold, newGameId } from './bets.js';
 import { formatMoney } from './shop.js';
 
@@ -40,8 +40,8 @@ export async function startDuel(interaction) {
     const check = checkBet(guild.id, user.id, raw);
     if (check.error) return reply(check.error);
     bet = check.bet;
-    const theirs = getMoney(guild.id, target.id);
-    if (theirs < bet) return reply(`❌ ${target} n’a que 💰 **${formatMoney(theirs)}** en poche : choisis une mise plus petite.`);
+    const theirs = getCoins(guild.id, target.id);
+    if (theirs < bet) return reply(`❌ ${target} n’a que 🪙 **${formatMoney(theirs)}** en poche : choisis une mise plus petite.`);
   }
   const duel = {
     id: newGameId(),
@@ -61,7 +61,7 @@ export async function startDuel(interaction) {
         .setTitle(`⚔️ Défi — ${DUEL_GAMES[game].label}`)
         .setDescription(
           `${user} te défie au **${DUEL_GAMES[game].label.toLowerCase()}** !\n` +
-            (bet ? `💰 Mise : **${formatMoney(bet)}** chacun — le gagnant remporte 💰 **${formatMoney(bet * 2)}**.` : 'Sans mise, juste pour la gloire.') +
+            (bet ? `🪙 Mise : **${formatMoney(bet)}** chacun — le gagnant remporte 🪙 **${formatMoney(bet * 2)}**.` : 'Sans mise, juste pour la gloire.') +
             '\n\nTu as 60 secondes pour répondre.',
         ),
     ],
@@ -146,7 +146,7 @@ function view(duel) {
   const [a, b] = duel.players;
   const marks = MARKS[duel.game];
   const lines = [`<@${a}> ${marks[0]}  **contre**  ${marks[1]} <@${b}>`];
-  if (duel.bet) lines.push(`💰 Mise : **${formatMoney(duel.bet)}** chacun`);
+  if (duel.bet) lines.push(`🪙 Mise : **${formatMoney(duel.bet)}** chacun`);
   lines.push('');
 
   if (duel.game === 'puissance4') {
@@ -169,7 +169,7 @@ function view(duel) {
     color = duel.winner === null ? 0x95a5a6 : 0x2ecc71;
     if (duel.reason) lines.push(duel.reason);
     if (duel.winner === null) lines.push(`🤝 **Égalité**${duel.bet ? ' : les mises sont rendues.' : '.'}`);
-    else lines.push(`🏆 **<@${duel.players[duel.winner]}> gagne le duel !**${duel.bet ? ` 💰 **+${formatMoney(duel.bet)}**` : ''}`);
+    else lines.push(`🏆 **<@${duel.players[duel.winner]}> gagne le duel !**${duel.bet ? ` 🪙 **+${formatMoney(duel.bet)}**` : ''}`);
   } else if (duel.game === 'pfc') {
     lines.push(duel.picks.map((p, i) => `${p ? '✅' : '⏳'} <@${duel.players[i]}>`).join('  ·  '), '-# Chacun choisit en secret, 60 s par manche.');
   } else {
@@ -234,11 +234,11 @@ export async function handleDuelInteraction(interaction) {
     }
     if (me !== 1) return reply('⏳ On attend la réponse de ton adversaire.');
     if (duel.bet) {
-      const poor = duel.players.find((uid) => getMoney(duel.guildId, uid) < duel.bet);
+      const poor = duel.players.find((uid) => getCoins(duel.guildId, uid) < duel.bet);
       if (poor) {
         clearTimeout(duel.timer);
         duels.delete(duel.id);
-        return interaction.update({ content: '', embeds: [simpleEmbed(duel, `❌ <@${poor}> n’a plus 💰 **${formatMoney(duel.bet)}** en poche : duel annulé.`)], components: [], allowedMentions: { parse: [] } });
+        return interaction.update({ content: '', embeds: [simpleEmbed(duel, `❌ <@${poor}> n’a plus 🪙 **${formatMoney(duel.bet)}** en poche : duel annulé.`)], components: [], allowedMentions: { parse: [] } });
       }
     }
     begin(duel);

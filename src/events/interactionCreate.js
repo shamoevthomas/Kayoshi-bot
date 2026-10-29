@@ -21,6 +21,10 @@ import { handleCasinoInteraction } from '../lib/casino.js';
 import { handleDuelInteraction } from '../lib/duel.js';
 import { handleCounterInteraction } from '../lib/counting.js';
 import { handleStatChannelsInteraction } from '../lib/statchannels.js';
+import { handleGiftInteraction, handleWagonInteraction } from '../lib/earnings.js';
+import { handleCasinoShopInteraction } from '../lib/casinoshop.js';
+import { handleTeamInteraction } from '../lib/teams.js';
+import { handleTradeInteraction } from '../lib/trade.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -50,6 +54,11 @@ export default {
         if (cid.startsWith('duel:')) return void (await handleDuelInteraction(interaction));
         if (cid.startsWith('cpt:')) return void (await handleCounterInteraction(interaction));
         if (cid.startsWith('sst:')) return void (await handleStatChannelsInteraction(interaction));
+        if (cid.startsWith('gift:')) return void (await handleGiftInteraction(interaction));
+        if (cid.startsWith('wag:')) return void (await handleWagonInteraction(interaction));
+        if (cid.startsWith('cshop:')) return void (await handleCasinoShopInteraction(interaction));
+        if (cid.startsWith('team_inv:')) return void (await handleTeamInteraction(interaction));
+        if (cid.startsWith('trd:')) return void (await handleTradeInteraction(interaction));
         if (cid === 'shop_open') return void (await openShop(interaction));
         if (cid.startsWith('shop_')) return void (await handleShopInteraction(interaction));
       } catch (err) {

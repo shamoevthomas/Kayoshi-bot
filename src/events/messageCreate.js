@@ -8,6 +8,7 @@ import { handleDisboardBump } from '../lib/bumpreminder.js';
 import { handlePartnerMessage } from '../lib/partners.js';
 import { handleVoiceStatsCommand } from '../lib/voicestats.js';
 import { handleSnipeCommand } from '../lib/snipe.js';
+import { handlePrefixCommand } from '../lib/prefix.js';
 import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
 import { handleLoveCommand } from '../lib/lovecalc.js';
@@ -56,6 +57,9 @@ export default {
       return false;
     });
     if (spam) return;
+
+    // Commandes du casino « . » (.balance, .dep, .bj…) : traitées ici, sans XP ni argent pour le message.
+    if (await handlePrefixCommand(message).catch((err) => (console.error('[casino .]', err), true))) return;
 
     // Serveur actif : le quiz ne pose ses questions que dans ce cas.
     noteQuizActivity(message);

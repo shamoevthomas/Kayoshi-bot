@@ -106,7 +106,7 @@ const CATEGORIES = [
       'Un palier peut aussi donner de l’argent.',
     lines: [
       ['/niveau', 'Voir ton niveau, ton XP, ta progression et tes bonus d’XP en cours (ou ceux d’un membre)'],
-      ['/top', 'Classements en onglets : niveaux, argent, poche, messages, vocal, invitations et quiz'],
+      ['/top', 'Classements en onglets : niveaux, argent, coins, poche, teams, réputation, messages, vocal, invitations et quiz'],
       ['/xp', '`ajouter` `retirer` — donner ou retirer des niveaux à un membre ; `definir` — fixer son XP ou son niveau ; `evenement` — XP ×2 ou ×3 pour tout le serveur pendant une durée ; `recompense` — paliers : rôle (addition ou évolutif) et/ou argent (admin)'],
       ['/configniveau', '`activer` `desactiver` `voir` `message` — activer le système et personnaliser l’annonce de passage de niveau (admin)'],
     ],
@@ -115,20 +115,19 @@ const CATEGORIES = [
     key: 'economy',
     emoji: '💰',
     name: 'Économie & boutique',
-    summary: 'Daily, roue, dons, quêtes, drops, membres de la semaine, rôles boostés, boutique',
+    summary: 'Argent des niveaux : quêtes, drops, membres de la semaine, rôles boostés, boutique',
     about:
-      'L’argent se gagne en écrivant (💰 5 par message, 25 au-delà de 125 caractères), en passant des niveaux (💰 200), ' +
-      'avec le daily, la roue de la fortune, les drops d’argent à ramasser dans les salons et les récompenses des membres de la ' +
+      'L’**argent** 💰 se gagne en étant actif : en écrivant (💰 5 par message, 25 au-delà de 125 caractères), en passant des niveaux (💰 200), ' +
+      'avec les drops d’argent à ramasser dans les salons, les quêtes, le quiz, les giveaways et les récompenses des membres de la ' +
       'semaine (top 3 messages et top 3 vocal, chaque lundi). Un rôle boosté (ex : VIP ×1,5) fait gagner plus en étant actif. ' +
-      'L’argent gagné arrive dans la **poche** et se dépense dans la boutique : rôles, rôles temporaires, boosters d’XP, ' +
-      'objets personnalisés qui ouvrent un ticket. Banque, vols et jeux d’argent : catégorie 🎰 Casino.',
+      'Il se dépense dans la boutique `/shop` : rôles, rôles temporaires, boosters d’XP, objets personnalisés qui ouvrent un ticket. ' +
+      'Les **coins** 🪙 du casino sont une monnaie à part, qui ne sert pas dans `/shop` : catégorie 🎰 Casino.',
     lines: [
-      ['/argent', '`solde` (poche et banque) · `daily` (100, +10 par jour de série jusqu’à 200) · `roue` (une fois par jour : argent, XP, booster… ou rien) · `donner` (à un membre) — classements : `/top`'],
       ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,5) (admin)'],
       ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire — chaque jour, un objet en promo à -10 % ; chaque achat est noté dans #logs-boutique'],
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
       ['/configeconomie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
-      ['/money', '`ajouter` `retirer` — donner / retirer de l’argent à un membre (admin)'],
+      ['/money', '`ajouter` `retirer` — donner / retirer de l’argent ou des coins (option `monnaie`) à un membre (admin)'],
       ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire, booster d’XP (admin)'],
       ['/change-item', 'Modifier le nom, le prix ou la description d’un objet (admin)'],
       ['/configshop', 'Titre, description et couleur de la boutique (admin)'],
@@ -139,15 +138,24 @@ const CATEGORIES = [
     key: 'casino',
     emoji: '🎰',
     name: 'Casino',
-    summary: 'Blackjack, poker, roulette, machine à sous, pile ou face, vols, banque, duels',
+    summary: 'Commandes « . » : banque, livret, work, mine, vols, blackjack, poker, roulette…',
     about:
-      'On mise l’argent de sa **poche** (`500`, `2k`, `moitié` ou `tout`), et 🔁 **Rejouer** relance avec la même mise. ' +
-      'La poche peut se faire voler : mets ton argent à la **banque** ou achète un anti-vol. ' +
-      'Classement des poches : `/top poche`.',
+      'Le casino se joue avec des commandes qui commencent par un **point**, écrites dans le chat (ex : `.balance`). ' +
+      '`.help` les liste toutes, `.help <commande>` explique l’une d’elles. On joue avec des **coins** 🪙, une monnaie à part de l’argent ' +
+      'des niveaux (les coins ne servent pas dans `/shop`, et l’argent ne sert pas au casino). On mise les coins de sa **poche** (`500`, `2k`, `all`) ; ' +
+      'la poche peut se faire voler, la **banque** et le **livret A** sont à l’abri. Classements : `/top coins`, `/top poche`, `/top réputation`.',
     lines: [
-      ['/casino', '`blackjack` `poker` (avec images des cartes) · `roulette` · `machine-a-sous` · `pile-ou-face` · `regles` (règles et gains de chaque jeu)'],
-      ['/argent', '`voler` (la poche d’un membre, 45 % de réussite, amende sinon, une fois par heure) · `deposer` `retirer` (banque, à l’abri des vols ; on garde au moins 💰 200 en poche) · `antivol` (12 h de protection, 💰 250) · `solde`'],
-      ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux contre un membre, avec une mise : le gagnant remporte tout'],
+      ['.help', 'La liste des commandes du casino, et `.help <commande>` pour les détails'],
+      ['.balance · .dep · .with · .livret', 'Poche, banque et livret A d’un membre · déposer (on garde 💰 200 en poche) · retirer · livret A (1 % d’intérêts par jour, plafond 25 000, historique)'],
+      ['.shop · .buy', 'Boutique du casino : bâtiments qui rapportent toutes les 2 h (Bar 2 000 → +100 … Mairie 8 000 → +600), anti-rob (3 h, 💰 3 000), wagon (💰 1 500, débloque `.mine` et `.wagon`)'],
+      ['.daily · .work · .slut · .gift · .roue', 'Daily (100, +10 par jour de série jusqu’à 200) · petit boulot (1 h) · soirée à risque (1 h) · trois cartes, une seule cache le gros lot (2 h) · roue de la fortune (une fois par jour : coins, XP, booster… ou rien)'],
+      ['.mine · .wagon', 'Avec un wagon : miner des minerais (1 h), qui vont dans le wagon · voir le wagon et tout revendre'],
+      ['.rob · .antivol', 'Voler la poche d’un membre (45 %, amende sinon, 1 h) · acheter l’anti-rob de la boutique (3 h de protection)'],
+      ['.pay · .trade · .rep', 'Donner des coins · acheter un objet à un membre (il accepte avec un bouton, noté dans les logs) · +1 de réputation à un membre ou une team (1 par jour)'],
+      ['.team', '`creer` (🪙 500) `inviter` `quitter` `expulser` `dissoudre` `info` · `deposer` `retirer` (coffre commun) · `acheter soldats|cadenas` · `attaquer <nom>` (piller le coffre d’une autre team, toutes les 2 h ; chaque cadenas bloque une attaque)'],
+      ['.activity', 'Lance Poker Night, l’activité casino de Discord, dans ton salon vocal'],
+      ['.bj · .poker · .roulette · .slots · .pf', 'Blackjack et poker (avec images des cartes), roulette, machine à sous, pile ou face — bouton 🔁 Rejouer'],
+      ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux contre un membre, avec une mise en coins : le gagnant remporte tout'],
     ],
   },
   {
@@ -247,10 +255,14 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['.team', 'teams : coffre, soldats, cadenas, attaques'],
+  ['.shop', 'bâtiments, anti-rob et wagon'],
+  ['.help', 'le casino en commandes « . »'],
+  ['.livret', 'livret A avec intérêts chaque jour'],
+  ['.trade', 'acheter un objet à un membre'],
   ['+snipe', 'dernier message supprimé (staff)'],
   ['/backup', 'sauvegarder et restaurer le serveur'],
   ['/salon-stats', 'salons qui affichent les stats du serveur'],
-  ['/casino', 'blackjack, poker, roulette, machine à sous'],
   ['/duel', 'morpion, puissance 4, pierre-feuille-ciseaux'],
   ['/top', 'tous les classements en onglets'],
   ['/quiz', 'quiz de culture générale'],
@@ -258,21 +270,17 @@ const RECENT = [
   ['/statut', 'rôle selon un mot-clé du statut'],
   ['/compteur', 'salon de comptage, sans fin'],
   ['/quetes', 'quêtes de la semaine (argent, niveaux)'],
-  ['/configeconomie', 'drops d’argent et membres de la semaine'],
-  ['/casier', 'sanctions d’un membre ou du serveur'],
-  ['/argent', 'daily, dons et classement des plus riches'],
-  ['/profilbot', 'profil du bot sur ce serveur'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
+  ['/money', 'option `monnaie` : argent des niveaux ou coins du casino'],
   ['/quiz', '`question-du-jour` : une question chaque jour, rôle mentionné et fil pour les réponses'],
   ['/compteur', 'panneau à boutons ; une erreur ne remet plus à 1 (message refusé puis effacé)'],
-  ['/argent', '`deposer` : on garde au moins 💰 200 en poche ; `travail` retiré'],
   ['/shop', 'achats notés dans #logs-boutique (créé automatiquement) ; promo du jour à -10 %'],
   ['/xp', '`ajouter` et `retirer` donnent ou retirent directement des niveaux'],
-  ['/top', 'onglet Poche ; Argent = poche + banque'],
   ['/configboost', 'attend 10 s (plusieurs boosts = un message), les re-boosts aussi, variable `[boosts]`'],
   ['/configstat', 'un nouveau classement chaque semaine, l’ancien est supprimé'],
   ['/guessflag', '❌ sur les mauvaises réponses, supprimées après 2 s, salon #logs-drapeau'],

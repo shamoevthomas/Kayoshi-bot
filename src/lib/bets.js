@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { getMoney, addMoney, getBank, getCasinoHolds, setCasinoHold } from './store.js';
+import { getCoins, addCoins, getBank, getCasinoHolds, setCasinoHold } from './store.js';
 import { parseAmount } from './economy.js';
 import { formatMoney } from './shop.js';
 
@@ -10,16 +10,16 @@ export const MIN_BET = 10;
 // Lit la mise écrite par le membre (« 500 », « 2k », « moitié », « tout »…) et vérifie sa poche.
 // Renvoie { bet } ou { error }. À utiliser juste avant holdBet, sans await entre les deux.
 export function checkBet(guildId, userId, raw) {
-  const pocket = getMoney(guildId, userId);
+  const pocket = getCoins(guildId, userId);
   const bet = parseAmount(raw, pocket);
   if (bet === null) return { error: '❌ Mise invalide : écris un nombre (ex : `500`, `2k`), `moitié` ou `tout`.' };
   if (bet > pocket || pocket < MIN_BET) {
     const bank = getBank(guildId, userId);
     return {
-      error: `❌ Tu n’as que 💰 **${formatMoney(pocket)}** en poche.${bank ? ` Tu as 💰 **${formatMoney(bank)}** à la banque : \`/argent retirer\`.` : ''}`,
+      error: `❌ Tu n’as que 🪙 **${formatMoney(pocket)}** en poche.${bank ? ` Tu as 🪙 **${formatMoney(bank)}** à la banque : \`.with\`.` : ''}`,
     };
   }
-  if (bet < MIN_BET) return { error: `❌ La mise minimum est de 💰 **${MIN_BET}**.` };
+  if (bet < MIN_BET) return { error: `❌ La mise minimum est de 🪙 **${MIN_BET}**.` };
   return { bet };
 }
 
@@ -30,7 +30,7 @@ export async function readBet(interaction, raw) {
 }
 
 export function holdBet(guildId, key, userId, amount) {
-  addMoney(guildId, userId, -amount);
+  addCoins(guildId, userId, -amount);
   setCasinoHold(guildId, key, { userId, amount, at: Date.now() });
 }
 
@@ -38,7 +38,7 @@ export function holdBet(guildId, key, userId, amount) {
 export function raiseHold(guildId, key, extra) {
   const hold = getCasinoHolds(guildId)[key];
   if (!hold) return;
-  addMoney(guildId, hold.userId, -extra);
+  addCoins(guildId, hold.userId, -extra);
   setCasinoHold(guildId, key, { ...hold, amount: hold.amount + extra });
 }
 
@@ -48,8 +48,8 @@ export function settleHold(guildId, key, payout, to = null) {
   const hold = getCasinoHolds(guildId)[key];
   setCasinoHold(guildId, key, null);
   const userId = to ?? hold?.userId;
-  if (payout > 0 && userId) addMoney(guildId, userId, payout);
-  return hold ? getMoney(guildId, hold.userId) : 0;
+  if (payout > 0 && userId) addCoins(guildId, userId, payout);
+  return hold ? getCoins(guildId, hold.userId) : 0;
 }
 
 // Au démarrage : les parties en mémoire sont perdues, on rend les mises qui étaient en jeu.
@@ -57,7 +57,7 @@ export function refundHolds(client) {
   for (const guildId of client.guilds.cache.keys()) {
     const holds = getCasinoHolds(guildId);
     for (const [key, hold] of Object.entries(holds)) {
-      addMoney(guildId, hold.userId, hold.amount);
+      addCoins(guildId, hold.userId, hold.amount);
       setCasinoHold(guildId, key, null);
     }
     const n = Object.keys(holds).length;

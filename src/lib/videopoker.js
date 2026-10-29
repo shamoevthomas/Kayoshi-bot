@@ -3,7 +3,7 @@ import { newDeck, cardText, renderPoker } from './cards.js';
 import { holdBet, settleHold, againRow, newGameId } from './bets.js';
 import { formatMoney } from './shop.js';
 
-// Poker (/casino poker), en vidéo-poker : 5 cartes, on choisit celles à garder, les autres sont remplacées
+// Poker (.poker), en vidéo-poker : 5 cartes, on choisit celles à garder, les autres sont remplacées
 // une fois, puis la main finale paie selon HANDS (mise ×1 = rendue). Boutons cas_vp:<partie>:<h:i|draw> ;
 // sans action pendant 60 s, les cartes sont tirées avec celles déjà gardées.
 const TURN_MS = 60_000;
@@ -89,7 +89,7 @@ function draw(game) {
 
 async function view(game) {
   const current = evaluate(game.cards);
-  const lines = [`💰 **Mise : ${formatMoney(game.bet)}**`, '', `🃏 ${game.cards.map((c) => `\`${cardText(c)}\``).join(' ')}`];
+  const lines = [`🪙 **Mise : ${formatMoney(game.bet)}**`, '', `🃏 ${game.cards.map((c) => `\`${cardText(c)}\``).join(' ')}`];
   let color = 0x2b2d31;
   if (!game.done) {
     lines.push(`Main actuelle : **${current?.name ?? 'rien'}**`, '', 'Clique sur les cartes à **garder**, puis sur **Tirer** : les autres sont remplacées.');
@@ -99,8 +99,8 @@ async function view(game) {
     lines.push(
       '',
       game.result
-        ? `${delta > 0 ? '✅' : '🤝'} **${game.result.name}** (×${game.result.pays})${delta > 0 ? ` 💰 **+${formatMoney(delta)}**` : ' : ta mise est rendue.'}`
-        : `❌ **Rien…** 💰 **-${formatMoney(game.bet)}**`,
+        ? `${delta > 0 ? '✅' : '🤝'} **${game.result.name}** (×${game.result.pays})${delta > 0 ? ` 🪙 **+${formatMoney(delta)}**` : ' : ta mise est rendue.'}`
+        : `❌ **Rien…** 🪙 **-${formatMoney(game.bet)}**`,
     );
     if (game.timedOut) lines.push('-# Temps écoulé : les cartes ont été tirées avec celles déjà gardées.');
   }
@@ -136,7 +136,7 @@ export async function handlePokerButton(interaction, id, action, index) {
   const game = games.get(id);
   if (!game) return interaction.reply({ content: '⌛ Cette partie est terminée.', ephemeral: true });
   if (interaction.user.id !== game.userId) {
-    return interaction.reply({ content: '❌ Ce n’est pas ta partie : lance la tienne avec `/casino poker`.', ephemeral: true });
+    return interaction.reply({ content: '❌ Ce n’est pas ta partie : lance la tienne avec `.poker <mise>`.', ephemeral: true });
   }
   if (game.busy) return interaction.deferUpdate().catch(() => {});
   game.busy = true;

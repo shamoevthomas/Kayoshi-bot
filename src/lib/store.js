@@ -40,6 +40,7 @@ export async function initStore() {
   }
   migrateGreetEmbeds();
   mergeSharedFamilies();
+  migrateSplitCoins();
   console.log(`🗄️  Store chargé depuis Supabase (${Object.keys(cache).length} serveur(s)).`);
 }
 
@@ -430,7 +431,7 @@ export function setRoleBoosts(guildId, roleBoosts) {
   setGuildConfig(guildId, { roleBoosts });
 }
 
-// --- Roue de la fortune (/argent roue) : wheel = { userId: instant du dernier tour } ---
+// --- Roue de la fortune (.roue) : wheel = { userId: instant du dernier tour } ---
 export function getWheelSpin(guildId, userId) {
   return getGuildConfig(guildId).wheel?.[userId] ?? null;
 }
@@ -887,6 +888,23 @@ export function setGreetEmbed(guildId, type, cfg) {
 
 // Ancien format : l'embed était stocké dans greetConfig[type].embed (et
 // remplaçait le message texte). On le déplace vers greetEmbed[type].
+// Une fois par serveur, à la séparation argent / coins : ce qui était à la banque (et les mises en cours
+// d'une partie) revient dans l'argent des niveaux ; tout le monde commence le casino à 0 coin.
+// (Exportée pour les tests ; appelée par initStore.)
+export function migrateSplitCoins() {
+  for (const [guildId, g] of Object.entries(cache)) {
+    if (g.coinsSplit) continue;
+    g.money = g.money ?? {};
+    for (const [userId, n] of Object.entries(g.bank ?? {})) g.money[userId] = (g.money[userId] ?? 0) + n;
+    for (const hold of Object.values(g.casinoHolds ?? {})) g.money[hold.userId] = (g.money[hold.userId] ?? 0) + hold.amount;
+    g.bank = {};
+    g.casinoHolds = {};
+    g.coinsSplit = true;
+    dirty.add(guildId);
+  }
+  if (dirty.size) scheduleFlush();
+}
+
 function migrateGreetEmbeds() {
   for (const [guildId, g] of Object.entries(cache)) {
     for (const [type, c] of Object.entries(g.greetConfig ?? {})) {
@@ -1265,7 +1283,7 @@ export function getMoneyLeaderboard(guildId) {
     .sort((a, b) => b.money - a.money);
 }
 
-// Récompense quotidienne (/argent daily) : data[guildId].daily = { userId: { last, streak } }.
+// Récompense quotidienne (.daily) : data[guildId].daily = { userId: { last, streak } }.
 export function getDaily(guildId, userId) {
   return getGuildConfig(guildId).daily?.[userId] ?? null;
 }
@@ -1296,8 +1314,30 @@ function setEntry(guildId, field, key, value) {
   return value;
 }
 
-// Banque (/argent deposer, retirer) : data[guildId].bank = { userId: montant }.
-// L'argent « money » est celui en poche (volable, misé au casino, dépensé en boutique), la banque est à l'abri.
+// Deux monnaies séparées : « money » (💰 argent des niveaux et de l'activité, dépensé dans /shop) et
+// « coins » (🪙 casino : commandes « . », /duel). La banque et le livret sont en coins.
+// Coins en poche (volables, misés) : data[guildId].coins = { userId: montant }.
+export function getCoins(guildId, userId) {
+  return getGuildConfig(guildId).coins?.[userId] ?? 0;
+}
+
+export function addCoins(guildId, userId, delta) {
+  return setEntry(guildId, 'coins', userId, Math.max(0, Math.round(getCoins(guildId, userId) + delta)));
+}
+
+export function setCoins(guildId, userId, amount) {
+  return setEntry(guildId, 'coins', userId, Math.max(0, Math.round(amount)));
+}
+
+// Classement des coins en poche (/top poche).
+export function getCoinsLeaderboard(guildId) {
+  return Object.entries(getGuildConfig(guildId).coins ?? {})
+    .map(([userId, coins]) => ({ userId, coins }))
+    .filter((r) => r.coins > 0)
+    .sort((a, b) => b.coins - a.coins);
+}
+
+// Banque (.dep, .with), en coins : data[guildId].bank = { userId: montant }. À l'abri des vols.
 export function getBank(guildId, userId) {
   return getGuildConfig(guildId).bank?.[userId] ?? 0;
 }
@@ -1306,26 +1346,89 @@ export function addBank(guildId, userId, delta) {
   return setEntry(guildId, 'bank', userId, Math.max(0, Math.round(getBank(guildId, userId) + delta)));
 }
 
-// Classement de la fortune (/top argent) : poche + banque, du plus riche au moins riche.
+// Fortune du casino (/top coins) : coins en poche + banque + livret (bank = banque + livret).
 export function getFortuneLeaderboard(guildId) {
   const g = getGuildConfig(guildId);
   const total = {};
-  for (const [userId, n] of Object.entries(g.money ?? {})) total[userId] = (total[userId] ?? 0) + n;
+  for (const [userId, n] of Object.entries(g.coins ?? {})) total[userId] = (total[userId] ?? 0) + n;
   for (const [userId, n] of Object.entries(g.bank ?? {})) total[userId] = (total[userId] ?? 0) + n;
+  for (const [userId, l] of Object.entries(g.livret ?? {})) total[userId] = (total[userId] ?? 0) + (l.amount ?? 0);
   return Object.entries(total)
-    .map(([userId, money]) => ({ userId, money, bank: g.bank?.[userId] ?? 0 }))
+    .map(([userId, money]) => ({ userId, money, bank: (g.bank?.[userId] ?? 0) + (g.livret?.[userId]?.amount ?? 0) }))
     .filter((r) => r.money > 0)
     .sort((a, b) => b.money - a.money);
 }
 
-// Vols et anti-vol (/argent voler, antivol) :
-// data[guildId].heist = { userId: { rob, robbed, shield } } (dates en ms ; shield = fin de l'anti-vol).
+// Cooldowns des commandes « . » et anti-vol (lib/economy.js) :
+// data[guildId].heist = { userId: { rob, robbed, shield, work, slut, mine, gift, rep } } (dates en ms ; shield = fin de l'anti-vol).
 export function getHeist(guildId, userId) {
   return getGuildConfig(guildId).heist?.[userId] ?? {};
 }
 
 export function patchHeist(guildId, userId, patch) {
   return setEntry(guildId, 'heist', userId, { ...getHeist(guildId, userId), ...patch });
+}
+
+// Livret A (.livret) : data[guildId].livret = { userId: { amount, history: [{ at, amount }] } } ;
+// livretDay = dernier jour (Paris) où les intérêts ont été versés. À l'abri des vols.
+export function getLivret(guildId, userId) {
+  return getGuildConfig(guildId).livret?.[userId] ?? { amount: 0, history: [] };
+}
+
+export function setLivret(guildId, userId, livret) {
+  return setEntry(guildId, 'livret', userId, livret);
+}
+
+export function getAllLivrets(guildId) {
+  return getGuildConfig(guildId).livret ?? {};
+}
+
+export function getLivretDay(guildId) {
+  return getGuildConfig(guildId).livretDay ?? null;
+}
+
+export function setLivretDay(guildId, day) {
+  setGuildConfig(guildId, { livretDay: day });
+}
+
+// Boutique du casino (.shop) : data[guildId].casinoInv = { userId: { buildings: [ids], lastPayout, wagon, ores: { id: n } } }.
+const EMPTY_INV = { buildings: [], lastPayout: null, wagon: false, ores: {} };
+export function getCasinoInv(guildId, userId) {
+  return { ...EMPTY_INV, ...(getGuildConfig(guildId).casinoInv?.[userId] ?? {}) };
+}
+
+export function patchCasinoInv(guildId, userId, patch) {
+  return setEntry(guildId, 'casinoInv', userId, { ...getCasinoInv(guildId, userId), ...patch });
+}
+
+export function getAllCasinoInv(guildId) {
+  return getGuildConfig(guildId).casinoInv ?? {};
+}
+
+// Réputation (.rep) : data[guildId].rep = { userId: points }.
+export function getRep(guildId, userId) {
+  return getGuildConfig(guildId).rep?.[userId] ?? 0;
+}
+
+export function addRep(guildId, userId, delta = 1) {
+  return setEntry(guildId, 'rep', userId, getRep(guildId, userId) + delta);
+}
+
+export function getRepLeaderboard(guildId) {
+  return Object.entries(getGuildConfig(guildId).rep ?? {})
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([userId, rep]) => ({ userId, rep }));
+}
+
+// Teams (.team) : data[guildId].teams = { teamId: { name, ownerId, members: [ids], vault, soldiers, locks,
+// wins, losses, rep, lastAttack, lastAttacked, createdAt } } (coffre en coins).
+export function getTeams(guildId) {
+  return getGuildConfig(guildId).teams ?? {};
+}
+
+export function setTeam(guildId, teamId, team) {
+  return setEntry(guildId, 'teams', teamId, team);
 }
 
 // Mises en jeu pendant une partie (casino, duels) : data[guildId].casinoHolds = { key: { userId, amount, at } }.

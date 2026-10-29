@@ -20,6 +20,8 @@ import { processWeeklyTop } from '../lib/weeklytop.js';
 import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
 import { quizTick } from '../lib/quiz.js';
 import { qotdTick } from '../lib/qotd.js';
+import { livretTick } from '../lib/livret.js';
+import { buildingsTick } from '../lib/casinoshop.js';
 import { refundHolds } from '../lib/bets.js';
 import { ensureShopLogChannel } from '../lib/shop.js';
 import { refreshAllStatChannels, REFRESH_MS } from '../lib/statchannels.js';
@@ -73,12 +75,18 @@ export default {
     // Membres de la semaine : récompensés le lundi (vérifié toutes les heures).
     setTimeout(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 90_000);
     setInterval(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 3_600_000);
-    // Chaque minute : XP en vocal, fin des événements XP (/xp evenement), questions du quiz, question du jour.
+    // Chaque minute : XP en vocal, fin des événements XP (/xp evenement), questions du quiz, question du jour, intérêts du livret A, revenus des bâtiments (.shop).
     setInterval(() => {
       grantVoiceXp(client).catch((err) => console.error('[xp vocal]', err));
       endXpEvents(client).catch((err) => console.error('[xp evenement]', err));
       quizTick(client).catch((err) => console.error('[quiz]', err));
       qotdTick(client).catch((err) => console.error('[question du jour]', err));
+      try {
+        livretTick(client);
+        buildingsTick(client);
+      } catch (err) {
+        console.error('[livret]', err);
+      }
     }, 60_000);
     // Reprogramme les kicks des membres non vérifiés.
     reconcileVerification(client);

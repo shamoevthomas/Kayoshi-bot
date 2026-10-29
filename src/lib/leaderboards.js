@@ -1,7 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getLevelLeaderboard, getMoneyLeaderboard, getFortuneLeaderboard, getInviteLeaderboard, getQuizScores } from './store.js';
+import { getLevelLeaderboard, getMoneyLeaderboard, getFortuneLeaderboard, getCoinsLeaderboard, getInviteLeaderboard, getQuizScores, getRepLeaderboard } from './store.js';
 import { levelFromXp } from './levels.js';
 import { serverStats } from './stats.js';
+import { teamLeaderboard } from './teams.js';
 import { formatMoney } from './shop.js';
 
 // /top : tous les classements dans un seul message, un onglet (bouton) par classement.
@@ -15,7 +16,8 @@ const voiceText = (seconds) => {
   return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
 };
 
-// Chaque onglet : titre, couleur, et la liste complète triée [{ userId, text }].
+// Chaque onglet : titre, couleur, et la liste complète triée [{ userId, text }]
+// (ou [{ name, members, text }] pour les teams : la place affichée est celle de la team de qui regarde).
 export const TABS = {
   niveaux: {
     label: 'Niveaux',
@@ -27,16 +29,37 @@ export const TABS = {
     label: 'Argent',
     emoji: '💰',
     color: 0x2ecc71,
-    note: 'poche + banque',
+    note: 'niveaux et activité',
+    rows: (g) => getMoneyLeaderboard(g).map((r) => ({ userId: r.userId, text: `💰 **${formatMoney(r.money)}**` })),
+  },
+  coins: {
+    label: 'Coins',
+    emoji: '🪙',
+    color: 0xf1c40f,
+    note: 'casino : poche + banque + livret',
     rows: (g) =>
-      getFortuneLeaderboard(g).map((r) => ({ userId: r.userId, text: `💰 **${formatMoney(r.money)}**${r.bank ? ` _(dont ${formatMoney(r.bank)} en banque)_` : ''}` })),
+      getFortuneLeaderboard(g).map((r) => ({ userId: r.userId, text: `🪙 **${formatMoney(r.money)}**${r.bank ? ` _(dont ${formatMoney(r.bank)} à l’abri)_` : ''}` })),
   },
   poche: {
     label: 'Poche',
     emoji: '👛',
+    color: 0xe67e22,
+    note: 'coins qu’on peut voler',
+    rows: (g) => getCoinsLeaderboard(g).map((r) => ({ userId: r.userId, text: `👛 **${formatMoney(r.coins)}**` })),
+  },
+  teams: {
+    label: 'Teams',
+    emoji: '👥',
+    color: 0x9b59b6,
+    note: 'par coffre',
+    rows: (g) => teamLeaderboard(g),
+  },
+  reputation: {
+    label: 'Réputation',
+    emoji: '⭐',
     color: 0xf1c40f,
-    note: 'argent qu’on peut voler',
-    rows: (g) => getMoneyLeaderboard(g).map((r) => ({ userId: r.userId, text: `👛 **${formatMoney(r.money)}**` })),
+    note: '.rep',
+    rows: (g) => getRepLeaderboard(g).map((r) => ({ userId: r.userId, text: `⭐ **${r.rep}**` })),
   },
   messages: {
     label: 'Messages',
@@ -81,15 +104,15 @@ function tabButtons(selected) {
       .setLabel(TABS[key].label)
       .setEmoji(TABS[key].emoji)
       .setStyle(key === selected ? ButtonStyle.Primary : ButtonStyle.Secondary);
-  return [new ActionRowBuilder().addComponents(keys.slice(0, 4).map(button)), new ActionRowBuilder().addComponents(keys.slice(4).map(button))];
+  return [new ActionRowBuilder().addComponents(keys.slice(0, 5).map(button)), new ActionRowBuilder().addComponents(keys.slice(5).map(button))];
 }
 
 export function topMessage(guild, tab, viewerId) {
   const key = TABS[tab] ? tab : 'niveaux';
   const t = TABS[key];
   const rows = t.rows(guild.id);
-  const lines = rows.slice(0, SHOWN).map((r, i) => `${MEDALS[i] ?? `**${i + 1}.**`} <@${r.userId}> — ${r.text}`);
-  const place = rows.findIndex((r) => r.userId === viewerId);
+  const lines = rows.slice(0, SHOWN).map((r, i) => `${MEDALS[i] ?? `**${i + 1}.**`} ${r.userId ? `<@${r.userId}>` : `**${r.name}**`} — ${r.text}`);
+  const place = rows.findIndex((r) => r.userId === viewerId || r.members?.includes(viewerId));
   const embed = new EmbedBuilder()
     .setColor(t.color)
     .setTitle(`${t.emoji} Classement — ${t.label}${t.note ? ` (${t.note})` : ''}`)

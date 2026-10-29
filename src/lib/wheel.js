@@ -1,8 +1,8 @@
-import { getWheelSpin, setWheelSpin, addMoney, getXpBoost, setXpBoost } from './store.js';
+import { getWheelSpin, setWheelSpin, addCoins, getXpBoost, setXpBoost } from './store.js';
 import { grantXp } from './levels.js';
 import { formatMoney } from './shop.js';
 
-// Roue de la fortune (/argent roue) : un tour toutes les 24 h. Lots tirés au hasard selon leur poids
+// Roue de la fortune (.roue) : un tour toutes les 24 h. Lots tirés au hasard selon leur poids
 // (sur 100) ; ce sont des lots fixes, sans boost de rôle. La roue « tourne » en deux étapes avant le résultat.
 const DAY = 86_400_000;
 const PRIZES = [
@@ -16,7 +16,7 @@ const PRIZES = [
   { weight: 6, boost: { multiplier: 2, ms: 30 * 60_000 } },
   { weight: 12, nothing: true },
 ];
-const FACES = ['💰', '📈', '🚀', '💨', '💎'];
+const FACES = ['🪙', '📈', '🚀', '💨', '💎'];
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function draw() {
@@ -48,8 +48,8 @@ export async function spinWheel(interaction) {
 
   let result;
   if (prize.money) {
-    addMoney(guild.id, user.id, prize.money);
-    result = `et gagne 💰 **${formatMoney(prize.money)}** !`;
+    addCoins(guild.id, user.id, prize.money);
+    result = `et gagne 🪙 **${formatMoney(prize.money)}** !`;
   } else if (prize.xp) {
     result = `et gagne 📈 **${prize.xp} XP** !`;
   } else if (prize.boost) {
