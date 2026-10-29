@@ -240,7 +240,7 @@ const CATEGORIES = [
     about: 'Statistiques d’activité, fiches d’infos et outils pratiques.',
     lines: [
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre, `s?t` le top, `s?m` les messages, `s?v` le vocal'],
-      ['+vc', 'Personnes en vocal, mute, en sourdine, en partage d’écran et avec la caméra'],
+      ['+vc', 'Statistiques du serveur : membres, en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute'],
       ['/serverinfo', 'Statistiques du serveur'],
       ['/userinfo', 'Fiche d’un membre'],
       ['/pseudo', 'Envoyer le pseudo d’un membre'],
@@ -275,6 +275,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['+vc', 'nouvel embed : membres, en ligne, en vocal, actifs, en stream, mute'],
   ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
   ['/money', '`tous` : donner à tous les membres ; option `monnaie` : argent ou coins'],
   ['/quiz', 'questions de jeux vidéo et d’animés, 30 min pour répondre ; `question-du-jour` avec fil pour les réponses'],
@@ -284,7 +285,6 @@ const RECENT_CHANGES = [
   ['/configboost', 'attend 10 s (plusieurs boosts = un message), les re-boosts aussi, variable `[boosts]`'],
   ['/configstat', 'un nouveau classement chaque semaine, l’ancien est supprimé'],
   ['/guessflag', '❌ sur les mauvaises réponses, supprimées après 2 s, salon #logs-drapeau'],
-  ['/lock', 'verrouille pour le rôle Membre au lieu de @everyone (pareil pour /unlock)'],
 ];
 
 const HOME = 'home';

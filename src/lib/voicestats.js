@@ -1,28 +1,35 @@
 import { EmbedBuilder } from 'discord.js';
 import { Colors } from './logger.js';
 
-// « +vc » : nombre de personnes en vocal, mute, en sourdine, en partage d'écran et
-// avec la caméra (bots exclus). Renvoie true si le message était la commande.
+// « +vc » : statistiques du serveur (bots exclus) — membres, en ligne, en vocal, actifs (en vocal, ni mute
+// ni en sourdine), en stream et mute (micro coupé ou en sourdine). Renvoie true si le message était la commande.
 export async function handleVoiceStatsCommand(message) {
   if (!message.guild || message.author.bot) return false;
   if (message.content.trim().toLowerCase() !== '+vc') return false;
+  const { guild } = message;
 
-  const states = message.guild.voiceStates.cache.filter((s) => s.channelId && !s.member?.user.bot);
+  // Tous les membres en cache, pour compter les membres et les présences sans les bots.
+  if (guild.members.cache.size < guild.memberCount) await guild.members.fetch().catch(() => {});
+  const isBot = (id) => guild.members.cache.get(id)?.user.bot;
+  const members = guild.members.cache.filter((m) => !m.user.bot).size;
+  const online = guild.presences.cache.filter((p) => p.status !== 'offline' && !isBot(p.userId)).size;
+  const states = guild.voiceStates.cache.filter((s) => s.channelId && !isBot(s.id));
   const count = (test) => states.filter(test).size;
-  const total = states.size;
 
   const embed = new EmbedBuilder()
     .setColor(Colors.role)
-    .setAuthor({ name: `🔊 Vocal — ${message.guild.name}`, iconURL: message.guild.iconURL() ?? undefined })
+    .setTitle(`Statistiques de ${guild.name}`)
+    .setThumbnail(guild.iconURL({ size: 256 }) ?? null)
     .setDescription(
-      `**${total}** personne${total > 1 ? 's' : ''} en vocal\n\n` +
-        // Se mettre en sourdine coupe aussi le micro : les personnes en sourdine ne sont comptées qu'une fois.
-        `🎙️ Mute : **${count((s) => s.mute && !s.deaf)}**\n` +
-        `🎧 En sourdine : **${count((s) => s.deaf)}**\n` +
-        `🖥️ Partage d’écran : **${count((s) => s.streaming)}**\n` +
-        `📷 Caméra : **${count((s) => s.selfVideo)}**`,
-    )
-    .setTimestamp();
+      [
+        `Membres : **${members}**`,
+        `En Ligne : **${online}**`,
+        `En Vocal : **${states.size}**`,
+        `Actif : **${count((s) => !s.mute && !s.deaf)}**`,
+        `En Stream : **${count((s) => s.streaming)}**`,
+        `Mute : **${count((s) => s.mute || s.deaf)}**`,
+      ].join('\n'),
+    );
 
   await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => {});
   return true;
