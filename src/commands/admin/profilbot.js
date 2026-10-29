@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits, RateLimitError } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, RateLimitError, EmbedBuilder } from 'discord.js';
 
 // Profil du bot propre à ce serveur (photo, bannière, bio) : rien ne change sur les autres
 // serveurs ni sur le profil global de Kayøshi.
@@ -10,6 +10,31 @@ async function toDataUri(attachment) {
   const res = await fetch(attachment.url, { signal: AbortSignal.timeout(15_000) }).catch(() => null);
   if (!res?.ok) return null;
   return `data:${attachment.contentType};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
+}
+
+// Chaque changement est noté dans le salon des logs du profil (#logs-profil d'Hanami) : qui, quoi, et
+// la nouvelle photo / bannière. Seulement sur le serveur de ce salon.
+const PROFILE_LOG_CHANNEL = '1565377976479252480';
+
+async function logProfileChange(interaction, me, sub, changes, bio) {
+  const channel = interaction.guild.channels.cache.get(PROFILE_LOG_CHANNEL);
+  if (!channel?.isTextBased()) return;
+  const lines = Object.keys(changes).map((key) => {
+    if (sub === 'reinitialiser') return `• ${LABELS[key]} : remise comme sur le profil global`;
+    if (key === 'bio') return `• bio : ${bio ? `« ${bio} »` : '_vide_'}`;
+    return `• nouvelle ${LABELS[key]}`;
+  });
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setAuthor({ name: '🤖 Profil du bot modifié', iconURL: interaction.user.displayAvatarURL() })
+    .setDescription(`${interaction.user} a changé le profil du bot sur ce serveur :\n${lines.join('\n')}`)
+    .addFields({ name: 'Par', value: `${interaction.user} (\`${interaction.user.tag}\`)`, inline: true })
+    .setTimestamp();
+  const avatar = changes.avatar && me?.avatarURL({ size: 256 });
+  const banner = changes.banner && me?.bannerURL({ size: 1024 });
+  if (avatar) embed.setThumbnail(avatar);
+  if (banner) embed.setImage(banner);
+  await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
 }
 
 export default {
@@ -80,8 +105,10 @@ export default {
       if (!changes[key]) return interaction.editReply('❌ Impossible de récupérer l’image, réessaie.');
     }
 
+    const bio = changes.bio;
+    let me;
     try {
-      await interaction.guild.members.editMe({ ...changes, reason: `/profilbot par ${interaction.user.tag}` });
+      me = await interaction.guild.members.editMe({ ...changes, reason: `/profilbot par ${interaction.user.tag}` });
     } catch (err) {
       // Longue attente imposée par Discord (voir rejectOnRateLimit dans index.js).
       if (err instanceof RateLimitError) {
@@ -93,6 +120,7 @@ export default {
     }
 
     const what = Object.keys(changes).map((key) => LABELS[key]).join(', ');
+    await logProfileChange(interaction, me, sub, changes, bio).catch((err) => console.error('[profilbot]', err));
     return interaction.editReply(
       sub === 'reinitialiser'
         ? `✅ Remis comme sur le profil global, sur ce serveur : ${what}.`
