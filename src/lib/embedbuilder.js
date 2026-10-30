@@ -36,6 +36,7 @@ import {
   rememberTicketPanel,
   createCategories,
 } from './tickets.js';
+import { withHostedImages } from './rehost.js';
 
 // Créateur d'embed (/embed, et /modifierembed pour un embed existant) : aperçu éphémère + boutons d'édition.
 // Sans état : l'embed en cours est relu à chaque clic depuis le message d'aperçu,
@@ -842,7 +843,7 @@ async function saveTarget(interaction, embed, { target, rr, motifs }) {
     // Les autres embeds et, pour "e", les composants du message ne sont pas touchés.
     const edit = { embeds: [rendered, ...message.embeds.slice(1)] };
     if (type === 'm') edit.components = roleReactRows(rr, 'live');
-    await message.edit(edit).catch((err) => {
+    await message.edit(await withHostedImages(edit, message)).catch((err) => {
       throw new Error(`Discord a refusé la modification : ${err.message}`);
     });
     if (type === 'm') trackSentEmbed(message, embed);
@@ -944,7 +945,7 @@ async function resendTarget(interaction, embed, { target, rr, motifs }) {
     const channel = await writableChannel(interaction, a);
     const rendered = await renderEmbedFor(guild, interaction.user, embed);
     if (rendered.timestamp) rendered.timestamp = new Date().toISOString();
-    const sent = await channel.send({ embeds: [rendered], components: roleReactRows(rr, 'live') }).catch((err) => {
+    const sent = await channel.send(await withHostedImages({ embeds: [rendered], components: roleReactRows(rr, 'live') })).catch((err) => {
       throw new Error(`Impossible d’envoyer l’embed dans ${channel} : ${err.message}`);
     });
     trackSentEmbed(sent, embed);
@@ -958,7 +959,7 @@ async function resendTarget(interaction, embed, { target, rr, motifs }) {
   const slot = Number(a);
   const { config, summary } = await applyTicketPanel(guild, slot, embed, motifs);
   const channel = await writableChannel(interaction, config.panelChannelId);
-  const sent = await channel.send(buildTicketPanel(config, slot)).catch((err) => {
+  const sent = await channel.send(await withHostedImages(buildTicketPanel(config, slot))).catch((err) => {
     throw new Error(`Impossible d’envoyer le panneau dans ${channel} : ${err.message}`);
   });
   rememberTicketPanel(guild, config, slot, sent);
@@ -1283,7 +1284,7 @@ export async function handleEmbedBuilderInteraction(interaction) {
   // --- Envoyer l'embed dans le salon ---
   if (interaction.isButton() && action === 'emb_send') {
     const embed = currentEmbed(interaction);
-    const sent = await interaction.channel.send(await outgoing(interaction, embed, role, rr, state.shop)).catch(() => null);
+    const sent = await interaction.channel.send(await withHostedImages(await outgoing(interaction, embed, role, rr, state.shop))).catch(() => null);
     if (sent) trackSentEmbed(sent, embed);
     if (!sent) return errorReply(interaction, 'Impossible d’envoyer l’embed ici (permissions ?).');
     return interaction.update(builderPayload(embed, '✅ Embed envoyé dans ce salon.', state));
@@ -1317,7 +1318,7 @@ export async function handleEmbedBuilderInteraction(interaction) {
     if (!channel?.permissionsFor(interaction.member)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
       return errorReply(interaction, 'Tu ne peux pas écrire dans ce salon.');
     }
-    const sent = await channel.send(await outgoing(interaction, embed, role, rr, state.shop)).catch(() => null);
+    const sent = await channel.send(await withHostedImages(await outgoing(interaction, embed, role, rr, state.shop))).catch(() => null);
     if (sent) trackSentEmbed(sent, embed);
     if (!sent) return errorReply(interaction, `Impossible d’envoyer l’embed dans ${channel} (permissions ?).`);
     return interaction.update(builderPayload(embed, `✅ Embed envoyé dans ${channel}.`, state));

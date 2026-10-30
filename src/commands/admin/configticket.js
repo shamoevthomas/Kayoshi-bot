@@ -13,6 +13,7 @@ import {
   TextInputStyle,
 } from 'discord.js';
 import { parseMotifs, createCategories, buildTicketPanel } from '../../lib/tickets.js';
+import { withHostedImages } from '../../lib/rehost.js';
 import { setTicketConfig } from '../../lib/store.js';
 
 const P = PermissionFlagsBits;
@@ -270,7 +271,7 @@ export async function runTicketWizard(interaction, slot = 1) {
     await createCategories(guild, config);
     setTicketConfig(guild.id, config, key);
     const panelChannel = guild.channels.cache.get(config.panelChannelId) ?? (await guild.channels.fetch(config.panelChannelId));
-    const panelMsg = await panelChannel.send(buildTicketPanel(config, slot));
+    const panelMsg = await panelChannel.send(await withHostedImages(buildTicketPanel(config, slot)));
     // On mémorise le message du panneau pour pouvoir le ré-éditer plus tard.
     config.panelMessageId = panelMsg.id;
     setTicketConfig(guild.id, config, key);

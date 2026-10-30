@@ -44,7 +44,7 @@ const CATEGORIES = [
       'Gestion des rôles à la main (un modérateur ne peut pas donner un rôle au niveau du sien ou au-dessus), ' +
       'annonces de rank / derank, et rôles donnés automatiquement selon le statut, le tag du serveur ou des incompatibilités.',
     lines: [
-      ['/role', '`membre` — ajouter ou retirer un rôle à un membre (bascule) · `create` — créer un rôle (nom, couleur, dégradé ou holographique) · `rename` — renommer un rôle'],
+      ['/role', '`membre` — ajouter ou retirer un rôle à un membre (bascule) · `create` — créer un rôle (nom, couleur, dégradé ou holographique) · `change` — modifier un rôle : nom, couleur (dégradé, holographique) et/ou emplacement (juste au-dessus ou en dessous d’un autre rôle)'],
       ['/roletempo', 'Donner un rôle à un membre pour une durée (ex : `15m`), retiré automatiquement à la fin'],
       ['/massrole', '`donner` `retirer` un rôle à plusieurs membres'],
       ['/rank', 'Donner un ou deux rôles à un membre et l’annoncer en embed (« Rank up par @staff »)'],
@@ -288,6 +288,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/role', '`change` remplace `rename` : nom, couleur et emplacement du rôle'],
   ['/money', '`ajouter` : le message est visible de tous'],
   ['/xp', '`ajouter` : le message est visible de tous'],
   ['/quiz', 'chaque bonne réponse gagne (félicitations en message privé), la réponse est dévoilée à la fin'],
@@ -297,7 +298,6 @@ const RECENT_CHANGES = [
   ['/duel', '`membre` facultatif : sans membre, on joue contre le bot'],
   ['/profilbot', 'changements notés dans #logs-profil, avec qui les a faits'],
   ['/gw', '`start` : option `role_gagne`, rôle donné automatiquement aux gagnants'],
-  ['/role', '`create` (couleur, dégradé) et `rename` ; l’ajout/retrait passe dans `/role membre`'],
 ];
 
 const HOME = 'home';
