@@ -26,7 +26,8 @@ const CATEGORIES = [
       ['/sanction', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
       ['/purge', 'Supprimer des messages dans ce salon (par lots)'],
       ['+snipe', 'Réaffiche le dernier message supprimé du salon, avec ses images, pendant 1 h (staff : permission « Gérer les messages »)'],
-      ['/lock · /unlock', 'Verrouiller / déverrouiller l’écriture dans ce salon pour le rôle Membre'],
+      ['+lock · +unlock', 'Verrouiller (`+lock [raison]`) / déverrouiller l’écriture dans ce salon pour le rôle Membre (staff : permission « Gérer les salons »)'],
+      ['+lockdown · +unlockdown', 'Verrouiller l’écriture dans **tous** les salons d’un coup pour le rôle Membre (raid…), puis tout rouvrir exactement comme avant (staff)'],
       ['+hide · +unhide', 'Masquer / réafficher ce salon (ou `+hide #salon`) pour le rôle Membre (staff : permission « Gérer les salons »)'],
       ['/slowmode', 'Régler le mode lent du salon (0 = off)'],
       ['/nick', 'Changer ou réinitialiser le pseudo d’un membre'],
@@ -168,10 +169,11 @@ const CATEGORIES = [
     key: 'fun',
     emoji: '🎮',
     name: 'Mini-jeux & fun',
-    summary: 'Duels, tu préfères, drapeaux, quiz, comptage, love calc, citations, GIF',
+    summary: 'Duels, pendu, devinettes, tu préfères, drapeaux, quiz, comptage, love calc, citations, GIF',
     about: 'De quoi animer le serveur : duels entre membres, jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
       ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux (2 manches gagnantes) contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
+      ['+pendu · +devine · +emoji', 'Jeux dans le salon, lancés par n’importe qui : pendu (écrire une lettre ou le mot, 6 vies) · nombre mystère entre 1 et 1 000 (⬆️ / ⬇️) · deviner un jeu vidéo ou un animé à partir d’emojis (2 min, indice au bout d’1 min) — le gagnant reçoit 🪙 250 / 150 / 200 coins (5 victoires récompensées par jour)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
       ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : chaque membre qui trouve gagne de l’argent et 🪙 500 coins (félicitations en message privé, réponse dévoilée à la fin, classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
@@ -246,6 +248,7 @@ const CATEGORIES = [
     summary: 'Stats en image, infos membre / serveur, emojis',
     about: 'Statistiques d’activité, fiches d’infos et outils pratiques.',
     lines: [
+      ['+graph', 'Courbe d’activité du serveur en image : messages et heures de vocal jour par jour, total, moyenne et record (`+graph 7`, `14` ou `30` jours, 30 par défaut)'],
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre, `s?t` le top, `s?m` les messages, `s?v` le vocal'],
       ['+vc', 'Statistiques du serveur : membres, en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute'],
       ['/serverinfo', 'Statistiques du serveur'],
@@ -262,6 +265,12 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+graph', 'courbe d’activité du serveur'],
+  ['+lockdown', 'verrouiller tous les salons d’un coup'],
+  ['+pendu', 'jeu du pendu dans le salon'],
+  ['+devine', 'trouver le nombre mystère'],
+  ['+emoji', 'deviner un jeu ou un animé en emojis'],
+  ['+lock', 'verrouiller un salon (remplace /lock)'],
   ['+hide', 'masquer un salon pour le rôle Membre (staff)'],
   ['.bourse', 'actions dont le cours change chaque heure'],
   ['.plinko', 'la bille tombe dans une case'],
@@ -271,17 +280,13 @@ const RECENT = [
   ['.crash', 'encaisse avant le crash'],
   ['.loterie', 'loterie de la semaine'],
   ['.braquage', 'braquage à plusieurs'],
-  ['/antinuke', 'protection contre les nukes'],
-  ['.team', 'teams : coffre, soldats, cadenas, attaques'],
-  ['.shop', 'bâtiments, anti-rob et wagon'],
-  ['.help', 'le casino en commandes « . »'],
-  ['.livret', 'livret A avec intérêts chaque jour'],
-  ['.trade', 'acheter un objet à un membre'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/money', '`ajouter` : le message est visible de tous'],
+  ['/xp', '`ajouter` : le message est visible de tous'],
   ['/quiz', 'chaque bonne réponse gagne (félicitations en message privé), la réponse est dévoilée à la fin'],
   ['/item', 'remplace /add-item, /change-item et /remove-item : `ajouter` `modifier` `retirer`'],
   ['/roleticket', 'remplace /ajouterroleticket et /retirerroleticket : `ajouter` `retirer`'],
@@ -290,8 +295,6 @@ const RECENT_CHANGES = [
   ['/profilbot', 'changements notés dans #logs-profil, avec qui les a faits'],
   ['/gw', '`start` : option `role_gagne`, rôle donné automatiquement aux gagnants'],
   ['/role', '`create` (couleur, dégradé) et `rename` ; l’ajout/retrait passe dans `/role membre`'],
-  ['/modifierembed', 'panneau de tickets : bouton pour réorganiser les motifs'],
-  ['+vc', 'nouvel embed : membres, en ligne, en vocal, actifs, en stream, mute'],
 ];
 
 const HOME = 'home';

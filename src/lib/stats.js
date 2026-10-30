@@ -237,3 +237,9 @@ export function serverStats(guildId, limit = 3) {
     topVoiceChannels: ranking(sumMaps(d14.map((d) => d?.vc))).slice(0, limit),
   };
 }
+
+// Messages et secondes de vocal du serveur, jour par jour, sur les n derniers jours (+graph, 30 au plus).
+export function serverDays(guildId, n = 30) {
+  const days = getStatsData(guildId).days ?? {};
+  return lastDayKeys(Math.min(n, KEEP_DAYS - 1)).map((key) => ({ key, messages: days[key]?.tm ?? 0, voice: days[key]?.tv ?? 0 }));
+}

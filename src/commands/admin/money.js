@@ -67,9 +67,11 @@ export default {
         .setTimestamp(),
     );
 
+    // Un don est visible de tous (le membre est mentionné) ; un retrait reste entre le staff et le bot.
     await interaction.reply({
       content: `✅ ${add ? '+' : '-'}${currency.emoji} **${formatMoney(delta)}** ${add ? 'donné à' : 'retiré à'} ${target}. Nouveau solde : ${currency.emoji} **${formatMoney(after)}**.`,
-      ephemeral: true,
+      ephemeral: !add,
+      allowedMentions: { users: add ? [target.id] : [] },
     });
   },
 };

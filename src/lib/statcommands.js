@@ -1,10 +1,12 @@
 import { AttachmentBuilder } from 'discord.js';
-import { userStats, serverStats } from './stats.js';
+import { userStats, serverStats, serverDays } from './stats.js';
 import { flushVoiceSessions } from './voiceactivity.js';
-import { renderUserCard, renderTopCard, renderActivityCard } from './statcards.js';
+import { renderUserCard, renderTopCard, renderActivityCard, renderGraphCard } from './statcards.js';
 
-// Commandes de stats en message : s?u [membre], s?t, s?m, s?v (image dans le style de Statbot).
+// Commandes de stats en message : s?u [membre], s?t, s?m, s?v (image dans le style de Statbot),
+// et « +graph [7|14|30] » : courbe d'activité du serveur jour par jour (30 jours par défaut).
 const COMMAND = /^s\?([utmv])(?:\s+(.*))?$/i;
+const GRAPH = /^\+graph(?:\s+(\d{1,2}))?$/i;
 const COOLDOWN_MS = 5000;
 const lastUse = new Map(); // `${guildId}:${userId}` → horodatage
 
@@ -41,14 +43,23 @@ async function targetUser(message, arg) {
 // Renvoie true si le message était une commande de stats (gérée ici).
 export async function handleStatCommand(message) {
   if (!message.guild || message.author.bot) return false;
-  const match = message.content.trim().match(COMMAND);
-  if (!match) return false;
+  const graph = message.content.trim().match(GRAPH);
+  const match = graph ? null : message.content.trim().match(COMMAND);
+  if (!graph && !match) return false;
 
   const key = `${message.guild.id}:${message.author.id}`;
   if (Date.now() - (lastUse.get(key) ?? 0) < COOLDOWN_MS) return true;
   lastUse.set(key, Date.now());
 
   const { guild } = message;
+  if (graph) {
+    const n = Math.min(30, Math.max(7, Number(graph[1] ?? 30)));
+    await message.channel.sendTyping().catch(() => {});
+    flushVoiceSessions();
+    const png = await renderGraphCard({ guild, days: serverDays(guild.id, n), botUser: message.client.user });
+    await message.reply({ files: [new AttachmentBuilder(png, { name: 'activite.png' })], allowedMentions: { repliedUser: false } }).catch(() => {});
+    return true;
+  }
   const kind = match[1].toLowerCase();
   await message.channel.sendTyping().catch(() => {});
   // Le temps passé en vocal par les membres encore connectés compte aussi.

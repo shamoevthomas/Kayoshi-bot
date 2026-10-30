@@ -9,6 +9,8 @@ import { handlePartnerMessage } from '../lib/partners.js';
 import { handleVoiceStatsCommand } from '../lib/voicestats.js';
 import { handleSnipeCommand } from '../lib/snipe.js';
 import { handleHideCommand } from '../lib/hidechannel.js';
+import { handleLockCommand, handleLockdownCommand } from '../lib/lockchannel.js';
+import { handleChatGames } from '../lib/chatgames.js';
 import { handlePrefixCommand } from '../lib/prefix.js';
 import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
@@ -61,6 +63,8 @@ export default {
 
     // Commandes du casino « . » (.balance, .dep, .bj…) : traitées ici, sans XP ni argent pour le message.
     if (await handlePrefixCommand(message).catch((err) => (console.error('[casino .]', err), true))) return;
+    // Jeux du chat (+pendu, +devine, +emoji) : lancement et essais, sans XP ni argent pour le message.
+    if (await handleChatGames(message).catch((err) => (console.error('[jeux]', err), false))) return;
 
     // Serveur actif : le quiz ne pose ses questions que dans ce cas.
     noteQuizActivity(message);
@@ -73,6 +77,10 @@ export default {
     await handleSnipeCommand(message).catch((err) => console.error('[snipe]', err));
     // « +hide » / « +unhide » (staff) : masquer ou réafficher un salon pour le rôle Membre.
     await handleHideCommand(message).catch((err) => console.error('[hide]', err));
+    // « +lock [raison] » / « +unlock » (staff) : verrouiller ou déverrouiller l'écriture pour le rôle Membre.
+    await handleLockCommand(message).catch((err) => console.error('[lock]', err));
+    // « +lockdown [raison] » / « +unlockdown » (staff) : tous les salons d'un coup, remis comme avant ensuite.
+    await handleLockdownCommand(message).catch((err) => console.error('[lockdown]', err));
     // Stats d'activité (messages par membre et par salon), puis s?u / s?t / s?m / s?v.
     try {
       recordMessage(message);

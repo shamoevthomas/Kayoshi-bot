@@ -1424,6 +1424,27 @@ export function setStocks(guildId, userId, holdings) {
   return setEntry(guildId, 'stocks', userId, holdings && Object.keys(holdings).length ? holdings : null);
 }
 
+// Lockdown en cours (+lockdown, lib/lockchannel.js) : data[guildId].lockdown = { at, by, reason,
+// channels: { channelId: { send, threads } } } (état d'avant, « allow » / « neutral » / « deny »), ou null.
+export function getLockdown(guildId) {
+  return getGuildConfig(guildId).lockdown ?? null;
+}
+
+export function setLockdown(guildId, lockdown) {
+  setGuildConfig(guildId, { lockdown });
+}
+
+// Victoires récompensées aux jeux du chat (+pendu, +devine, +emoji, lib/chatgames.js), par jour :
+// data[guildId].chatGames = { userId: { day: 'AAAA-MM-JJ', wins } }.
+export function getChatGameWins(guildId, userId, day) {
+  const entry = getGuildConfig(guildId).chatGames?.[userId];
+  return entry?.day === day ? entry.wins : 0;
+}
+
+export function addChatGameWin(guildId, userId, day) {
+  return setEntry(guildId, 'chatGames', userId, { day, wins: getChatGameWins(guildId, userId, day) + 1 });
+}
+
 // Récompense unique du statut (lib/statusreward.js) : data[guildId].statusRewarded = { userId: date }.
 export function getStatusRewarded(guildId, userId) {
   return getGuildConfig(guildId).statusRewarded?.[userId] ?? null;

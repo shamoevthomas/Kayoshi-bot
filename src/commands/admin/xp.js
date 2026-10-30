@@ -166,13 +166,15 @@ export default {
       if (member) await syncLevelRoles(member, newLevel).catch(() => {});
     }
 
-    // Confirmation (éphémère) pour le modérateur.
+    // Confirmation : visible de tous pour un ajout (le membre est mentionné), éphémère sinon.
+    const shown = sub === 'ajouter';
     await interaction.reply({
       content:
         `✅ **${verb}** de **${amount} ${unitLabel}** pour ${target}.\n` +
-        `XP : **${before}** → **${after}** · Niveau : **${oldLevel}** → **${newLevel}**\n` +
-        `Raison : ${reason}`,
-      ephemeral: true,
+        `XP : **${before}** → **${after}** · Niveau : **${oldLevel}** → **${newLevel}**` +
+        (shown && !interaction.options.getString('raison') ? '' : `\nRaison : ${reason}`),
+      ephemeral: !shown,
+      allowedMentions: { users: shown ? [target.id] : [] },
     });
 
     // Log public.

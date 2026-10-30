@@ -110,13 +110,13 @@ function periodRow(ctx, x, y, w, h, tag, value, unit) {
   runs(ctx, [{ t: `${value} `, size: 27, bold: true }, { t: unit, size: 24, italic: true, color: C.muted }], x + 78, y + h / 2);
 }
 
-function footer(ctx, H, botImg, botName) {
+function footer(ctx, H, botImg, botName, days = PERIOD_DAYS) {
   const y = H - 26;
   runs(
     ctx,
     [
       { t: 'Période d’analyse : ', bold: true, size: 21 },
-      { t: `${PERIOD_DAYS} derniers jours`, size: 21, color: C.muted },
+      { t: `${days} derniers jours`, size: 21, color: C.muted },
       { t: ' — ', size: 21, color: C.dim },
       { t: 'Fuseau horaire : ', bold: true, size: 21 },
       { t: TIME_ZONE, size: 21, color: C.muted },
@@ -396,5 +396,117 @@ export async function renderActivityCard({ kind, guild, stats, memberName, chann
   }
 
   footer(ctx, H, botImg, botUser.username);
+  return canvas.encode('png');
+}
+
+// --- +graph : courbe d'activité du serveur, jour par jour ---
+// Barres = messages par jour (échelle de gauche), courbe = heures de vocal (échelle de droite).
+// days : [{ key: 'AAAA-MM-JJ', messages, voice }], du plus ancien à aujourd'hui (journée en cours, plus pâle).
+// Haut de l'échelle : 4 paliers ronds (ex : 600 → 2 400) qui contiennent la plus grande valeur.
+const niceMax = (v) => {
+  if (v <= 0) return 4;
+  const quarter = v / 4;
+  const p = 10 ** Math.floor(Math.log10(quarter));
+  return 4 * [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((k) => k * p).find((n) => n >= quarter);
+};
+const dayLabel = (key) => key.slice(8, 10) + '/' + key.slice(5, 7);
+
+export async function renderGraphCard({ guild, days, botUser }) {
+  const H = 660;
+  const { canvas, ctx } = frame(H);
+  const [guildImg, botImg] = await Promise.all([
+    fetchImage(guild.iconURL({ extension: 'png', size: 128 })),
+    fetchImage(botUser.displayAvatarURL({ extension: 'png', size: 64 })),
+  ]);
+  roundImage(ctx, guildImg, M, 18, 100, guild.name);
+  text(ctx, guild.name, M + 124, 54, { size: 46, bold: true, max: W - 2 * M - 124 });
+  text(ctx, `Activité des ${days.length} derniers jours`, M + 124, 104, { size: 26, color: C.muted });
+
+  // Résumé : messages, vocal, record.
+  const totalM = days.reduce((n, d) => n + d.messages, 0);
+  const totalV = days.reduce((n, d) => n + d.voice, 0);
+  const best = days.reduce((a, d) => (d.messages > a.messages ? d : a), days[0]);
+  const cw = (W - 2 * M - 2 * G) / 3;
+  const cards = [
+    ['Messages', fr(totalM, 0), `${fr(Math.round(totalM / days.length), 0)} par jour en moyenne`, C.green],
+    ['Vocal', `${toHours(totalV)} h`, `${toHours(totalV / days.length)} h par jour en moyenne`, C.pink],
+    ['Record', best.messages ? `${fr(best.messages, 0)} messages` : '—', best.messages ? `le ${dayLabel(best.key)}` : 'pas encore de données', C.text],
+  ];
+  cards.forEach(([title, value, sub, color], i) => {
+    const x = M + i * (cw + G);
+    box(ctx, x, 140, cw, 100, 16, C.panel);
+    text(ctx, title, x + 18, 166, { size: 22, bold: true, color: C.muted });
+    text(ctx, value, x + 18, 198, { size: 32, bold: true, color, max: cw - 36 });
+    text(ctx, sub, x + 18, 226, { size: 19, italic: true, color: C.dim, max: cw - 36 });
+  });
+
+  // Graphique.
+  const py = 258;
+  const ph = 340;
+  box(ctx, M, py, W - 2 * M, ph, 18, C.panel);
+  const x0 = M + 74;
+  const x1 = W - M - 74;
+  const y0 = py + 58;
+  const y1 = py + ph - 44;
+  const maxM = niceMax(Math.max(...days.map((d) => d.messages)));
+  const maxV = niceMax(Math.max(...days.map((d) => d.voice / 3600)));
+  // Légende.
+  box(ctx, x0, py + 20, 18, 18, 4, C.green);
+  text(ctx, 'Messages', x0 + 28, py + 29, { size: 21, bold: true });
+  ctx.fillStyle = C.pink;
+  ctx.fillRect(x0 + 160, py + 27, 26, 5);
+  text(ctx, 'Vocal (heures)', x0 + 196, py + 29, { size: 21, bold: true });
+  // Grille et échelles.
+  for (let i = 0; i <= 4; i++) {
+    const gy = y1 - ((y1 - y0) * i) / 4;
+    ctx.strokeStyle = '#3f4147';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0, gy);
+    ctx.lineTo(x1, gy);
+    ctx.stroke();
+    text(ctx, compact(Math.round((maxM * i) / 4)), x0 - 12, gy, { size: 18, color: C.green, align: 'right' });
+    text(ctx, `${fr((maxV * i) / 4, 1)} h`, x1 + 12, gy, { size: 18, color: C.pink });
+  }
+  // Barres des messages.
+  const slot = (x1 - x0) / days.length;
+  const barW = Math.max(4, slot * 0.62);
+  days.forEach((d, i) => {
+    const h = (d.messages / maxM) * (y1 - y0);
+    const x = x0 + slot * i + (slot - barW) / 2;
+    ctx.globalAlpha = i === days.length - 1 ? 0.45 : 1;
+    if (h > 0) box(ctx, x, y1 - h, barW, h, Math.min(6, barW / 2), C.green);
+    ctx.globalAlpha = 1;
+  });
+  // Courbe du vocal.
+  const pts = days.map((d, i) => [x0 + slot * i + slot / 2, y1 - (d.voice / 3600 / maxV) * (y1 - y0)]);
+  ctx.beginPath();
+  ctx.moveTo(...pts[0]);
+  for (let i = 1; i < pts.length; i++) {
+    const [px, pyy] = pts[i - 1];
+    const [cx, cy] = pts[i];
+    const mx = (px + cx) / 2;
+    ctx.bezierCurveTo(mx, pyy, mx, cy, cx, cy);
+  }
+  ctx.strokeStyle = C.pink;
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  for (const [cx, cy] of pts) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, days.length > 14 ? 3 : 5, 0, Math.PI * 2);
+    ctx.fillStyle = C.pink;
+    ctx.fill();
+  }
+  // Dates sous l'axe : environ 6 repères, et « auj. » pour aujourd'hui.
+  const step = Math.ceil(days.length / 6);
+  days.forEach((d, i) => {
+    const last = i === days.length - 1;
+    if (!last && (days.length - 1 - i) % step) return;
+    if (!last && days.length - 1 - i < step / 2) return;
+    text(ctx, last ? 'auj.' : dayLabel(d.key), x0 + slot * i + slot / 2, y1 + 24, { size: 18, color: C.muted, align: 'center' });
+  });
+
+  footer(ctx, H, botImg, botUser.username, days.length);
   return canvas.encode('png');
 }
