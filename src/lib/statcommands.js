@@ -1,12 +1,20 @@
-import { AttachmentBuilder } from 'discord.js';
-import { userStats, serverStats, serverDays } from './stats.js';
+import { AttachmentBuilder, EmbedBuilder } from 'discord.js';
+import { userStats, serverStats, serverDays, bestFriends, activityHeatmap, memberRecap, lastDayKeys, FRIEND_DAYS } from './stats.js';
 import { flushVoiceSessions } from './voiceactivity.js';
-import { renderUserCard, renderTopCard, renderActivityCard, renderGraphCard } from './statcards.js';
+import { renderUserCard, renderTopCard, renderActivityCard, renderGraphCard, renderRecapCard, renderHeatmapCard } from './statcards.js';
 
-// Commandes de stats en message : s?u [membre], s?t, s?m, s?v (image dans le style de Statbot),
-// et « +graph [7|14|30] » : courbe d'activité du serveur jour par jour (30 jours par défaut).
+// Commandes de stats en message : s?u [membre], s?t, s?m, s?v (image dans le style de Statbot), et :
+//   « +graph [7|14|30] »           courbe d'activité du serveur jour par jour (30 jours par défaut)
+//   « +recap [membre] [dernier] »  le mois en cours (ou le précédent) d'un membre, en image
+//   « +heures »                    carte de chaleur des heures les plus actives (4 semaines)
+//   « +meilleurami [membre] »      top 5 des membres avec qui il échange le plus (réponses et mentions, 30 jours)
 const COMMAND = /^s\?([utmv])(?:\s+(.*))?$/i;
 const GRAPH = /^\+graph(?:\s+(\d{1,2}))?$/i;
+const RECAP = /^\+recap(?:\s+(.*))?$/i;
+const HEURES = /^\+heures?$/i;
+const FRIENDS = /^\+(?:meilleurs?amis?|bff)(?:\s+(.*))?$/i;
+const LAST_MONTH = /\b(dernier|precedent|précédent|avant)\b/i;
+const MEDALS = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
 const COOLDOWN_MS = 5000;
 const lastUse = new Map(); // `${guildId}:${userId}` → horodatage
 
@@ -43,21 +51,23 @@ async function targetUser(message, arg) {
 // Renvoie true si le message était une commande de stats (gérée ici).
 export async function handleStatCommand(message) {
   if (!message.guild || message.author.bot) return false;
-  const graph = message.content.trim().match(GRAPH);
-  const match = graph ? null : message.content.trim().match(COMMAND);
-  if (!graph && !match) return false;
+  const content = message.content.trim();
+  const plus = [
+    ['graph', content.match(GRAPH)],
+    ['recap', content.match(RECAP)],
+    ['heures', content.match(HEURES)],
+    ['friends', content.match(FRIENDS)],
+  ].find(([, m]) => m);
+  const match = plus ? null : content.match(COMMAND);
+  if (!plus && !match) return false;
 
   const key = `${message.guild.id}:${message.author.id}`;
   if (Date.now() - (lastUse.get(key) ?? 0) < COOLDOWN_MS) return true;
   lastUse.set(key, Date.now());
 
   const { guild } = message;
-  if (graph) {
-    const n = Math.min(30, Math.max(7, Number(graph[1] ?? 30)));
-    await message.channel.sendTyping().catch(() => {});
-    flushVoiceSessions();
-    const png = await renderGraphCard({ guild, days: serverDays(guild.id, n), botUser: message.client.user });
-    await message.reply({ files: [new AttachmentBuilder(png, { name: 'activite.png' })], allowedMentions: { repliedUser: false } }).catch(() => {});
+  if (plus) {
+    await handlePlusStat(message, plus[0], plus[1]);
     return true;
   }
   const kind = match[1].toLowerCase();
@@ -118,4 +128,74 @@ export async function handleStatCommand(message) {
     .reply({ files: [new AttachmentBuilder(png, { name: 'stats.png' })], allowedMentions: { repliedUser: false } })
     .catch(() => {});
   return true;
+}
+
+const sendImage = (message, png, name) =>
+  message.reply({ files: [new AttachmentBuilder(png, { name })], allowedMentions: { repliedUser: false } }).catch(() => {});
+const notFound = (message, usage) =>
+  message.reply({ content: `❌ Membre introuvable : mentionne-le (\`${usage} @membre\`), ou donne son pseudo ou son ID.`, allowedMentions: { repliedUser: false } }).catch(() => {});
+
+// +graph, +recap, +heures et +meilleurami.
+async function handlePlusStat(message, kind, match) {
+  const { guild } = message;
+  const botUser = message.client.user;
+  await message.channel.sendTyping().catch(() => {});
+  // Le temps passé en vocal par les membres encore connectés compte aussi.
+  flushVoiceSessions();
+
+  if (kind === 'graph') {
+    const n = Math.min(30, Math.max(7, Number(match[1] ?? 30)));
+    return sendImage(message, await renderGraphCard({ guild, days: serverDays(guild.id, n), botUser }), 'activite.png');
+  }
+
+  if (kind === 'heures') return sendImage(message, await renderHeatmapCard({ guild, grid: activityHeatmap(guild.id), botUser }), 'heures.png');
+
+  if (kind === 'recap') {
+    // « dernier » (ou « précédent ») : le mois d'avant ; le reste désigne le membre.
+    const arg = match[1] ?? '';
+    const previous = LAST_MONTH.test(arg);
+    const user = await targetUser(message, arg.replace(LAST_MONTH, '').trim());
+    if (!user) return notFound(message, '+recap');
+    if (user.bot) return message.reply({ content: '❌ Les bots n’ont pas de récap.', allowedMentions: { repliedUser: false } }).catch(() => {});
+    const today = lastDayKeys(1)[0];
+    let month = today.slice(0, 7);
+    if (previous) {
+      const [y, m] = month.split('-').map(Number);
+      month = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+    }
+    const recap = memberRecap(guild.id, user.id, month);
+    const member = await guild.members.fetch(user.id).catch(() => null);
+    const names = await memberNames(guild, recap.bestFriend ? [recap.bestFriend.id] : []);
+    const png = await renderRecapCard({
+      user,
+      member,
+      guild,
+      month,
+      recap,
+      botUser,
+      channelName: (id) => channelName(guild, id),
+      friendName: (id) => names.get(id) ?? 'membre parti',
+    });
+    return sendImage(message, png, `recap-${month}.png`);
+  }
+
+  // +meilleurami
+  const user = await targetUser(message, match[1]);
+  if (!user) return notFound(message, '+meilleurami');
+  if (user.bot) return message.reply({ content: '❌ Les bots n’ont pas d’amis… enfin, pas comptés ici.', allowedMentions: { repliedUser: false } }).catch(() => {});
+  const top = bestFriends(guild.id, user.id);
+  const member = await guild.members.fetch(user.id).catch(() => null);
+  const name = member?.displayName ?? user.globalName ?? user.username;
+  const embed = new EmbedBuilder()
+    .setColor(0xeb459e)
+    .setAuthor({ name: `Meilleurs amis de ${name}`, iconURL: (member ?? user).displayAvatarURL() })
+    .setDescription(
+      top.length
+        ? top
+            .map((f, i) => `${MEDALS[i]} <@${f.id}> — **${f.total}** échange(s)\n-# ${f.sent} envoyé(s) · ${f.received} reçu(s)`)
+            .join('\n')
+        : `Pas encore d’échanges : réponds aux messages ou mentionne des membres, et reviens voir !`,
+    )
+    .setFooter({ text: `Réponses et mentions, dans les deux sens · ${FRIEND_DAYS} derniers jours` });
+  return message.reply({ embeds: [embed], allowedMentions: { parse: [], repliedUser: false } }).catch(() => {});
 }

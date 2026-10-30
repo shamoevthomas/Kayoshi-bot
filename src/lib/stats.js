@@ -1,18 +1,22 @@
 import { PermissionFlagsBits } from 'discord.js';
 import { getStatsData, markStatsDirty } from './store.js';
 
-// Statistiques d'activité (s?u, s?t, s?m, s?v) : messages et temps vocal par jour,
-// par membre et par salon, dans la ligne « stats:<guildId> » (voir store.js).
+// Statistiques d'activité (s?u, s?t, s?m, s?v, +graph, +recap, +heures, +meilleurami) : messages et temps
+// vocal par jour, par membre et par salon, dans la ligne « stats:<guildId> » (voir store.js).
 //   days[jour]   = { tm, tv, m:{membre:n}, v:{membre:s}, mc:{salon:n}, vc:{salon:s},
-//                    um:{membre:{salon:n}}, uv:{membre:{salon:s}} }
-//                  détail gardé PERIOD_DAYS jours, totaux (tm, tv) gardés KEEP_DAYS jours
+//                    um:{membre:{salon:n}}, uv:{membre:{salon:s}},
+//                    h:{heure:n} (messages par heure, 0-23), f:{membre:{membre visé:n}} (réponses + mentions) }
+//                  gardé KEEP_DAYS jours (le mois en cours et le précédent en entier, pour +recap)
 //   hours[heure] = { tm, tv, m:{membre:n}, v:{membre:s} }   24 dernières heures, pour « 1j »
 //   since        = début du suivi en direct ; backfilled = historique des messages récupéré
+//   extraSince   = début du comptage en direct de h et f ; extrasBackfilled = h et f d'avant récupérés
 // Jours et heures en heure de Paris ; le temps vocal est en secondes.
 
 export const PERIOD_DAYS = 14;
 export const TIME_ZONE = 'Europe/Paris';
-const KEEP_DAYS = 31;
+const KEEP_DAYS = 62;
+export const HEAT_DAYS = 28; // +heures : 4 semaines
+export const FRIEND_DAYS = 30; // +meilleurami
 const KEEP_HOURS = 25;
 const BACKFILL_DAYS = 30;
 const DAY_MS = 86_400_000;
@@ -78,16 +82,30 @@ function addVoice(data, userId, channelId, seconds, ts) {
   addIn(h, 'v', userId, seconds);
 }
 
-// Retire les heures de plus de 25 h, le détail des jours hors période et les jours de plus d'un mois.
+// Heure du message (h) et membres à qui il répond ou qu'il mentionne (f), pour +heures et +meilleurami.
+function addExtras(data, userId, ts, targets) {
+  const { day, hour } = keysAt(ts);
+  const d = ((data.days ??= {})[day] ??= {});
+  addIn(d, 'h', Number(hour.slice(11)), 1);
+  for (const target of targets) addNested(d, 'f', userId, target, 1);
+}
+
+// Membres visés par un message : celui à qui il répond et ceux qu'il mentionne (ni soi-même, ni un bot).
+function messageTargets(message) {
+  const ids = new Set();
+  const replied = message.mentions?.repliedUser;
+  if (replied && !replied.bot) ids.add(replied.id);
+  for (const user of message.mentions?.users?.values() ?? []) if (!user.bot) ids.add(user.id);
+  ids.delete(message.author.id);
+  return [...ids];
+}
+
+// Retire les heures de plus de 25 h et les jours de plus de KEEP_DAYS jours.
 function prune(data, now = Date.now()) {
   const hourCutoff = keysAt(now - KEEP_HOURS * HOUR_MS).hour;
   for (const key of Object.keys(data.hours ?? {})) if (key < hourCutoff) delete data.hours[key];
-  const detailKeys = new Set(lastDayKeys(PERIOD_DAYS + 1, now));
   const keepKeys = new Set(lastDayKeys(KEEP_DAYS, now));
-  for (const [key, day] of Object.entries(data.days ?? {})) {
-    if (!keepKeys.has(key)) delete data.days[key];
-    else if (!detailKeys.has(key)) data.days[key] = { tm: day.tm ?? 0, tv: day.tv ?? 0 };
-  }
+  for (const key of Object.keys(data.days ?? {})) if (!keepKeys.has(key)) delete data.days[key];
 }
 
 const lastPrune = new Map();
@@ -115,7 +133,11 @@ export function recordMessage(message) {
   data.since ??= Date.now();
   // Un message dans un fil compte pour son salon.
   const channelId = message.channel.isThread?.() ? message.channel.parentId : message.channelId;
-  addMessage(data, message.author.id, channelId, message.createdTimestamp || Date.now());
+  const ts = message.createdTimestamp || Date.now();
+  addMessage(data, message.author.id, channelId, ts);
+  // Heures et échanges comptés en direct à partir de là ; ceux d'avant sont récupérés par backfillExtras.
+  data.extraSince ??= ts;
+  addExtras(data, message.author.id, ts, messageTargets(message));
   touch(message.guild.id, data);
 }
 
@@ -180,6 +202,47 @@ export async function backfillMessages(guild) {
   console.log(`📊 Stats : historique de ${guild.name} récupéré (${count} messages, ${Math.round((Date.now() - started) / 1000)} s).`);
 }
 
+// Heures (h) et échanges (f) des HEAT_DAYS jours d'avant leur comptage en direct (extraSince), une fois par
+// serveur : +heures et +meilleurami ont des données dès le premier jour. Cumulé à part puis ajouté d'un coup.
+export async function backfillExtras(guild) {
+  const data = getStatsData(guild.id);
+  if (data.extrasBackfilled) return;
+  const until = (data.extraSince ??= Date.now());
+  const from = until - HEAT_DAYS * DAY_MS;
+  const local = {};
+  const started = Date.now();
+  let count = 0;
+  const me = guild.members.me;
+
+  for (const channel of guild.channels.cache.values()) {
+    if (!channel.isTextBased?.() || channel.isThread?.()) continue;
+    if (!channel.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory])) continue;
+    let before;
+    for (;;) {
+      const batch = await channel.messages.fetch({ limit: 100, before, cache: false }).catch(() => null);
+      if (!batch?.size) break;
+      let reachedStart = false;
+      for (const msg of batch.values()) {
+        if (msg.createdTimestamp < from) {
+          reachedStart = true;
+          continue;
+        }
+        if (msg.createdTimestamp >= until || msg.author.bot || msg.webhookId) continue;
+        addExtras(local, msg.author.id, msg.createdTimestamp, messageTargets(msg));
+        count += 1;
+      }
+      before = batch.last().id;
+      if (reachedStart || batch.size < 100) break;
+    }
+  }
+
+  addDeep(data, local);
+  data.extrasBackfilled = Date.now();
+  prune(data);
+  markStatsDirty(guild.id);
+  console.log(`📊 Stats : heures et échanges de ${guild.name} récupérés (${count} messages, ${Math.round((Date.now() - started) / 1000)} s).`);
+}
+
 // --- Lecture ---
 
 const sumOf = (buckets, field) => buckets.reduce((total, b) => total + (b?.[field] ?? 0), 0);
@@ -242,4 +305,72 @@ export function serverStats(guildId, limit = 3) {
 export function serverDays(guildId, n = 30) {
   const days = getStatsData(guildId).days ?? {};
   return lastDayKeys(Math.min(n, KEEP_DAYS - 1)).map((key) => ({ key, messages: days[key]?.tm ?? 0, voice: days[key]?.tv ?? 0 }));
+}
+
+// +meilleurami : les membres avec qui un membre échange le plus (réponses et mentions, dans les deux sens)
+// sur les FRIEND_DAYS derniers jours.
+export function bestFriends(guildId, userId, limit = 5) {
+  const days = getStatsData(guildId).days ?? {};
+  const scores = {};
+  for (const key of lastDayKeys(FRIEND_DAYS)) {
+    const f = days[key]?.f;
+    if (!f) continue;
+    for (const [id, n] of Object.entries(f[userId] ?? {})) (scores[id] ??= { sent: 0, received: 0 }).sent += n;
+    for (const [id, targets] of Object.entries(f)) if (targets[userId]) (scores[id] ??= { sent: 0, received: 0 }).received += targets[userId];
+  }
+  delete scores[userId];
+  return Object.entries(scores)
+    .map(([id, s]) => ({ id, ...s, total: s.sent + s.received }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit);
+}
+
+// +heures : messages par jour de la semaine (0 = lundi) et par heure, sur les HEAT_DAYS derniers jours.
+export function activityHeatmap(guildId) {
+  const days = getStatsData(guildId).days ?? {};
+  const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
+  for (const key of lastDayKeys(HEAT_DAYS)) {
+    const h = days[key]?.h;
+    if (!h) continue;
+    const weekday = (new Date(`${key}T12:00:00Z`).getUTCDay() + 6) % 7;
+    for (const [hour, n] of Object.entries(h)) grid[weekday][Number(hour)] += n;
+  }
+  return grid;
+}
+
+// +recap : le mois (« AAAA-MM ») d'un membre, jour par jour jusqu'à aujourd'hui, avec ses classements.
+export function monthKeys(month, now = Date.now()) {
+  const today = lastDayKeys(1, now)[0];
+  const [y, m] = month.split('-').map(Number);
+  const length = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`).filter((k) => k <= today);
+}
+
+export function memberRecap(guildId, userId, month) {
+  const data = getStatsData(guildId);
+  const keys = monthKeys(month);
+  const list = keys.map((key) => ({ key, day: data.days?.[key] }));
+  const daily = list.map(({ key, day }) => ({ key, messages: day?.m?.[userId] ?? 0, voice: day?.v?.[userId] ?? 0 }));
+  const rankOf = (field) => {
+    const i = ranking(sumMaps(list.map(({ day }) => day?.[field]))).findIndex((e) => e.id === userId);
+    return i < 0 ? null : i + 1;
+  };
+  const best = daily.reduce((a, d) => (d.messages > a.messages ? d : a), daily[0] ?? { key: null, messages: 0 });
+  // Meilleur ami du mois : réponses et mentions dans les deux sens.
+  const friends = {};
+  for (const { day } of list) {
+    for (const [id, n] of Object.entries(day?.f?.[userId] ?? {})) friends[id] = (friends[id] ?? 0) + n;
+    for (const [id, targets] of Object.entries(day?.f ?? {})) if (id !== userId && targets[userId]) friends[id] = (friends[id] ?? 0) + targets[userId];
+  }
+  return {
+    since: data.since,
+    daily,
+    messages: daily.reduce((n, d) => n + d.messages, 0),
+    voice: daily.reduce((n, d) => n + d.voice, 0),
+    activeDays: daily.filter((d) => d.messages || d.voice).length,
+    rank: { messages: rankOf('m'), voice: rankOf('v') },
+    topChannel: ranking(sumMaps(list.map(({ day }) => day?.um?.[userId])))[0] ?? null,
+    bestDay: best?.messages ? best : null,
+    bestFriend: ranking(friends)[0] ?? null,
+  };
 }

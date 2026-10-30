@@ -248,6 +248,9 @@ const CATEGORIES = [
     summary: 'Stats en image, infos membre / serveur, emojis',
     about: 'Statistiques d’activité, fiches d’infos et outils pratiques.',
     lines: [
+      ['+recap', 'Ton mois en image (ou celui d’un membre) : messages, vocal, rangs, jours actifs, salon préféré, jour record, meilleur ami et graphique — `+recap dernier` pour le mois précédent'],
+      ['+heures', 'Carte des heures les plus actives du serveur (jour × heure, 4 dernières semaines) : pic, heure et jour les plus actifs'],
+      ['+meilleurami', 'Top 5 des membres avec qui tu échanges le plus (ou un membre) : réponses et mentions dans les deux sens, 30 derniers jours'],
       ['+graph', 'Courbe d’activité du serveur en image : messages et heures de vocal jour par jour, total, moyenne et record (`+graph 7`, `14` ou `30` jours, 30 par défaut)'],
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre, `s?t` le top, `s?m` les messages, `s?v` le vocal'],
       ['+vc', 'Statistiques du serveur : membres, en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute'],
@@ -265,6 +268,9 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+recap', 'ton mois en image'],
+  ['+heures', 'heures les plus actives du serveur'],
+  ['+meilleurami', 'top 5 de tes meilleurs amis'],
   ['+graph', 'courbe d’activité du serveur'],
   ['+lockdown', 'verrouiller tous les salons d’un coup'],
   ['+pendu', 'jeu du pendu dans le salon'],
@@ -277,9 +283,6 @@ const RECENT = [
   ['.tour', 'monte la tour sans tomber dans un piège'],
   ['.gratter', 'ticket à gratter'],
   ['.mines', 'démineur du casino'],
-  ['.crash', 'encaisse avant le crash'],
-  ['.loterie', 'loterie de la semaine'],
-  ['.braquage', 'braquage à plusieurs'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).

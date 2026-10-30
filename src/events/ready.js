@@ -13,7 +13,7 @@ import { refreshAllStats } from '../lib/activity.js';
 import { initVoiceSessions } from '../lib/voiceactivity.js';
 import { processBumpReminders } from '../lib/bumpreminder.js';
 import { ensureVoiceLogChannel } from '../lib/logger.js';
-import { startStatsTracking, backfillMessages } from '../lib/stats.js';
+import { startStatsTracking, backfillMessages, backfillExtras } from '../lib/stats.js';
 import { closeInactiveTickets } from '../lib/tickets.js';
 import { reconcileWouldYouRather } from '../lib/wouldyourather.js';
 import { processTempRoles } from '../lib/roles.js';
@@ -134,6 +134,8 @@ export default {
     for (const guild of client.guilds.cache.values()) startStatsTracking(guild.id);
     setTimeout(async () => {
       for (const guild of client.guilds.cache.values()) await backfillMessages(guild).catch((err) => console.error('[stats]', err));
+      // Heures et échanges (+heures, +meilleurami) des 4 dernières semaines, une fois par serveur.
+      for (const guild of client.guilds.cache.values()) await backfillExtras(guild).catch((err) => console.error('[stats]', err));
     }, 60_000);
     setTimeout(() => refreshAllStats(client).catch(() => {}), 15_000);
     setInterval(() => refreshAllStats(client).catch(() => {}), 300_000);

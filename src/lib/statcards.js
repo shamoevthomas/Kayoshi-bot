@@ -1,5 +1,5 @@
 import { createCanvas } from '@napi-rs/canvas';
-import { PERIOD_DAYS, TIME_ZONE } from './stats.js';
+import { PERIOD_DAYS, TIME_ZONE, HEAT_DAYS, lastDayKeys } from './stats.js';
 import { font, iconFont, fetchImage } from './fonts.js';
 
 // Cartes d'images des stats (s?u, s?t, s?m, s?v), dans le style de Statbot.
@@ -116,7 +116,7 @@ function footer(ctx, H, botImg, botName, days = PERIOD_DAYS) {
     ctx,
     [
       { t: 'Période d’analyse : ', bold: true, size: 21 },
-      { t: `${days} derniers jours`, size: 21, color: C.muted },
+      { t: typeof days === 'number' ? `${days} derniers jours` : days, size: 21, color: C.muted },
       { t: ' — ', size: 21, color: C.dim },
       { t: 'Fuseau horaire : ', bold: true, size: 21 },
       { t: TIME_ZONE, size: 21, color: C.muted },
@@ -440,10 +440,16 @@ export async function renderGraphCard({ guild, days, botUser }) {
     text(ctx, sub, x + 18, 226, { size: 19, italic: true, color: C.dim, max: cw - 36 });
   });
 
-  // Graphique.
-  const py = 258;
-  const ph = 340;
+  activityChart(ctx, 258, 340, days);
+  footer(ctx, H, botImg, botUser.username, days.length);
+  return canvas.encode('png');
+}
+
+// Panneau du graphique (+graph, +recap) : barres des messages (échelle de gauche), courbe du vocal en heures
+// (échelle de droite), dates sous l'axe ; la journée en cours est plus pâle.
+function activityChart(ctx, py, ph, days) {
   box(ctx, M, py, W - 2 * M, ph, 18, C.panel);
+  const today = lastDayKeys(1)[0];
   const x0 = M + 74;
   const x1 = W - M - 74;
   const y0 = py + 58;
@@ -474,7 +480,7 @@ export async function renderGraphCard({ guild, days, botUser }) {
   days.forEach((d, i) => {
     const h = (d.messages / maxM) * (y1 - y0);
     const x = x0 + slot * i + (slot - barW) / 2;
-    ctx.globalAlpha = i === days.length - 1 ? 0.45 : 1;
+    ctx.globalAlpha = d.key === today ? 0.45 : 1;
     if (h > 0) box(ctx, x, y1 - h, barW, h, Math.min(6, barW / 2), C.green);
     ctx.globalAlpha = 1;
   });
@@ -498,15 +504,127 @@ export async function renderGraphCard({ guild, days, botUser }) {
     ctx.fillStyle = C.pink;
     ctx.fill();
   }
-  // Dates sous l'axe : environ 6 repères, et « auj. » pour aujourd'hui.
+  // Dates sous l'axe : environ 6 repères (dont le dernier jour), « auj. » pour aujourd'hui.
   const step = Math.ceil(days.length / 6);
   days.forEach((d, i) => {
     const last = i === days.length - 1;
     if (!last && (days.length - 1 - i) % step) return;
     if (!last && days.length - 1 - i < step / 2) return;
-    text(ctx, last ? 'auj.' : dayLabel(d.key), x0 + slot * i + slot / 2, y1 + 24, { size: 18, color: C.muted, align: 'center' });
+    text(ctx, d.key === today ? 'auj.' : dayLabel(d.key), x0 + slot * i + slot / 2, y1 + 24, { size: 18, color: C.muted, align: 'center' });
+  });
+}
+
+// --- +recap : le mois d'un membre ---
+const place = (n) => (n === 1 ? '1ᵉʳ' : `${n}ᵉ`);
+const longDate = (key) =>
+  new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${key}T12:00:00Z`));
+export const monthLabel = (month) =>
+  new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-15T12:00:00Z`));
+
+export async function renderRecapCard({ user, member, guild, month, recap, channelName, friendName, botUser }) {
+  const H = 770;
+  const { canvas, ctx } = frame(H);
+  const [avatar, guildImg, botImg] = await Promise.all([
+    fetchImage((member ?? user).displayAvatarURL({ extension: 'png', size: 128 })),
+    fetchImage(guild.iconURL({ extension: 'png', size: 64 })),
+    fetchImage(botUser.displayAvatarURL({ extension: 'png', size: 64 })),
+  ]);
+  const name = member?.displayName ?? user.globalName ?? user.username;
+  roundImage(ctx, avatar, M, 18, 100, name);
+  text(ctx, `Récap · ${monthLabel(month)}`, M + 124, 54, { size: 46, bold: true, max: W - 2 * M - 124 });
+  roundImage(ctx, guildImg, M + 124, 88, 30, guild.name);
+  text(ctx, `${name} sur ${guild.name}`, M + 164, 104, { size: 25, color: C.muted, max: W - 2 * M - 164 });
+
+  const cw = (W - 2 * M - 2 * G) / 3;
+  const rankText = (n) => (n ? `${place(n)} du serveur` : 'pas encore classé');
+  const cards = [
+    ['Messages', fr(recap.messages, 0), rankText(recap.rank.messages), C.green],
+    ['Vocal', `${toHours(recap.voice)} h`, rankText(recap.rank.voice), C.pink],
+    ['Jours actifs', `${recap.activeDays} / ${recap.daily.length}`, 'jours avec de l’activité', C.text],
+    ['Salon préféré', recap.topChannel ? `# ${channelName(recap.topChannel.id)}` : '—', recap.topChannel ? `${fr(recap.topChannel.value, 0)} messages` : 'aucun message', C.text],
+    ['Jour record', recap.bestDay ? `le ${longDate(recap.bestDay.key)}` : '—', recap.bestDay ? `${fr(recap.bestDay.messages, 0)} messages` : 'aucun message', C.text],
+    ['Meilleur ami', recap.bestFriend ? friendName(recap.bestFriend.id) : '—', recap.bestFriend ? `${fr(recap.bestFriend.value, 0)} échanges` : 'pas encore d’échanges', C.text],
+  ];
+  cards.forEach(([title, value, sub, color], i) => {
+    const x = M + (i % 3) * (cw + G);
+    const y = 140 + Math.floor(i / 3) * 116;
+    box(ctx, x, y, cw, 100, 16, C.panel);
+    text(ctx, title, x + 18, y + 26, { size: 22, bold: true, color: C.muted });
+    text(ctx, value, x + 18, y + 58, { size: 30, bold: true, color, max: cw - 36 });
+    text(ctx, sub, x + 18, y + 86, { size: 19, italic: true, color: C.dim, max: cw - 36 });
   });
 
-  footer(ctx, H, botImg, botUser.username, days.length);
+  activityChart(ctx, 372, 340, recap.daily);
+  footer(ctx, H, botImg, botUser.username, monthLabel(month));
+  return canvas.encode('png');
+}
+
+// --- +heures : carte de chaleur des messages (jour de la semaine × heure) ---
+const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const WEEKDAYS_LONG = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+const mix = (a, b, t) => {
+  const pa = a.match(/\w\w/g).map((h) => parseInt(h, 16));
+  const pb = b.match(/\w\w/g).map((h) => parseInt(h, 16));
+  return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(',')})`;
+};
+
+export async function renderHeatmapCard({ guild, grid, botUser }) {
+  const H = 640;
+  const { canvas, ctx } = frame(H);
+  const [guildImg, botImg] = await Promise.all([
+    fetchImage(guild.iconURL({ extension: 'png', size: 128 })),
+    fetchImage(botUser.displayAvatarURL({ extension: 'png', size: 64 })),
+  ]);
+  roundImage(ctx, guildImg, M, 18, 100, guild.name);
+  text(ctx, guild.name, M + 124, 54, { size: 46, bold: true, max: W - 2 * M - 124 });
+  text(ctx, 'Heures les plus actives (messages)', M + 124, 104, { size: 26, color: C.muted });
+
+  const max = Math.max(0, ...grid.flat());
+  const left = M + 70;
+  const gap = 4;
+  const cell = (W - M - left - 23 * gap) / 24;
+  const top = 178;
+  box(ctx, M - 8, 136, W - 2 * M + 16, top + 7 * (cell + gap) - 136 + 14, 18, C.panel);
+  for (let h = 0; h < 24; h += 3) text(ctx, `${h} h`, left + h * (cell + gap) + cell / 2, 160, { size: 18, color: C.muted, align: 'center' });
+  grid.forEach((row, d) => {
+    const y = top + d * (cell + gap);
+    text(ctx, WEEKDAYS[d], M + 6, y + cell / 2, { size: 21, bold: true, color: C.muted });
+    row.forEach((n, h) => {
+      const t = max ? n / max : 0;
+      box(ctx, left + h * (cell + gap), y, cell, cell, 6, n ? mix('#1e3a28', '#57f287', Math.sqrt(t)) : C.row);
+    });
+  });
+
+  // Résumé : pic d'activité, heure et jour les plus actifs.
+  const sy = top + 7 * (cell + gap) + 44;
+  if (!max) text(ctx, 'Pas encore de données : reviens dans quelques heures.', W / 2, sy, { size: 24, italic: true, color: C.dim, align: 'center' });
+  else {
+    let peak = [0, 0];
+    grid.forEach((row, d) => row.forEach((n, h) => n > grid[peak[0]][peak[1]] && (peak = [d, h])));
+    const hours = Array.from({ length: 24 }, (_, h) => grid.reduce((n, row) => n + row[h], 0));
+    const days = grid.map((row) => row.reduce((a, b) => a + b, 0));
+    const bestHour = hours.indexOf(Math.max(...hours));
+    const bestDay = days.indexOf(Math.max(...days));
+    runs(
+      ctx,
+      [
+        { t: 'Pic : ', bold: true, size: 23 },
+        { t: `${WEEKDAYS_LONG[peak[0]]} de ${peak[1]} h à ${(peak[1] + 1) % 24} h`, size: 23, color: C.green },
+        { t: '   ·   Heure la plus active : ', bold: true, size: 23 },
+        { t: `${bestHour} h`, size: 23, color: C.green },
+        { t: '   ·   Jour : ', bold: true, size: 23 },
+        { t: WEEKDAYS_LONG[bestDay], size: 23, color: C.green },
+      ],
+      M,
+      sy,
+    );
+    // Légende.
+    const ly = sy + 46;
+    text(ctx, 'Moins', W - M - 6 * 30 - 70, ly, { size: 19, color: C.dim, align: 'right' });
+    [0, 0.15, 0.35, 0.6, 1].forEach((t, i) => box(ctx, W - M - 5 * 30 - 60 + i * 30, ly - 11, 24, 24, 5, t ? mix('#1e3a28', '#57f287', Math.sqrt(t)) : C.row));
+    text(ctx, 'Plus', W - M - 50, ly, { size: 19, color: C.dim });
+  }
+
+  footer(ctx, H, botImg, botUser.username, HEAT_DAYS);
   return canvas.encode('png');
 }
