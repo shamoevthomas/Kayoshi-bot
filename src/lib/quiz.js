@@ -5,7 +5,8 @@ import { ANIME_QUESTIONS } from './quizanime.js';
 import { GAME_QUESTIONS } from './quizgames.js';
 
 // Quiz de culture générale (/quiz) : de temps en temps, une question à 4 réponses (boutons) dans le
-// salon choisi ; le premier qui trouve gagne de l'argent (+1 au classement « Quiz » de /top). Une seule
+// salon choisi ; chaque membre qui trouve gagne de l'argent et des coins (+1 au classement « Quiz » de /top), avec un
+// message de félicitations qu'il est seul à voir ; la réponse n'est dévoilée qu'à la fin. Une seule
 // réponse par personne et par question, 30 min pour trouver. Un tiers de culture générale (QuizzAPI,
 // quizzapi.jomoreschi.fr, avec une réserve si l'API ne répond pas), un tiers de jeux vidéo (QuizzAPI et
 // lib/quizgames.js), un tiers d'animés (lib/quizanime.js). Pas de question si le serveur est calme.
@@ -61,7 +62,7 @@ const BACKUP = [
   ['Dans « Pac-Man », que mange le personnage ?', 'Des pac-gommes', ['Des pièces', 'Des étoiles', 'Des champignons'], 'jeux_videos'],
 ];
 
-const active = new Map(); // messageId → { correct, answer, tried: Set, done, reward }
+const active = new Map(); // messageId → { correct, answer, tried: Set, winners: [ids], done, reward, head }
 const nextQuizAt = new Map(); // guildId → instant de la prochaine question
 const lastActivity = new Map(); // guildId → dernier message d'un membre
 
@@ -133,7 +134,7 @@ export async function postQuiz(guild) {
     .setColor(0x5865f2)
     .setTitle('🧠 Quiz !')
     .setDescription(
-      `**${q.question}**\n\nLe premier qui trouve gagne 💰 **${formatMoney(cfg.reward)}** et 🪙 **${formatMoney(QUIZ_COINS)}** — une seule réponse par personne.\n⏳ Fin <t:${Math.floor((Date.now() + EXPIRE_MS) / 1000)}:R>`,
+      `**${q.question}**\n\nChaque bonne réponse gagne 💰 **${formatMoney(cfg.reward)}** et 🪙 **${formatMoney(QUIZ_COINS)}** — une seule réponse par personne.\n⏳ Fin <t:${Math.floor((Date.now() + EXPIRE_MS) / 1000)}:R>`,
     )
     .setFooter({ text: [CATEGORIES[q.category], DIFFICULTY[q.difficulty], '30 min pour trouver'].filter(Boolean).join(' · ') });
   // Rôle mentionné à chaque question (/quiz activer role) : @everyone s'il a été choisi.
@@ -142,7 +143,7 @@ export async function postQuiz(guild) {
   else if (cfg.roleId) ping = { content: `<@&${cfg.roleId}>`, allowedMentions: { roles: [cfg.roleId] } };
   const message = await channel.send({ ...ping, embeds: [embed], components: [buttons(choices)] }).catch(() => null);
   if (!message) return null;
-  active.set(message.id, { guildId: guild.id, correct, answer: q.answer, choices, tried: new Set(), done: false, reward: cfg.reward });
+  active.set(message.id, { guildId: guild.id, correct, answer: q.answer, choices, tried: new Set(), winners: [], done: false, reward: cfg.reward, head: embed.data.description });
   setTimeout(() => expire(message), EXPIRE_MS);
   return message;
 }
@@ -197,27 +198,34 @@ export async function postWhoSaid(guild, channel) {
     .setColor(0xeb459e)
     .setTitle('🗨️ Qui a dit ?')
     .setDescription(
-      `**« ${found.message.content.replace(/\n+/g, ' ')} »**\n\nLe premier qui trouve gagne 💰 **${formatMoney(reward)}** et 🪙 **${formatMoney(QUIZ_COINS)}** — une seule réponse par personne.\n⏳ Fin <t:${Math.floor((Date.now() + WHO_EXPIRE_MS) / 1000)}:R>`,
+      `**« ${found.message.content.replace(/\n+/g, ' ')} »**\n\nChaque bonne réponse gagne 💰 **${formatMoney(reward)}** et 🪙 **${formatMoney(QUIZ_COINS)}** — une seule réponse par personne.\n⏳ Fin <t:${Math.floor((Date.now() + WHO_EXPIRE_MS) / 1000)}:R>`,
     )
     .setFooter({ text: `Message du ${date} · 5 min pour trouver` });
   const message = await channel.send({ embeds: [embed], components: [buttons(choices)], allowedMentions: { parse: [] } }).catch(() => null);
   if (!message) return 'Je ne peux pas écrire dans ce salon.';
-  active.set(message.id, { guildId: guild.id, correct, answer: choices[correct], choices, tried: new Set(), done: false, reward });
+  active.set(message.id, { guildId: guild.id, correct, answer: choices[correct], choices, tried: new Set(), winners: [], done: false, reward, head: embed.data.description });
   setTimeout(() => expire(message), WHO_EXPIRE_MS);
   return message;
 }
 
+// Fin du temps : la réponse est dévoilée, avec ceux qui l'ont trouvée.
 async function expire(message) {
   const state = active.get(message.id);
   if (!state || state.done) return;
   state.done = true;
+  const { winners } = state;
+  const names = winners.slice(0, 20).map((id) => `<@${id}>`).join(', ') + (winners.length > 20 ? ` et ${winners.length - 20} autre(s)` : '');
+  const result = winners.length
+    ? `✅ La réponse était : **${state.answer}**.\nTrouvée par ${names} (+💰 ${formatMoney(state.reward)} et +🪙 ${formatMoney(QUIZ_COINS)} chacun).`
+    : `⌛ Personne n’a trouvé. La réponse était : **${state.answer}**.`;
   const embed = EmbedBuilder.from(message.embeds[0])
-    .setColor(0x4e5058)
-    .setDescription(`${message.embeds[0].description.split('\n\n')[0]}\n\n⌛ Personne n’a trouvé. La réponse était : **${state.answer}**.`);
+    .setColor(winners.length ? 0x57f287 : 0x4e5058)
+    .setDescription(`${message.embeds[0].description.split('\n\n')[0]}\n\n${result}`);
   await message.edit({ embeds: [embed], components: [buttons(state.choices, { correct: state.correct, disabled: true })] }).catch(() => {});
 }
 
-// Bouton de réponse : le premier qui trouve gagne ; une seule tentative par personne.
+// Bouton de réponse : chaque bonne réponse gagne (félicitations en message éphémère, la question reste
+// ouverte pour les autres) ; une seule tentative par personne.
 export async function handleQuizInteraction(interaction) {
   const state = active.get(interaction.message.id);
   if (!state || state.done) return interaction.reply({ content: '⌛ Ce quiz est terminé.', ephemeral: true });
@@ -227,15 +235,20 @@ export async function handleQuizInteraction(interaction) {
   if (index !== state.correct) {
     return interaction.reply({ content: '❌ Raté ! Tu ne peux plus répondre à cette question.', ephemeral: true });
   }
-  state.done = true;
+  state.winners.push(interaction.user.id);
   addMoney(state.guildId, interaction.user.id, state.reward);
   addCoins(state.guildId, interaction.user.id, QUIZ_COINS);
   addQuizWin(state.guildId, interaction.user.id);
-  const original = interaction.message.embeds[0];
-  const embed = EmbedBuilder.from(original)
-    .setColor(0x57f287)
-    .setDescription(`${original.description.split('\n\n')[0]}\n\n✅ ${interaction.user} a trouvé : **${state.answer}** (+💰 ${formatMoney(state.reward)} et +🪙 ${formatMoney(QUIZ_COINS)}) !`);
-  await interaction.update({ embeds: [embed], components: [buttons(state.choices, { correct: state.correct, disabled: true })] });
+  await interaction.reply({
+    content:
+      `🎉 **Félicitations, c’est la bonne réponse : ${state.answer} !** Tu remportes 💰 **${formatMoney(state.reward)}** et 🪙 **${formatMoney(QUIZ_COINS)}**.\n` +
+      '-# Garde-la pour toi 🤫 : les autres peuvent encore jouer, la réponse sera dévoilée à la fin.',
+    ephemeral: true,
+  });
+  // Sur la question : le nombre de membres qui ont trouvé (sans dévoiler la réponse).
+  const n = state.winners.length;
+  const embed = EmbedBuilder.from(interaction.message.embeds[0]).setDescription(`${state.head}\n\n✅ **${n}** membre${n > 1 ? 's ont' : ' a'} trouvé pour l’instant.`);
+  await interaction.message.edit({ embeds: [embed] }).catch(() => {});
 }
 
 // Toutes les minutes : une question quand le délai est passé, si le serveur est actif et qu'aucune

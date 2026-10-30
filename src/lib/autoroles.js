@@ -6,7 +6,7 @@ import { getStatutRules, getStatusRoleConfig, getTagRoleConfig, getStatusKeyword
 import { wearsServerTag } from './tagrole.js';
 import { isBlockedByAntiRole } from './antirole.js';
 
-function presenceText(member) {
+export function presenceText(member) {
   const parts = [];
   for (const a of member?.presence?.activities ?? []) {
     if (a.state) parts.push(a.state);

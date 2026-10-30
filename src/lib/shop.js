@@ -84,7 +84,7 @@ export function shopPayload(guild, userId, { page = 0, sort = 'prix_asc' } = {})
 
   if (!items.length) {
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('La boutique est vide pour le moment.\n-# Un admin peut ajouter des objets avec `/add-item`.'),
+      new TextDisplayBuilder().setContent('La boutique est vide pour le moment.\n-# Un admin peut ajouter des objets avec `/item ajouter`.'),
     );
     return { components: [container], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } };
   }

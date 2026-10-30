@@ -1,5 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
-import { getCoins, addCoins, getMoney, getBank, addBank, getHeist, patchHeist, getDaily, setDaily, getLivret, getRep, getCasinoInv } from './store.js';
+import { getCoins, addCoins, getMoney, getBank, addBank, getHeist, patchHeist, getDaily, setDaily, getLivret, getRep, getCasinoInv, getStocksValue } from './store.js';
 import { BUILDINGS, PAYOUT_MS, buildingIncome } from './casinoshop.js';
 import { teamOf } from './teams.js';
 import { formatMoney } from './shop.js';
@@ -64,11 +64,15 @@ export async function showBalance(interaction) {
     `🏦 **Banque :** 🪙 ${formatMoney(bank)}  _(à l’abri)_`,
     `📘 **Livret A :** 🪙 ${formatMoney(livret)}  _(à l’abri, rapporte des intérêts)_`,
     `💎 **Total :** 🪙 ${formatMoney(pocket + bank + livret)} coins`,
+  ];
+  const stocks = getStocksValue(guild.id, user.id);
+  if (stocks) lines.push(`📈 **Actions :** 🪙 ${formatMoney(stocks)}  _(au cours actuel, \`.bourse\`)_`);
+  lines.push(
     '',
     `💰 **Argent des niveaux :** ${formatMoney(getMoney(guild.id, user.id))}  _(séparé des coins, pour \`/shop\`)_`,
     `⭐ **Réputation :** ${getRep(guild.id, user.id)} · 👥 **Team :** ${teamOf(guild.id, user.id)?.name ?? 'aucune'}`,
     `🛡️ **Anti-rob :** ${shield ? `actif, fin ${ts(shield)}` : 'aucun'}`,
-  ];
+  );
   // Boutique du casino (.shop) : bâtiments et wagon.
   const inv = getCasinoInv(guild.id, user.id);
   const owned = BUILDINGS.filter((b) => inv.buildings.includes(b.id));

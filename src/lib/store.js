@@ -1257,7 +1257,7 @@ export function removeLevelReward(guildId, level) {
   return true;
 }
 
-// --- Monnaie & boutique (/shop, /add-item…) ---
+// --- Monnaie & boutique (/shop, /item…) ---
 // data[guildId].money = { userId: solde en poche } (la banque est dans data[guildId].bank)
 // data[guildId].shop = { items: { itemId: { name, price, description, role, createdAt } }, purchases: [ { id, userId, itemId, name, price, at } ] }
 export function getMoney(guildId, userId) {
@@ -1403,6 +1403,40 @@ export function patchCasinoInv(guildId, userId, patch) {
 
 export function getAllCasinoInv(guildId) {
   return getGuildConfig(guildId).casinoInv ?? {};
+}
+
+// Bourse (.bourse, lib/bourse.js) : data[guildId].market = { hour, prices: { id: cours }, history: { id: [cours…] }, news } ;
+// data[guildId].stocks = { userId: { id: { n, cost } } } (cost = coins payés pour les actions encore détenues).
+export function getMarket(guildId) {
+  return getGuildConfig(guildId).market ?? null;
+}
+
+export function setMarket(guildId, market) {
+  setGuildConfig(guildId, { market });
+  return market;
+}
+
+export function getStocks(guildId, userId) {
+  return getGuildConfig(guildId).stocks?.[userId] ?? {};
+}
+
+export function setStocks(guildId, userId, holdings) {
+  return setEntry(guildId, 'stocks', userId, holdings && Object.keys(holdings).length ? holdings : null);
+}
+
+// Récompense unique du statut (lib/statusreward.js) : data[guildId].statusRewarded = { userId: date }.
+export function getStatusRewarded(guildId, userId) {
+  return getGuildConfig(guildId).statusRewarded?.[userId] ?? null;
+}
+
+export function setStatusRewarded(guildId, userId, at) {
+  return setEntry(guildId, 'statusRewarded', userId, at);
+}
+
+// Valeur des actions d'un membre au cours actuel.
+export function getStocksValue(guildId, userId) {
+  const prices = getMarket(guildId)?.prices ?? {};
+  return Object.entries(getStocks(guildId, userId)).reduce((n, [id, s]) => n + s.n * Math.max(1, Math.round(prices[id] ?? 0)), 0);
 }
 
 // Réputation (.rep) : data[guildId].rep = { userId: points }.

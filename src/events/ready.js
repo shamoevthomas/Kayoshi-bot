@@ -4,6 +4,7 @@ import { reconcileVerification, maybeRemindUnverified } from '../lib/verificatio
 import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
 import { sweepAutoRoles } from '../lib/autoroles.js';
+import { sweepStatusRewards } from '../lib/statusreward.js';
 import { sweepAntiRoles } from '../lib/antirole.js';
 import { sweepNickLocks } from '../lib/nicklock.js';
 import { rejoinVoiceChannels } from '../lib/voicestay.js';
@@ -24,6 +25,7 @@ import { livretTick } from '../lib/livret.js';
 import { buildingsTick } from '../lib/casinoshop.js';
 import { lotteryTick } from '../lib/lottery.js';
 import { happyHourTick } from '../lib/happyhour.js';
+import { marketTick } from '../lib/bourse.js';
 import { refundHolds } from '../lib/bets.js';
 import { ensureShopLogChannel } from '../lib/shop.js';
 import { refreshAllStatChannels, REFRESH_MS } from '../lib/statchannels.js';
@@ -77,7 +79,7 @@ export default {
     // Membres de la semaine : récompensés le lundi (vérifié toutes les heures).
     setTimeout(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 90_000);
     setInterval(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 3_600_000);
-    // Chaque minute : XP en vocal, fin des événements XP (/xp evenement), questions du quiz, question du jour, intérêts du livret A, revenus des bâtiments (.shop), loterie, happy hour.
+    // Chaque minute : XP en vocal, fin des événements XP (/xp evenement), questions du quiz, question du jour, intérêts du livret A, revenus des bâtiments (.shop), loterie, happy hour, cours de la bourse.
     setInterval(() => {
       grantVoiceXp(client).catch((err) => console.error('[xp vocal]', err));
       endXpEvents(client).catch((err) => console.error('[xp evenement]', err));
@@ -88,6 +90,7 @@ export default {
         buildingsTick(client);
         lotteryTick(client).catch((err) => console.error('[loterie]', err));
         happyHourTick(client).catch((err) => console.error('[happy hour]', err));
+        marketTick(client);
       } catch (err) {
         console.error('[livret]', err);
       }
@@ -103,6 +106,8 @@ export default {
     // source (statut/tag) ne le réclame → plus de conflit entre systèmes.
     setTimeout(() => sweepAutoRoles(client).catch(() => {}), 12_000);
     setInterval(() => sweepAutoRoles(client).catch(() => {}), 300_000);
+    // Récompense unique du statut (/hanamifr) : ceux qui l'avaient déjà au démarrage ; ensuite, presenceUpdate.
+    setTimeout(() => sweepStatusRewards(client).catch((err) => console.error('[statut récompense]', err)), 20_000);
     // Rôles incompatibles (/antirole) : rattrapage des changements faits hors ligne.
     setTimeout(() => sweepAntiRoles(client).catch(() => {}), 20_000);
     // Pseudos verrouillés (/lockpseudo) : rattrapage des changements faits hors ligne.

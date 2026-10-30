@@ -2,7 +2,7 @@ import { EmbedBuilder } from 'discord.js';
 import { checkBet, holdBet, settleHold, againRow, newGameId } from './bets.js';
 import { startBlackjack, handleBlackjackButton } from './blackjack.js';
 import { startPoker, handlePokerButton, HANDS } from './videopoker.js';
-import { startMines, startHilo, startCrash, startRace, handleCasinoGameInteraction } from './casinogames.js';
+import { startMines, startHilo, startCrash, startRace, startScratch, startTower, playPlinko, handleCasinoGameInteraction } from './casinogames.js';
 import { formatMoney } from './shop.js';
 
 // Casino (commandes « . », lib/prefix.js) : on mise l'argent de sa poche. Blackjack et poker (lib/blackjack.js, lib/videopoker.js),
@@ -143,6 +143,9 @@ export async function playGame(interaction, game, raw, option = '') {
   if (game === 'hl') return startHilo(interaction, bet);
   if (game === 'cr') return startCrash(interaction, bet, Number(option) || null);
   if (game === 'co') return startRace(interaction, bet, Number(option) || 0);
+  if (game === 'gr') return startScratch(interaction, bet);
+  if (game === 'to') return startTower(interaction, bet, option || 'moyen');
+  if (game === 'pk') return playPlinko(interaction, bet, option || 'moyen');
 }
 
 // Règles de chaque jeu, affichées par « .help bj », « .help roulette »…
@@ -165,7 +168,7 @@ export async function handleCasinoInteraction(interaction) {
   const [kind, ...rest] = interaction.customId.split(':');
   if (kind === 'cas_bj') return handleBlackjackButton(interaction, rest[0], rest[1]);
   if (kind === 'cas_vp') return handlePokerButton(interaction, rest[0], rest[1], rest[2]);
-  if (['cas_mn', 'cas_hl', 'cas_cr', 'cas_bq'].includes(kind)) return handleCasinoGameInteraction(interaction, kind, rest[0], rest[1]);
+  if (['cas_mn', 'cas_hl', 'cas_cr', 'cas_gr', 'cas_to', 'cas_bq'].includes(kind)) return handleCasinoGameInteraction(interaction, kind, rest[0], rest[1]);
   if (kind === 'cas_again') {
     const [userId, game, bet, option] = rest;
     if (interaction.user.id !== userId) {

@@ -1,7 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, InviteTargetType } from 'discord.js';
 import { showBalance, moveMoney, rob, daily, pay, COOLDOWNS, KEEP_IN_POCKET } from './economy.js';
 import { work, slut, mine, wagon, fish, gift, rep } from './earnings.js';
-import { startHeist, HORSES, RACE_PAYS } from './casinogames.js';
+import { startHeist, HORSES, RACE_PAYS, SCRATCH, TOWER_FLOORS, TOWER_LEVELS, towerMult, PLINKO_ROWS, PLINKO_RISKS, plinkoSlots } from './casinogames.js';
+import { bourse, STOCKS, SELL_FEE } from './bourse.js';
 import { lottery, TICKET_PRICE } from './lottery.js';
 import { noteCasinoChannel } from './happyhour.js';
 import { shop, buy, ANTI_ROB } from './casinoshop.js';
@@ -241,9 +242,22 @@ const MONEY = [
     details: 'Lance un braquage : les autres ont 60 s pour rejoindre avec le bouton (2 braqueurs minimum, 🪙 200 en poche). Chances : 25 % +10 % par braqueur (80 % max). Réussi : chacun gagne 200 à 600 ; raté : chacun paie une amende. Toutes les 3 h.',
     run: (m) => startHeist(ctx(m)),
   },
+  {
+    name: 'bourse',
+    aliases: ['stocks', 'marche', 'marché'],
+    usage: '.bourse [acheter|vendre] [action] [nombre|all]',
+    short: 'Bourse : achète des actions, revends-les plus cher',
+    details:
+      `${STOCKS.length} actions fictives (${STOCKS.map((s) => `${s.emoji} \`${s.id}\``).join(', ')}) dont le cours change toutes les heures, avec parfois une grosse nouvelle. ` +
+      `Achète-les avec ta poche, revends-les quand elles ont monté (${SELL_FEE * 100} % de frais à la vente). Les actions sont à l’abri des vols. ` +
+      '`.bourse` seul : les cours et ton portefeuille. Ex : `.bourse acheter saku 10`, `.bourse vendre saku all`.',
+    run: (m, a) => bourse(ctx(m, { action: a[0], titre: a[1], nombre: a[2] })),
+  },
 ];
 
 const ROULETTE_HELP = Object.keys(ROULETTE_BETS).filter((k) => k !== 'numero').join(', ');
+const TOWER_ALIASES = { facile: 'facile', easy: 'facile', moyen: 'moyen', normal: 'moyen', difficile: 'difficile', dur: 'difficile', hard: 'difficile' };
+const PLINKO_ALIASES = { faible: 'faible', bas: 'faible', low: 'faible', moyen: 'moyen', normal: 'moyen', eleve: 'eleve', élevé: 'eleve', elevé: 'eleve', haut: 'eleve', high: 'eleve' };
 const GAMES = [
   { name: 'bj', aliases: ['blackjack'], usage: '.bj <mise>', short: 'Blackjack contre le croupier', details: GAME_RULES.bj, run: (m, a) => (a[0] ? playGame(ctx(m), 'bj', a[0]) : needBet(m, '.bj <mise>')) },
   { name: 'poker', usage: '.poker <mise>', short: 'Poker : garde tes cartes, change les autres', details: GAME_RULES.vp, run: (m, a) => (a[0] ? playGame(ctx(m), 'vp', a[0]) : needBet(m, '.poker <mise>')) },
@@ -311,6 +325,47 @@ const GAMES = [
       const horse = Number(a[1]);
       if (!a[0] || !Number.isInteger(horse) || horse < 1 || horse > 5) return m.reply({ content: '❌ Utilisation : `.course <mise> <cheval 1 à 5>`.', allowedMentions: { repliedUser: false } });
       return playGame(ctx(m), 'co', a[0], String(horse - 1));
+    },
+  },
+  {
+    name: 'gratter',
+    aliases: ['scratch', 'grattage'],
+    usage: '.gratter <mise>',
+    short: 'Ticket à gratter : 3 symboles identiques = gagné',
+    details: `9 cases à gratter, une par une ou toutes d’un coup. Trois symboles identiques : ${SCRATCH.map((x) => `${x.s} ${x.pays === 1 ? 'mise rendue' : `×${x.pays}`}`).join(' · ')}.`,
+    run: (m, a) => (a[0] ? playGame(ctx(m), 'gr', a[0]) : needBet(m, '.gratter <mise>')),
+  },
+  {
+    name: 'tour',
+    aliases: ['tower'],
+    usage: '.tour <mise> [facile|moyen|difficile]',
+    short: 'Monte la tour sans tomber dans un piège',
+    details:
+      `${TOWER_FLOORS} étages : à chaque étage, choisis une porte. Un piège 💀 = mise perdue ; chaque étage passé fait monter le gain, encaisse quand tu veux.\n` +
+      Object.values(TOWER_LEVELS)
+        .map((l) => `**${l.label}** : ${l.doors} portes dont ${l.traps} piège, jusqu’à ×${towerMult(TOWER_FLOORS, l).toLocaleString('fr-FR')}`)
+        .join('\n') +
+      '\nPar défaut : moyen.',
+    run: (m, a) => {
+      const level = TOWER_ALIASES[(a[1] ?? 'moyen').toLowerCase()];
+      if (!a[0] || !level) return m.reply({ content: '❌ Utilisation : `.tour <mise> [facile|moyen|difficile]`.', allowedMentions: { repliedUser: false } });
+      return playGame(ctx(m), 'to', a[0], level);
+    },
+  },
+  {
+    name: 'plinko',
+    usage: '.plinko <mise> [faible|moyen|eleve]',
+    short: `La bille tombe dans une case : jusqu’à ×${Math.max(...PLINKO_RISKS.eleve.half)}`,
+    details:
+      `La bille rebondit sur ${PLINKO_ROWS} rangées de clous puis tombe dans une des ${PLINKO_ROWS + 1} cases : les bords rapportent gros, le centre moins que la mise.\n` +
+      Object.values(PLINKO_RISKS)
+        .map((r) => `**${r.label}** : ${plinkoSlots(r).map((x) => `×${x.toLocaleString('fr-FR')}`).join(' ')}`)
+        .join('\n') +
+      '\nPar défaut : moyen.',
+    run: (m, a) => {
+      const risk = PLINKO_ALIASES[(a[1] ?? 'moyen').toLowerCase()];
+      if (!a[0] || !risk) return m.reply({ content: '❌ Utilisation : `.plinko <mise> [faible|moyen|eleve]`.', allowedMentions: { repliedUser: false } });
+      return playGame(ctx(m), 'pk', a[0], risk);
     },
   },
 ];

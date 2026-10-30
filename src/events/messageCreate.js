@@ -8,6 +8,7 @@ import { handleDisboardBump } from '../lib/bumpreminder.js';
 import { handlePartnerMessage } from '../lib/partners.js';
 import { handleVoiceStatsCommand } from '../lib/voicestats.js';
 import { handleSnipeCommand } from '../lib/snipe.js';
+import { handleHideCommand } from '../lib/hidechannel.js';
 import { handlePrefixCommand } from '../lib/prefix.js';
 import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
@@ -70,6 +71,8 @@ export default {
     await handleVoiceStatsCommand(message).catch((err) => console.error(err));
     // « +snipe » (staff) : dernier message supprimé du salon.
     await handleSnipeCommand(message).catch((err) => console.error('[snipe]', err));
+    // « +hide » / « +unhide » (staff) : masquer ou réafficher un salon pour le rôle Membre.
+    await handleHideCommand(message).catch((err) => console.error('[hide]', err));
     // Stats d'activité (messages par membre et par salon), puis s?u / s?t / s?m / s?v.
     try {
       recordMessage(message);

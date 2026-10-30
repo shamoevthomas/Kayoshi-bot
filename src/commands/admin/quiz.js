@@ -9,7 +9,7 @@ import { formatMoney } from '../../lib/shop.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('quiz')
-    .setDescription('Quiz de culture générale dans un salon : le premier qui trouve gagne de l’argent.')
+    .setDescription('Quiz dans un salon : chaque membre qui trouve la bonne réponse gagne de l’argent et des coins.')
     .addSubcommand((s) =>
       s
         .setName('activer')

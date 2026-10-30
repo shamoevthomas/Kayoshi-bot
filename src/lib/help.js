@@ -27,6 +27,7 @@ const CATEGORIES = [
       ['/purge', 'Supprimer des messages dans ce salon (par lots)'],
       ['+snipe', 'Réaffiche le dernier message supprimé du salon, avec ses images, pendant 1 h (staff : permission « Gérer les messages »)'],
       ['/lock · /unlock', 'Verrouiller / déverrouiller l’écriture dans ce salon pour le rôle Membre'],
+      ['+hide · +unhide', 'Masquer / réafficher ce salon (ou `+hide #salon`) pour le rôle Membre (staff : permission « Gérer les salons »)'],
       ['/slowmode', 'Régler le mode lent du salon (0 = off)'],
       ['/nick', 'Changer ou réinitialiser le pseudo d’un membre'],
       ['/lockpseudo · /unlockpseudo', 'Imposer un pseudo à un membre (il ne peut plus se renommer, sauf staff) / le libérer'],
@@ -48,6 +49,7 @@ const CATEGORIES = [
       ['/rank', 'Donner un ou deux rôles à un membre et l’annoncer en embed (« Rank up par @staff »)'],
       ['/derank', 'Retirer jusqu’à 5 rôles à un membre, le prévenir en MP et l’annoncer (« Derank par @staff »)'],
       ['/configrank', 'Choisir le salon et les messages des annonces de /rank et /derank'],
+      ['Pub dans le statut', 'Mettre `/hanamifr` ou `.gg/hanamifr` dans son statut rapporte une fois **+3 niveaux, 💰 500 et 🪙 500** (prévenu en MP, noté dans les logs)'],
       ['/statut', '`role` — rôle donné aux membres qui ont un mot-clé dans leur statut (activer → mots-clés, un par ligne ; désactiver)'],
       ['/tagrole', '`activer` `desactiver` `voir` — rôle si le tag du serveur est porté'],
       ['/antirole', '`ajouter` `liste` `retirer` — rôles incompatibles (ex : Actif retire Nouveau)'],
@@ -86,8 +88,7 @@ const CATEGORIES = [
       'Sans message pendant 3 jours, le bot mentionne le staff et demande s’il faut le fermer.',
     lines: [
       ['/configticket', 'Configurer le système de tickets (assistant guidé)'],
-      ['/ajouterroleticket', 'Ajouter un rôle au staff des tickets (accès + mention à l’ouverture)'],
-      ['/retirerroleticket', 'Retirer un rôle du staff des tickets'],
+      ['/roleticket', '`ajouter` `retirer` — rôle du staff des tickets (accès + mention à l’ouverture)'],
       ['/messageticket', 'Premier message envoyé dans un ticket, pour un motif (`[@]` = mention de l’auteur)'],
       ['/modifierembedticket', 'Changer l’embed d’ouverture d’un ticket (GIF, miniature, couleur, titre — pour tous les motifs ou un seul) et le texte de chaque motif'],
       ['/avisticket', '`activer` `desactiver` `voir` — avis (⭐) à la fermeture (ticket 1, 2 ou les deux)'],
@@ -128,8 +129,7 @@ const CATEGORIES = [
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
       ['/configeconomie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
       ['/money', '`ajouter` `retirer` — donner / retirer de l’argent ou des coins (option `monnaie`) à un membre · `tous` — à tous les membres du serveur (admin)'],
-      ['/add-item · /remove-item', 'Ajouter / retirer un objet de la boutique — types : personnalisé (ticket), rôle permanent, rôle temporaire, booster d’XP (admin)'],
-      ['/change-item', 'Modifier le nom, le prix ou la description d’un objet (admin)'],
+      ['/item', '`ajouter` `retirer` — objet de la boutique (types : personnalisé (ticket), rôle permanent, rôle temporaire, booster d’XP) · `modifier` — nom, prix ou description (admin)'],
       ['/configshop', 'Titre, description et couleur de la boutique (admin)'],
       ['/history-shop', 'Historique des achats de la boutique, ou ceux d’un membre (admin)'],
     ],
@@ -138,7 +138,7 @@ const CATEGORIES = [
     key: 'casino',
     emoji: '🎰',
     name: 'Casino',
-    summary: 'Commandes « . » : banque, livret, work, mine, vols, blackjack, poker, roulette…',
+    summary: 'Commandes « . » : banque, livret, bourse, work, mine, vols, blackjack, poker, roulette…',
     about:
       'Le casino se joue avec des commandes qui commencent par un **point**, écrites dans le chat (ex : `.balance`). ' +
       '`.help` les liste toutes, `.help <commande>` explique l’une d’elles. On joue avec des **coins** 🪙, une monnaie à part de l’argent ' +
@@ -157,6 +157,8 @@ const CATEGORIES = [
       ['.activity', 'Lance Poker Night, l’activité casino de Discord, dans ton salon vocal'],
       ['.bj · .poker · .roulette · .slots · .pf', 'Blackjack et poker (avec images des cartes), roulette, machine à sous, pile ou face — bouton 🔁 Rejouer'],
       ['.mines · .hilo · .crash · .course', 'Démineur (encaisse avant la bombe) · carte plus haute ou plus basse · multiplicateur qui monte jusqu’au crash · course de chevaux (×4,75)'],
+      ['.gratter · .tour · .plinko', 'Ticket à gratter (trois symboles identiques, jusqu’à ×100) · monter une tour de 8 étages sans tomber dans un piège (facile, moyen, difficile ; encaisse quand tu veux) · bille qui tombe dans une case (risque faible, moyen ou élevé, jusqu’à ×29)'],
+      ['.bourse', 'Actions fictives dont le cours change chaque heure : `acheter` avec ta poche, `vendre` quand ça a monté (2 % de frais) — à l’abri des vols'],
       ['.loterie · .braquage', 'Tickets à 🪙 100, tirage de toute la cagnotte chaque dimanche à minuit · braquage de la banque à plusieurs (60 s pour rejoindre, 3 h entre deux)'],
       ['Happy hour', 'Chaque jour, 1 h au hasard entre 15 h et 22 h : les gains de `.work`, `.slut`, `.gift`, `.fish` et du `.wagon` sont doublés (annoncée dans le salon du casino)'],
       ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux contre un membre ou contre le bot (sans membre), avec une mise en coins : le gagnant remporte tout'],
@@ -172,7 +174,7 @@ const CATEGORIES = [
       ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux (2 manches gagnantes) contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
-      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : le premier qui trouve gagne de l’argent et 🪙 500 coins (classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
+      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : chaque membre qui trouve gagne de l’argent et 🪙 500 coins (félicitations en message privé, réponse dévoilée à la fin, classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
       ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
@@ -260,6 +262,11 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+hide', 'masquer un salon pour le rôle Membre (staff)'],
+  ['.bourse', 'actions dont le cours change chaque heure'],
+  ['.plinko', 'la bille tombe dans une case'],
+  ['.tour', 'monte la tour sans tomber dans un piège'],
+  ['.gratter', 'ticket à gratter'],
   ['.mines', 'démineur du casino'],
   ['.crash', 'encaisse avant le crash'],
   ['.loterie', 'loterie de la semaine'],
@@ -270,26 +277,21 @@ const RECENT = [
   ['.help', 'le casino en commandes « . »'],
   ['.livret', 'livret A avec intérêts chaque jour'],
   ['.trade', 'acheter un objet à un membre'],
-  ['+snipe', 'dernier message supprimé (staff)'],
-  ['/backup', 'sauvegarder et restaurer le serveur'],
-  ['/salon-stats', 'salons qui affichent les stats du serveur'],
-  ['/duel', 'morpion, puissance 4, pierre-feuille-ciseaux'],
-  ['/top', 'tous les classements en onglets'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/quiz', 'chaque bonne réponse gagne (félicitations en message privé), la réponse est dévoilée à la fin'],
+  ['/item', 'remplace /add-item, /change-item et /remove-item : `ajouter` `modifier` `retirer`'],
+  ['/roleticket', 'remplace /ajouterroleticket et /retirerroleticket : `ajouter` `retirer`'],
   ['/userinfo', 'niveau, argent, coins, réputation, team, famille, activité…'],
-  ['/quiz', '`qui-a-dit` ; 🪙 500 coins par bonne réponse ; plus d’actualité, de politique, de TV ni de cinéma'],
   ['/duel', '`membre` facultatif : sans membre, on joue contre le bot'],
   ['/profilbot', 'changements notés dans #logs-profil, avec qui les a faits'],
   ['/gw', '`start` : option `role_gagne`, rôle donné automatiquement aux gagnants'],
   ['/role', '`create` (couleur, dégradé) et `rename` ; l’ajout/retrait passe dans `/role membre`'],
   ['/modifierembed', 'panneau de tickets : bouton pour réorganiser les motifs'],
   ['+vc', 'nouvel embed : membres, en ligne, en vocal, actifs, en stream, mute'],
-  ['/top', 'onglets Coins, Poche et Réputation : argent des niveaux et coins du casino séparés'],
-  ['/money', '`tous` : donner à tous les membres ; option `monnaie` : argent ou coins'],
 ];
 
 const HOME = 'home';
