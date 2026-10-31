@@ -19,7 +19,7 @@ import { reconcileWouldYouRather } from '../lib/wouldyourather.js';
 import { processTempRoles } from '../lib/roles.js';
 import { processWeeklyTop } from '../lib/weeklytop.js';
 import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
-import { quizTick } from '../lib/quiz.js';
+import { quizTick, resumeQuizzes } from '../lib/quiz.js';
 import { qotdTick } from '../lib/qotd.js';
 import { livretTick } from '../lib/livret.js';
 import { buildingsTick } from '../lib/casinoshop.js';
@@ -95,6 +95,8 @@ export default {
         console.error('[livret]', err);
       }
     }, 60_000);
+    // Questions du quiz en cours avant le redémarrage : elles reprennent avec leur minuteur.
+    resumeQuizzes(client);
     // Reprogramme les kicks des membres non vérifiés.
     reconcileVerification(client);
     // Rappel des membres non vérifiés toutes les 5 h (ticker de contrôle : 30 min).

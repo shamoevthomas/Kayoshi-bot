@@ -1461,6 +1461,16 @@ export function setLockdown(guildId, lockdown) {
   setGuildConfig(guildId, { lockdown });
 }
 
+// Questions du quiz en cours (lib/quiz.js), gardées pour survivre à un redémarrage :
+// data[guildId].quizActive = { messageId: { channelId, correct, answer, choices, tried, winners, reward, head, endsAt } }.
+export function getQuizActive(guildId) {
+  return getGuildConfig(guildId).quizActive ?? {};
+}
+
+export function setQuizActive(guildId, messageId, state) {
+  return setEntry(guildId, 'quizActive', messageId, state);
+}
+
 // Salon Pokémon (/pokemon, lib/pokemongame.js) : data[guildId].pokemonGame = { channelId, gen, current, recent,
 // scores: { userId: { points, dex: [numéros trouvés], shinies: [numéros brillants] } } }.
 export function getPokemonGame(guildId) {

@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, PermissionFlagsBits, SnowflakeUtil } from 'discord.js';
-import { getQuiz, addMoney, addCoins, addQuizWin } from './store.js';
+import { getQuiz, addMoney, addCoins, addQuizWin, getQuizActive, setQuizActive } from './store.js';
 import { formatMoney } from './shop.js';
 import { ANIME_QUESTIONS } from './quizanime.js';
 import { GAME_QUESTIONS } from './quizgames.js';
@@ -62,7 +62,6 @@ const BACKUP = [
   ['Dans « Pac-Man », que mange le personnage ?', 'Des pac-gommes', ['Des pièces', 'Des étoiles', 'Des champignons'], 'jeux_videos'],
 ];
 
-const active = new Map(); // messageId → { correct, answer, tried: Set, winners: [ids], done, reward, head }
 const nextQuizAt = new Map(); // guildId → instant de la prochaine question
 const lastActivity = new Map(); // guildId → dernier message d'un membre
 
@@ -143,8 +142,7 @@ export async function postQuiz(guild) {
   else if (cfg.roleId) ping = { content: `<@&${cfg.roleId}>`, allowedMentions: { roles: [cfg.roleId] } };
   const message = await channel.send({ ...ping, embeds: [embed], components: [buttons(choices)] }).catch(() => null);
   if (!message) return null;
-  active.set(message.id, { guildId: guild.id, correct, answer: q.answer, choices, tried: new Set(), winners: [], done: false, reward: cfg.reward, head: embed.data.description });
-  setTimeout(() => expire(message), EXPIRE_MS);
+  track(guild, message, { correct, answer: q.answer, choices, reward: cfg.reward, head: embed.data.description }, EXPIRE_MS);
   return message;
 }
 
@@ -203,16 +201,41 @@ export async function postWhoSaid(guild, channel) {
     .setFooter({ text: `Message du ${date} · 5 min pour trouver` });
   const message = await channel.send({ embeds: [embed], components: [buttons(choices)], allowedMentions: { parse: [] } }).catch(() => null);
   if (!message) return 'Je ne peux pas écrire dans ce salon.';
-  active.set(message.id, { guildId: guild.id, correct, answer: choices[correct], choices, tried: new Set(), winners: [], done: false, reward, head: embed.data.description });
-  setTimeout(() => expire(message), WHO_EXPIRE_MS);
+  track(guild, message, { correct, answer: choices[correct], choices, reward, head: embed.data.description }, WHO_EXPIRE_MS);
   return message;
 }
 
+// Question en cours : enregistrée (elle survit à un redémarrage du bot) et terminée au bout de `ms`.
+function track(guild, message, question, ms) {
+  setQuizActive(guild.id, message.id, { ...question, channelId: message.channelId, tried: [], winners: [], endsAt: Date.now() + ms });
+  schedule(guild.client, guild.id, message.id, ms);
+}
+
+const timers = new Map(); // messageId → minuteur de fin
+function schedule(client, guildId, messageId, ms) {
+  clearTimeout(timers.get(messageId));
+  timers.set(
+    messageId,
+    setTimeout(() => expire(client, guildId, messageId).catch((err) => console.error('[quiz]', err)), Math.max(0, ms)),
+  );
+}
+
+// Au démarrage : les questions en cours reprennent (celles dont le temps est passé se terminent tout de suite).
+export function resumeQuizzes(client) {
+  for (const guildId of client.guilds.cache.keys()) {
+    for (const [messageId, state] of Object.entries(getQuizActive(guildId))) schedule(client, guildId, messageId, (state.endsAt ?? 0) - Date.now());
+  }
+}
+
 // Fin du temps : la réponse est dévoilée, avec ceux qui l'ont trouvée.
-async function expire(message) {
-  const state = active.get(message.id);
-  if (!state || state.done) return;
-  state.done = true;
+async function expire(client, guildId, messageId) {
+  timers.delete(messageId);
+  const state = getQuizActive(guildId)[messageId];
+  if (!state) return;
+  setQuizActive(guildId, messageId, null); // terminée d'abord : plus de réponse acceptée
+  const channel = client.channels.cache.get(state.channelId) ?? (await client.channels.fetch(state.channelId).catch(() => null));
+  const message = await channel?.messages?.fetch(messageId).catch(() => null);
+  if (!message?.embeds?.[0]) return;
   const { winners } = state;
   const names = winners.slice(0, 20).map((id) => `<@${id}>`).join(', ') + (winners.length > 20 ? ` et ${winners.length - 20} autre(s)` : '');
   const result = winners.length
@@ -227,18 +250,22 @@ async function expire(message) {
 // Bouton de réponse : chaque bonne réponse gagne (félicitations en message éphémère, la question reste
 // ouverte pour les autres) ; une seule tentative par personne.
 export async function handleQuizInteraction(interaction) {
-  const state = active.get(interaction.message.id);
-  if (!state || state.done) return interaction.reply({ content: '⌛ Ce quiz est terminé.', ephemeral: true });
-  if (state.tried.has(interaction.user.id)) return interaction.reply({ content: 'Tu as déjà répondu à cette question.', ephemeral: true });
-  state.tried.add(interaction.user.id);
+  const guildId = interaction.guildId;
+  const messageId = interaction.message.id;
+  const saved = getQuizActive(guildId)[messageId];
+  if (!saved || saved.endsAt <= Date.now()) return interaction.reply({ content: '⌛ Ce quiz est terminé.', ephemeral: true });
+  if (saved.tried.includes(interaction.user.id)) return interaction.reply({ content: 'Tu as déjà répondu à cette question.', ephemeral: true });
+  // Enregistré avant tout await : deux clics en même temps ne se marchent pas dessus.
   const index = Number(interaction.customId.split(':')[1]);
-  if (index !== state.correct) {
+  const right = index === saved.correct;
+  const state = { ...saved, tried: [...saved.tried, interaction.user.id], winners: right ? [...saved.winners, interaction.user.id] : saved.winners };
+  setQuizActive(guildId, messageId, state);
+  if (!right) {
     return interaction.reply({ content: '❌ Raté ! Tu ne peux plus répondre à cette question.', ephemeral: true });
   }
-  state.winners.push(interaction.user.id);
-  addMoney(state.guildId, interaction.user.id, state.reward);
-  addCoins(state.guildId, interaction.user.id, QUIZ_COINS);
-  addQuizWin(state.guildId, interaction.user.id);
+  addMoney(guildId, interaction.user.id, state.reward);
+  addCoins(guildId, interaction.user.id, QUIZ_COINS);
+  addQuizWin(guildId, interaction.user.id);
   await interaction.reply({
     content:
       `🎉 **Félicitations, c’est la bonne réponse : ${state.answer} !** Tu remportes 💰 **${formatMoney(state.reward)}** et 🪙 **${formatMoney(QUIZ_COINS)}**.\n` +
@@ -264,7 +291,7 @@ export async function quizTick(client) {
       continue;
     }
     if (now < next || now - (lastActivity.get(guild.id) ?? 0) > ACTIVE_WINDOW_MS) continue;
-    if ([...active.values()].some((s) => s.guildId === guild.id && !s.done)) continue;
+    if (Object.keys(getQuizActive(guild.id)).length) continue; // une question attend encore
     nextQuizAt.set(guild.id, now + cfg.everyMin * 60_000);
     await postQuiz(guild).catch((err) => console.error('[quiz]', err));
   }
