@@ -7,11 +7,14 @@ import {
   ChannelType,
   ComponentType,
   ModalBuilder,
+  LabelBuilder,
+  FileUploadBuilder,
   TextInputBuilder,
   TextInputStyle,
-  EmbedBuilder,
 } from 'discord.js';
 import { getGreetConfig, setGreetConfig, getGreetEmbed, getPartner, getDmJoin } from './store.js';
+import { withHostedImages, isDiscordFile } from './rehost.js';
+import { storeUpload, persistUrl, isMediaUrl } from './media.js';
 
 export const TEMPLATE_HELP =
   'Templates : `[@]` (mention/pseudo) · `[user]` (pseudo) · `[tag]` (identifiant complet) · `[server]` (nom du serveur) · `[count]` (nombre de membres, bots exclus) · `[nump]` (nombre de partenariats) · `[date]`';
@@ -118,16 +121,17 @@ export async function sendGreeting(guild, type, member) {
       },
     };
     if (cfg.gifUrl) {
-      payload.embeds = [new EmbedBuilder().setColor(isWelcome ? 0x57f287 : 0xed4245).setImage(cfg.gifUrl)];
+      // Objet simple (pas setImage) : le GIF peut être une image gardée par le bot (kayo-media://), jointe à l'envoi.
+      payload.embeds = [{ color: isWelcome ? 0x57f287 : 0xed4245, image: { url: cfg.gifUrl } }];
     }
-    await channel.send(payload).catch(() => {});
+    await channel.send(await withHostedImages(payload)).catch(() => {});
   }
 
   // L'embed ne mentionne personne : [@] y reste affiché en mention, mais une
   // mention dans un embed ne notifie pas.
   if (embedChannel) {
     await embedChannel
-      .send({ embeds: [templateEmbed(embedCfg.embed, vars)], allowedMentions: { parse: [] } })
+      .send(await withHostedImages({ embeds: [templateEmbed(embedCfg.embed, vars)], allowedMentions: { parse: [] } }))
       .catch(() => {});
   }
 }
@@ -184,44 +188,64 @@ export async function runGreetingWizard(interaction, type) {
     const modal = new ModalBuilder()
       .setCustomId(`${prefix}_modal`)
       .setTitle(`Message de ${title}`)
-      .addComponents(
-        new ActionRowBuilder().addComponents(
+      .addLabelComponents(
+        new LabelBuilder().setLabel('Message').setTextInputComponent(
           new TextInputBuilder()
             .setCustomId('message')
-            .setLabel('Message')
             .setPlaceholder('Bienvenue [@] sur [server] ! Tu es le [count]e membre 🎉')
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true)
             .setMaxLength(1500),
         ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId('gif')
-            .setLabel('Lien du GIF (optionnel)')
-            .setPlaceholder('https://…​.gif — laisser vide si aucun')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false)
-            .setMaxLength(400),
-        ),
+        new LabelBuilder()
+          .setLabel('Lien du GIF (optionnel)')
+          .setDescription('Ou envoie le GIF en fichier juste en dessous.')
+          .setTextInputComponent(
+            new TextInputBuilder()
+              .setCustomId('gif')
+              .setPlaceholder('https://…​.gif — laisser vide si aucun')
+              .setStyle(TextInputStyle.Short)
+              .setRequired(false)
+              .setMaxLength(400),
+          ),
+        new LabelBuilder()
+          .setLabel('GIF en fichier (optionnel)')
+          .setFileUploadComponent(new FileUploadBuilder().setCustomId('gif_file').setRequired(false).setMaxValues(1)),
       );
     await wb.showModal(modal);
 
     const sub = await wb.awaitModalSubmit({ time: 600_000, filter: (i) => i.customId === `${prefix}_modal` && i.user.id === interaction.user.id });
     cfg.message = sub.fields.getTextInputValue('message');
     const gif = sub.fields.getTextInputValue('gif')?.trim();
-    cfg.gifUrl = gif && /^https?:\/\/\S+$/.test(gif) ? gif : null;
+    const gifFile = sub.fields.getUploadedFiles('gif_file')?.first() ?? null;
+    // Un fichier (prioritaire), ou un lien d'image Discord (qui expire), est gardé par le bot : ça peut prendre quelques secondes.
+    let gifError = null;
+    if (gifFile || (gif && isDiscordFile(gif))) await sub.deferUpdate();
+    if (gifFile) {
+      const stored = await storeUpload(guild.id, gifFile);
+      cfg.gifUrl = stored.url ?? null;
+      gifError = stored.error ?? null;
+    } else if (gif && /^https?:\/\/\S+$/.test(gif)) cfg.gifUrl = await persistUrl(guild.id, gif, isDiscordFile);
+    else cfg.gifUrl = null;
 
     // ===== 3/3 — Ping d'un rôle en plus ? =====
     const pingRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`${prefix}_pingyes`).setLabel('Oui, ping un rôle').setStyle(ButtonStyle.Success).setEmoji('🔔'),
       new ButtonBuilder().setCustomId(`${prefix}_pingno`).setLabel('Non').setStyle(ButtonStyle.Secondary),
     );
-    const gifNote = cfg.gifUrl ? `\n🖼️ GIF : ${cfg.gifUrl}` : gif ? '\n⚠️ Lien de GIF ignoré (URL invalide).' : '';
-    await sub.update({
+    const gifNote = gifError
+      ? `\n⚠️ GIF ignoré : ${gifError}`
+      : cfg.gifUrl
+        ? `\n🖼️ GIF : ${gifFile || isMediaUrl(cfg.gifUrl) ? 'fichier gardé par le bot ✅' : cfg.gifUrl}`
+        : gif
+          ? '\n⚠️ Lien de GIF ignoré (URL invalide).'
+          : '';
+    const step3 = {
       content: `✅ Message enregistré.${gifNote}\n\n**3/3 — Ping supplémentaire**\nEn plus de l’utilisateur, faut-il mentionner un rôle ?`,
       components: [pingRow],
       embeds: [],
-    });
+    };
+    await (sub.deferred ? sub.editReply(step3) : sub.update(step3));
 
     const pb = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter });
     if (pb.customId === `${prefix}_pingyes`) {

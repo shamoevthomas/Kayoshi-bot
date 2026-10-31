@@ -1,5 +1,6 @@
 import { getPartner, recordPartnership, addPartnerMention, takePartnerMentions } from './store.js';
 import { renderEmbedFor } from './greetings.js';
+import { withHostedImages } from './rehost.js';
 
 // Rôle donné aux membres mentionnés dans le salon partenariat.
 const MENTIONED_ROLE_ID = '1410934072603185255';
@@ -24,11 +25,13 @@ export async function handlePartnerMessage(message) {
   embed.timestamp = new Date().toISOString();
 
   await message.channel
-    .send({
-      ...(cfg.roleId ? { content: `<@&${cfg.roleId}>` } : {}),
-      embeds: [embed],
-      allowedMentions: { roles: cfg.roleId ? [cfg.roleId] : [] },
-    })
+    .send(
+      await withHostedImages({
+        ...(cfg.roleId ? { content: `<@&${cfg.roleId}>` } : {}),
+        embeds: [embed],
+        allowedMentions: { roles: cfg.roleId ? [cfg.roleId] : [] },
+      }),
+    )
     .catch((err) => console.error('[partenariat] envoi impossible :', err.message));
 }
 

@@ -5,6 +5,7 @@ import {
   ChannelSelectMenuBuilder,
   ChannelType,
   EmbedBuilder,
+  FileUploadBuilder,
   LabelBuilder,
   ModalBuilder,
   RoleSelectMenuBuilder,
@@ -36,7 +37,8 @@ import {
   rememberTicketPanel,
   createCategories,
 } from './tickets.js';
-import { withHostedImages } from './rehost.js';
+import { withHostedImages, persistImages, previewPayload } from './rehost.js';
+import { storeUpload, isMediaUrl } from './media.js';
 
 // Créateur d'embed (/embed, et /modifierembed pour un embed existant) : aperçu éphémère + boutons d'édition.
 // Sans état : l'embed en cours est relu à chaque clic depuis le message d'aperçu,
@@ -567,7 +569,33 @@ const SECTIONS = {
   },
 };
 
+// Formulaire Images : pour la grande image et la miniature, un lien ou un fichier (le fichier l'emporte).
+function imagesModal(embed) {
+  const link = (id, value) => {
+    const input = new TextInputBuilder().setCustomId(id).setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(1000);
+    if (value) input.setValue(String(value).slice(0, 1000));
+    return input;
+  };
+  const file = (id) => new FileUploadBuilder().setCustomId(id).setRequired(false).setMaxValues(1);
+  return new ModalBuilder()
+    .setCustomId('emb_modal:images')
+    .setTitle('Images')
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel('Grande image / GIF (en bas) : lien')
+        .setDescription('Ou envoie le fichier juste en dessous. Vide = pas d’image.')
+        .setTextInputComponent(link('image', embed.image?.url)),
+      new LabelBuilder().setLabel('Grande image / GIF : fichier').setFileUploadComponent(file('image_file')),
+      new LabelBuilder()
+        .setLabel('Miniature (en haut à droite) : lien')
+        .setDescription('Ou envoie le fichier juste en dessous. Vide = pas de miniature.')
+        .setTextInputComponent(link('thumbnail', embed.thumbnail?.url)),
+      new LabelBuilder().setLabel('Miniature : fichier').setFileUploadComponent(file('thumbnail_file')),
+    );
+}
+
 function buildModal(section, embed) {
+  if (section === 'images') return imagesModal(embed);
   const def = SECTIONS[section];
   const modal = new ModalBuilder().setCustomId(`emb_modal:${section}`).setTitle(def.title);
   for (const [id, label, style, max, current] of def.fields) {
@@ -584,6 +612,7 @@ function applyModal(section, e, get) {
   const url = (key, label) => {
     const v = get(key);
     if (!v) return null;
+    if (isMediaUrl(v)) return v; // fichier envoyé, gardé par le bot
     if (!/^https?:\/\/\S+$/.test(v)) throw new Error(`${label} : lien invalide (il doit commencer par http:// ou https://).`);
     return v;
   };
@@ -694,8 +723,9 @@ async function outgoing(interaction, embed, roleId, rr, shop = false) {
 }
 
 // L'embed est stocké à part : le message texte de /bienvenue ou /quitte n'est pas touché.
-function saveGreeting(guildId, type, channelId, embed) {
-  setGreetEmbed(guildId, type, { channelId, embed });
+async function saveGreeting(guildId, type, channelId, embed) {
+  // Renvoyé à chaque arrivée / départ : ses images Discord deviennent des images gardées par le bot.
+  setGreetEmbed(guildId, type, { channelId, embed: await persistImages(guildId, embed) });
   return `✅ Cet embed est maintenant l’**embed de ${GREET_LABEL[type]}**, envoyé dans <#${channelId}>.\n-# Le message texte de ${GREET_CMD[type]} reste inchangé et est envoyé à part.`;
 }
 
@@ -829,7 +859,9 @@ export async function openEmbedEditor(interaction, value) {
   } catch (err) {
     return interaction.reply({ content: `❌ ${err.message}`, ephemeral: true });
   }
-  return interaction.reply({ ...builderPayload(loaded.embed, '', loaded.state), ephemeral: true });
+  // Une image gardée par le bot (bienvenue, panneau…) est jointe à l'aperçu : lue dans la base avant de répondre.
+  await interaction.deferReply({ ephemeral: true });
+  return interaction.editReply(await previewPayload(builderPayload(loaded.embed, '', loaded.state)));
 }
 
 // Applique l'aperçu à la cible. Renvoie la note à afficher, lève une Error si impossible.
@@ -852,14 +884,15 @@ async function saveTarget(interaction, embed, { target, rr, motifs }) {
 
   requireAdmin(interaction);
   if (type === 'partner') {
-    patchPartner(guild.id, { embed });
+    // Renvoyé à chaque partenariat : ses images Discord deviennent des images gardées par le bot.
+    patchPartner(guild.id, { embed: await persistImages(guild.id, embed) });
     return '✅ Embed partenariat enregistré : il sera utilisé pour les prochains partenariats.';
   }
 
   if (type === 'greet') {
     const current = getGreetEmbed(guild.id, a);
     if (!current) throw new Error(`L’embed de ${GREET_LABEL[a]} a été désactivé entre-temps : recrée-le avec \`/embed\`.`);
-    setGreetEmbed(guild.id, a, { ...current, embed });
+    setGreetEmbed(guild.id, a, { ...current, embed: await persistImages(guild.id, embed) });
     return `✅ Embed de ${GREET_LABEL[a]} enregistré.`;
   }
 
@@ -881,6 +914,8 @@ async function saveTarget(interaction, embed, { target, rr, motifs }) {
 async function applyTicketPanel(guild, slot, embed, motifs) {
   const config = getTicketConfig(guild.id, TICKET_KEY[slot]);
   if (!config?.motifs?.length) throw new Error(`Le système de tickets ${slot} n’est plus configuré.`);
+  // Le panneau peut être republié plus tard : ses images Discord deviennent des images gardées par le bot.
+  embed = await persistImages(guild.id, embed);
   config.panelEmbed = embed;
   config.panelTitle = embed.title ?? '';
   config.panelDescription = embed.description ?? '';
@@ -1213,6 +1248,36 @@ export async function handleEmbedBuilderInteraction(interaction) {
     return interaction.showModal(buildModal(arg, currentEmbed(interaction)));
   }
 
+  // --- Formulaire Images : un fichier envoyé est gardé par le bot et joint à l'aperçu ---
+  if (interaction.isModalSubmit() && action === 'emb_modal' && arg === 'images') {
+    await interaction.deferUpdate();
+    const values = {};
+    for (const [field, fileId] of [
+      ['image', 'image_file'],
+      ['thumbnail', 'thumbnail_file'],
+    ]) {
+      const file = interaction.fields.getUploadedFiles(fileId)?.first() ?? null;
+      if (!file) {
+        values[field] = interaction.fields.getTextInputValue(field)?.trim() ?? '';
+        continue;
+      }
+      const stored = await storeUpload(interaction.guild.id, file);
+      if (stored.error) return interaction.followUp({ content: `❌ ${stored.error}`, ephemeral: true }).catch(() => {});
+      values[field] = stored.url;
+    }
+    let embed;
+    try {
+      embed = applyModal('images', currentEmbed(interaction), (k) => values[k] ?? '');
+    } catch (err) {
+      return interaction.followUp({ content: `❌ ${err.message}`, ephemeral: true }).catch(() => {});
+    }
+    // Les images de l'aperçu sont rejointes (les anciennes pièces jointes retirées).
+    const payload = await withHostedImages(builderPayload(embed, '', state));
+    return interaction
+      .editReply({ ...payload, attachments: [] })
+      .catch((err) => interaction.followUp({ content: `❌ Discord a refusé l’embed : ${err.message}`, ephemeral: true }).catch(() => {}));
+  }
+
   // --- Formulaire soumis → aperçu mis à jour ---
   if (interaction.isModalSubmit() && action === 'emb_modal' && SECTIONS[arg]) {
     let embed;
@@ -1263,13 +1328,14 @@ export async function handleEmbedBuilderInteraction(interaction) {
     }
     if (interaction.isChannelSelectMenu()) {
       const channelId = interaction.values[0];
-      patchPartner(interaction.guild.id, { channelId, roleId: role, embed });
+      await interaction.deferUpdate();
+      patchPartner(interaction.guild.id, { channelId, roleId: role, embed: await persistImages(interaction.guild.id, embed) });
       const me = interaction.guild.members.me;
       const canSend = interaction.guild.channels.cache
         .get(channelId)
         ?.permissionsFor(me)
         ?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks]);
-      return interaction.update(
+      return interaction.editReply(
         builderPayload(
           embed,
           `✅ **Salon partenariat : <#${channelId}>** — après chaque message posté, j’envoie cet embed avec la mention du rôle et je compte un partenariat pour son auteur.\n` +
@@ -1368,12 +1434,14 @@ export async function handleEmbedBuilderInteraction(interaction) {
     }
 
     if (interaction.isChannelSelectMenu() && action === 'emb_greetchan') {
-      return interaction.update(builderPayload(embed, saveGreeting(guildId, arg, interaction.values[0], embed), state));
+      await interaction.deferUpdate();
+      return interaction.editReply(builderPayload(embed, await saveGreeting(guildId, arg, interaction.values[0], embed), state));
     }
 
     if (interaction.isButton() && action === 'emb_greetkeep') {
       if (!currentChannel) return errorReply(interaction, 'Le salon actuel n’existe plus, choisis-en un autre.');
-      return interaction.update(builderPayload(embed, saveGreeting(guildId, arg, currentChannel.id, embed), state));
+      await interaction.deferUpdate();
+      return interaction.editReply(builderPayload(embed, await saveGreeting(guildId, arg, currentChannel.id, embed), state));
     }
 
     if (interaction.isButton() && action === 'emb_greetoff') {

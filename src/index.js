@@ -35,8 +35,9 @@ const client = new Client({
     GatewayIntentBits.GuildModeration, // bannissements (event guildBanAdd)
     GatewayIntentBits.GuildInvites, // suivi des invitations (qui a invité qui)
     GatewayIntentBits.GuildPresences, // lecture des statuts (rôle si invite dans le statut) — privilégié
+    GatewayIntentBits.GuildMessageReactions, // réaction 📖 : livre des citations
   ],
-  partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+  partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.Reaction, Partials.User],
   // Ajout d'emojis (/copyemoji) et profil du bot (/profilbot) : quand Discord impose une longue
   // attente, on abandonne au lieu d'attendre en silence ; la commande dit quand réessayer.
   rest: {

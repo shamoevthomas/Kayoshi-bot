@@ -77,7 +77,7 @@ function fitText(ctx, text, state, maxWidth, maxHeight) {
   return { size, lines };
 }
 
-async function renderQuote(message, state) {
+export async function renderQuote(message, state) {
   const theme = state.light ? THEMES.light : THEMES.dark;
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');

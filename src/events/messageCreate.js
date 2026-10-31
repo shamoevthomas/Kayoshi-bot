@@ -11,6 +11,9 @@ import { handleSnipeCommand } from '../lib/snipe.js';
 import { handleHideCommand } from '../lib/hidechannel.js';
 import { handleLockCommand, handleLockdownCommand } from '../lib/lockchannel.js';
 import { handleChatGames } from '../lib/chatgames.js';
+import { handleQuoteBookCommand } from '../lib/quotebook.js';
+import { handleAdventCommand } from '../lib/advent.js';
+import { handleMentalistCommand } from '../lib/mentalist.js';
 import { handlePrefixCommand } from '../lib/prefix.js';
 import { recordMessage } from '../lib/stats.js';
 import { handleStatCommand } from '../lib/statcommands.js';
@@ -81,6 +84,11 @@ export default {
     await handleLockCommand(message).catch((err) => console.error('[lock]', err));
     // « +lockdown [raison] » / « +unlockdown » (staff) : tous les salons d'un coup, remis comme avant ensuite.
     await handleLockdownCommand(message).catch((err) => console.error('[lockdown]', err));
+    // « +citation » : livre des citations (réaction 📖) ; « +avent » : calendrier de l'Avent (1er → 24 décembre).
+    await handleQuoteBookCommand(message).catch((err) => console.error('[citations]', err));
+    await handleAdventCommand(message).catch((err) => console.error('[avent]', err));
+    // « +mentaliste » : le bot devine le personnage auquel on pense.
+    await handleMentalistCommand(message).catch((err) => console.error('[mentaliste]', err));
     // Stats d'activité (messages par membre et par salon), puis s?u / s?t / s?m / s?v.
     try {
       recordMessage(message);

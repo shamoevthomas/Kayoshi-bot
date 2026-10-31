@@ -11,7 +11,9 @@ import {
   ComponentType,
 } from 'discord.js';
 import { getTicketConfig, setTicketConfig } from '../../lib/store.js';
-import { ticketTitle, ticketWelcome, ticketStyle, refreshOpenTicketsWelcome } from '../../lib/tickets.js';
+import { ticketTitle, ticketWelcome, ticketStyle, refreshOpenTicketsWelcome, setStyleImages } from '../../lib/tickets.js';
+import { storeUpload, persistUrl } from '../../lib/media.js';
+import { isDiscordFile, previewPayload } from '../../lib/rehost.js';
 
 const slotKey = (slot) => (slot === 2 ? 'ticketConfig2' : 'ticketConfig');
 const cfgCmd = (slot) => (slot === 2 ? 'configticket2' : 'configticket');
@@ -43,8 +45,7 @@ function preview(config, motif, user) {
     .setDescription(ticketWelcome(config, motif))
     .addFields({ name: 'Ouvert par', value: `${user}`, inline: true })
     .setTimestamp();
-  if (style.image) embed.setImage(style.image);
-  if (style.thumbnail) embed.setThumbnail(style.thumbnail);
+  setStyleImages(embed, style);
   return embed;
 }
 
@@ -61,8 +62,9 @@ function motifSelect(config) {
   return new ActionRowBuilder().addComponents(select);
 }
 
+// Aperçu : une image gardée par le bot (fichier envoyé) y est jointe.
 function view(config, motif, user, content) {
-  return { content, embeds: [preview(config, motif, user)], components: [motifSelect(config)] };
+  return previewPayload({ content, embeds: [preview(config, motif, user)], components: [motifSelect(config)] });
 }
 
 // Motif choisi dans l'autocomplétion ("<système>:<id>"), ou tapé à la main (nom du motif).
@@ -87,9 +89,11 @@ export default {
       o.setName('motif').setDescription('Motif à modifier (vide = l’apparence de tous les motifs)').setAutocomplete(true),
     )
     .addStringOption((o) => o.setName('gif').setDescription(`Lien du GIF / de l’image en grand (« ${RESET} » pour retirer)`))
+    .addAttachmentOption((o) => o.setName('gif_fichier').setDescription('Ou envoie directement le GIF / l’image en fichier'))
     .addStringOption((o) =>
       o.setName('miniature').setDescription(`Lien de la petite image en haut à droite (« ${RESET} » pour retirer)`),
     )
+    .addAttachmentOption((o) => o.setName('miniature_fichier').setDescription('Ou envoie directement la miniature en fichier'))
     .addStringOption((o) => o.setName('couleur').setDescription(`Couleur en hex, ex : #ff0000 (« ${RESET} » = par défaut)`))
     .addStringOption((o) =>
       o
@@ -111,6 +115,8 @@ export default {
   },
 
   async execute(interaction) {
+    // Un fichier envoyé est téléchargé puis gardé : ça peut dépasser les 3 s de Discord.
+    await interaction.deferReply({ ephemeral: true });
     const motifValue = interaction.options.getString('motif');
     // Un motif choisi dans la liste porte son système.
     const slot = Number(motifValue?.match(/^([12]):/)?.[1] ?? interaction.options.getInteger('systeme') ?? 1);
@@ -118,14 +124,13 @@ export default {
     const guildId = interaction.guild.id;
     const config = getTicketConfig(guildId, key);
     if (!config?.motifs?.length) {
-      return interaction.reply({
+      return interaction.editReply({
         content: `❌ Aucun motif configuré pour le système ${slot}. Lance d'abord \`/${cfgCmd(slot)}\`.`,
-        ephemeral: true,
       });
     }
     const motif = motifValue ? findMotif(config, motifValue) : null;
     if (motifValue && !motif) {
-      return interaction.reply({ content: `❌ Motif « ${motifValue} » introuvable dans le système ${slot} : choisis-le dans la liste.`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Motif « ${motifValue} » introuvable dans le système ${slot} : choisis-le dans la liste.` });
     }
 
     // --- Apparence (options) : celle du motif choisi, sinon celle de tous les motifs ---
@@ -138,10 +143,18 @@ export default {
     const read = (name) => interaction.options.getString(name)?.trim() || null;
     const isReset = (v) => v?.toLowerCase() === RESET;
 
+    // Fichier envoyé (prioritaire) ou lien. Un fichier, ou un lien d'image Discord (qui expire), est gardé par le bot.
+    const files = { gif: interaction.options.getAttachment('gif_fichier'), miniature: interaction.options.getAttachment('miniature_fichier') };
     for (const [option, field] of [
       ['gif', 'image'],
       ['miniature', 'thumbnail'],
     ]) {
+      if (files[option]) {
+        const stored = await storeUpload(guildId, files[option]);
+        if (stored.error) return interaction.editReply({ content: `❌ ${option === 'gif' ? 'GIF' : 'Miniature'} : ${stored.error}` });
+        style[field] = stored.url;
+        continue;
+      }
       const value = read(option);
       if (!value) continue;
       if (isReset(value)) {
@@ -149,15 +162,15 @@ export default {
         continue;
       }
       const problem = imageProblem(value);
-      if (problem) return interaction.reply({ content: problem, ephemeral: true });
-      style[field] = value;
+      if (problem) return interaction.editReply({ content: problem });
+      style[field] = await persistUrl(guildId, value, isDiscordFile);
     }
 
     const color = read('couleur');
     if (isReset(color)) clear('color');
     else if (color) {
       const hex = parseHex(color);
-      if (hex == null) return interaction.reply({ content: `❌ \`${color}\` n’est pas une couleur hex (ex : \`#ff0000\`).`, ephemeral: true });
+      if (hex == null) return interaction.editReply({ content: `❌ \`${color}\` n’est pas une couleur hex (ex : \`#ff0000\`).` });
       style.color = hex;
     }
 
@@ -165,7 +178,7 @@ export default {
     if (isReset(title)) clear('title');
     else if (title) style.title = title;
 
-    const changed = ['gif', 'miniature', 'couleur', 'titre'].some((name) => read(name));
+    const changed = ['gif', 'miniature', 'couleur', 'titre'].some((name) => read(name)) || Boolean(files.gif || files.miniature);
     if (changed) {
       if (motif) motif.welcomeEmbed = style;
       else config.welcomeEmbed = style;
@@ -187,11 +200,7 @@ export default {
         `Ajoute une option (gif, miniature, couleur, titre) pour changer son apparence${motif ? ' pour ce motif' : ', et `motif` pour un seul motif'}. Aperçu :`;
     }
     const hint = '\n-# Choisis un motif dans le menu pour changer son texte d’ouverture.';
-    const msg = await interaction.reply({
-      ...view(config, motif ?? config.motifs[0], interaction.user, status + hint),
-      ephemeral: true,
-      fetchReply: true,
-    });
+    const msg = await interaction.editReply(await view(config, motif ?? config.motifs[0], interaction.user, status + hint));
 
     const filter = (i) => i.user.id === interaction.user.id;
     const collector = msg.createMessageComponentCollector({ componentType: ComponentType.StringSelect, time: 600_000, filter });
@@ -241,7 +250,7 @@ export default {
 
       await interaction
         .editReply(
-          view(
+          await view(
             fresh,
             target,
             interaction.user,

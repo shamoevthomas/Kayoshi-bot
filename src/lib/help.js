@@ -69,8 +69,8 @@ const CATEGORIES = [
     lines: [
       ['/configverif', 'Activer ou désactiver la vérification anti-bot (captcha), et la configurer (salon, rôle, essais, kick, mention) — désactivée : les nouveaux reçoivent directement le rôle'],
       ['/passer-verif', 'Valider manuellement la vérification d’un membre, ou de tous les non-vérifiés avec `tout` (administrateurs)'],
-      ['/bienvenue', 'Configurer le message de bienvenue (arrivées)'],
-      ['/quitte', 'Configurer le message de départ'],
+      ['/bienvenue', 'Configurer le message de bienvenue (arrivées), avec un GIF en lien ou en fichier'],
+      ['/quitte', 'Configurer le message de départ, avec un GIF en lien ou en fichier'],
       ['/dmjoin', 'Message privé envoyé à chaque membre qui rejoint le serveur (vide = désactivé)'],
       ['/bilan', 'Bilan des arrivées et départs sur une période'],
       ['/inviteconfig', '`salon` `desactiver` — salon de suivi des invitations'],
@@ -91,7 +91,7 @@ const CATEGORIES = [
       ['/configticket', 'Configurer le système de tickets (assistant guidé)'],
       ['/roleticket', '`ajouter` `retirer` — rôle du staff des tickets (accès + mention à l’ouverture)'],
       ['/messageticket', 'Premier message envoyé dans un ticket, pour un motif (`[@]` = mention de l’auteur)'],
-      ['/modifierembedticket', 'Changer l’embed d’ouverture d’un ticket (GIF, miniature, couleur, titre — pour tous les motifs ou un seul) et le texte de chaque motif'],
+      ['/modifierembedticket', 'Changer l’embed d’ouverture d’un ticket (GIF et miniature en lien ou en fichier, couleur, titre — pour tous les motifs ou un seul) et le texte de chaque motif'],
       ['/avisticket', '`activer` `desactiver` `voir` — avis (⭐) à la fermeture (ticket 1, 2 ou les deux)'],
     ],
   },
@@ -173,6 +173,9 @@ const CATEGORIES = [
     about: 'De quoi animer le serveur : duels entre membres, jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
       ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux (2 manches gagnantes) contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
+      ['+mentaliste', 'Pense à un personnage d’animé ou de jeu vidéo : le Mentaliste te pose des questions et le devine (3 essais). S’il perd, dis-lui à qui tu pensais : il l’apprend pour la prochaine fois · `+mentaliste oublier <nom>` (staff)'],
+      ['📖 · +citation', 'Livre des citations : réagis 📖 sous un message mémorable pour l’ajouter · `+citation` (au hasard, en image) · `+citation <n>` · `+citation @membre` · `+citation top` · `+citation supprimer <n>` (staff)'],
+      ['+avent', 'Calendrier de l’Avent du 1er au 24 décembre : une case par jour (coins, argent, boosters d’XP), gros bonus le 24 pour ceux qui ont tout ouvert'],
       ['+pendu · +devine · +emoji', 'Jeux dans le salon, lancés par n’importe qui : pendu (écrire une lettre ou le mot, 6 vies) · nombre mystère entre 1 et 1 000 (⬆️ / ⬇️) · deviner un jeu vidéo ou un animé à partir d’emojis (2 min, indice au bout d’1 min) — le gagnant reçoit 🪙 250 / 150 / 200 coins (5 victoires récompensées par jour)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
@@ -208,7 +211,7 @@ const CATEGORIES = [
     about: 'Pour publier au nom du bot : annonces, embeds personnalisés (avec boutons de rôles), giveaways et messages sauvegardés.',
     lines: [
       ['/announce', 'Publier une annonce dans un salon précis'],
-      ['/embed', 'Créer un embed (aperçu modifiable) : envoi, role-react (boutons ou sélecteur de rôle), partenariat, ou bienvenue / départ'],
+      ['/embed', 'Créer un embed (aperçu modifiable, images en lien ou en fichier) : envoi, role-react (boutons ou sélecteur de rôle), partenariat, ou bienvenue / départ'],
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs, qu’on peut réorganiser)'],
       ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants), prix personnalisé (ex : Nitro) et/ou rôle à gagner (`role_gagne`, donné automatiquement)'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
@@ -268,6 +271,9 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+mentaliste', 'le bot devine ton personnage'],
+  ['+citation', 'livre des citations (réaction 📖)'],
+  ['+avent', 'calendrier de l’Avent (décembre)'],
   ['+recap', 'ton mois en image'],
   ['+heures', 'heures les plus actives du serveur'],
   ['+meilleurami', 'top 5 de tes meilleurs amis'],
@@ -280,14 +286,12 @@ const RECENT = [
   ['+hide', 'masquer un salon pour le rôle Membre (staff)'],
   ['.bourse', 'actions dont le cours change chaque heure'],
   ['.plinko', 'la bille tombe dans une case'],
-  ['.tour', 'monte la tour sans tomber dans un piège'],
-  ['.gratter', 'ticket à gratter'],
-  ['.mines', 'démineur du casino'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/embed', 'images : envoie directement le fichier (aussi `/bienvenue`, `/quitte`, `/modifierembedticket`), gardé pour toujours'],
   ['/configverif', 'demande d’abord si on veut activer ou désactiver la vérification'],
   ['/role', '`change` remplace `rename` : nom, couleur et emplacement du rôle'],
   ['/money', '`ajouter` : le message est visible de tous'],
@@ -297,7 +301,6 @@ const RECENT_CHANGES = [
   ['/roleticket', 'remplace /ajouterroleticket et /retirerroleticket : `ajouter` `retirer`'],
   ['/userinfo', 'niveau, argent, coins, réputation, team, famille, activité…'],
   ['/duel', '`membre` facultatif : sans membre, on joue contre le bot'],
-  ['/profilbot', 'changements notés dans #logs-profil, avec qui les a faits'],
 ];
 
 const HOME = 'home';

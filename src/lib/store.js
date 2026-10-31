@@ -22,6 +22,9 @@ const statsDirty = new Set();
 // (ni gardée en mémoire ni réécrite avec le reste : elle peut être grosse).
 const BACKUP_PREFIX = 'backup:';
 const localBackups = {}; // sans Supabase (tests)
+// Images envoyées au bot (lib/media.js) : une ligne « media:<serveur>:<empreinte> » chacune, lue à la demande.
+const MEDIA_PREFIX = 'media:';
+const localMedia = {}; // sans Supabase (tests)
 
 // À appeler UNE FOIS au démarrage (avant client.login).
 export async function initStore() {
@@ -29,7 +32,8 @@ export async function initStore() {
   const key = process.env.SUPABASE_KEY;
   if (!url || !key) throw new Error('SUPABASE_URL et SUPABASE_KEY sont requis dans .env');
   supabase = createClient(url, key, { auth: { persistSession: false } });
-  const { data, error } = await supabase.from(TABLE).select('guild_id, data');
+  // Les images (lignes media:…) ne sont pas chargées au démarrage : lues seulement quand un message en a besoin.
+  const { data, error } = await supabase.from(TABLE).select('guild_id, data').not('guild_id', 'like', `${MEDIA_PREFIX}%`);
   if (error) throw error;
   cache = {};
   statsCache = {};
@@ -129,6 +133,22 @@ export async function saveBackups(guildId, list) {
     return;
   }
   const { error } = await supabase.from(TABLE).upsert({ guild_id: BACKUP_PREFIX + guildId, data: { list }, updated_at: new Date().toISOString() });
+  if (error) throw error;
+}
+
+export async function loadMedia(key) {
+  if (!supabase) return localMedia[key] ?? null;
+  const { data, error } = await supabase.from(TABLE).select('data').eq('guild_id', MEDIA_PREFIX + key).maybeSingle();
+  if (error) throw error;
+  return data?.data ?? null;
+}
+
+export async function saveMedia(key, media) {
+  if (!supabase) {
+    localMedia[key] = media;
+    return;
+  }
+  const { error } = await supabase.from(TABLE).upsert({ guild_id: MEDIA_PREFIX + key, data: media, updated_at: new Date().toISOString() });
   if (error) throw error;
 }
 
@@ -1439,6 +1459,35 @@ export function getLockdown(guildId) {
 
 export function setLockdown(guildId, lockdown) {
   setGuildConfig(guildId, { lockdown });
+}
+
+// Le Mentaliste (+mentaliste, lib/mentalist.js) : data[guildId].mentalist = { played, won, learned: { clé: personnage appris } }.
+export function getMentalist(guildId) {
+  const m = getGuildConfig(guildId).mentalist;
+  return { played: m?.played ?? 0, won: m?.won ?? 0, learned: m?.learned ?? {} };
+}
+
+export function setMentalist(guildId, mentalist) {
+  setGuildConfig(guildId, { mentalist });
+}
+
+// Livre des citations (réaction 📖, +citation, lib/quotebook.js) : data[guildId].quotes = { next, list: [citations] }.
+export function getQuotes(guildId) {
+  const quotes = getGuildConfig(guildId).quotes;
+  return { next: quotes?.next ?? 1, list: quotes?.list ?? [] };
+}
+
+export function setQuotes(guildId, quotes) {
+  setGuildConfig(guildId, { quotes });
+}
+
+// Calendrier de l'Avent (+avent, lib/advent.js) : data[guildId].advent = { userId: { year, days: [cases ouvertes] } }.
+export function getAdvent(guildId, userId) {
+  return getGuildConfig(guildId).advent?.[userId] ?? null;
+}
+
+export function setAdvent(guildId, userId, advent) {
+  return setEntry(guildId, 'advent', userId, advent);
 }
 
 // Victoires récompensées aux jeux du chat (+pendu, +devine, +emoji, lib/chatgames.js), par jour :
