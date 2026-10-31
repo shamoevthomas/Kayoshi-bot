@@ -625,8 +625,15 @@ export function saveAvisReview(guildId, number, patch) {
 }
 
 // --- Vérification anti-bot (captcha) ---
-export function getVerifConfig(guildId) {
+// Réglages, même quand la vérification est désactivée (enabled: false) : /configverif, /passer-verif.
+export function getVerifSettings(guildId) {
   return getGuildConfig(guildId).verifConfig ?? null;
+}
+
+// Vérification active (captcha, kick, rappels) : null si elle n'est pas configurée ou désactivée.
+export function getVerifConfig(guildId) {
+  const settings = getVerifSettings(guildId);
+  return settings && settings.enabled !== false ? settings : null;
 }
 
 export function setVerifConfig(guildId, verifConfig) {

@@ -1,6 +1,6 @@
 import { EmbedBuilder, AttachmentBuilder, PermissionFlagsBits } from 'discord.js';
 import { generateCaptcha } from './captcha.js';
-import { getVerifConfig, getGuildConfig, setGuildConfig } from './store.js';
+import { getVerifConfig, getVerifSettings, getGuildConfig, setGuildConfig } from './store.js';
 import { sendLog, Colors } from './logger.js';
 
 const FIVE_HOURS = 5 * 60 * 60 * 1000;
@@ -107,6 +107,8 @@ function scheduleKick(member, config) {
   const delay = Math.max(0, config.kickAfterMs - elapsed);
   const timer = setTimeout(async () => {
     kickTimers.delete(member.id);
+    // Vérification désactivée entre-temps (/configverif) : plus de kick.
+    if (!getVerifConfig(member.guild.id)) return;
     const fresh = await member.guild.members.fetch(member.id).catch(() => null);
     if (fresh && !fresh.roles.cache.has(config.roleId)) {
       pending.delete(member.id);
@@ -143,7 +145,7 @@ export async function onMemberLeave(member) {
 // Force la validation d'un membre (comme s'il avait réussi le captcha) : ajoute le
 // rôle, nettoie l'état en attente et le timer de kick. Renvoie un statut.
 export async function forceVerify(member, executor = null) {
-  const config = getVerifConfig(member.guild.id);
+  const config = getVerifSettings(member.guild.id);
   if (!config) return { ok: false, reason: 'no-config' };
   if (member.user.bot) return { ok: false, reason: 'bot' };
   if (member.roles.cache.has(config.roleId)) return { ok: false, reason: 'already' };
@@ -172,7 +174,7 @@ export async function forceVerify(member, executor = null) {
 // Valide TOUS les membres non vérifiés d'un coup, sans spammer les logs
 // (un seul récapitulatif). Renvoie les compteurs.
 export async function forceVerifyAll(guild, executor = null) {
-  const config = getVerifConfig(guild.id);
+  const config = getVerifSettings(guild.id);
   if (!config) return { ok: false, reason: 'no-config' };
 
   const members = await guild.members.fetch().catch(() => null);
@@ -219,9 +221,23 @@ export async function forceVerifyAll(guild, executor = null) {
   return { ok: true, verified, skipped, failed };
 }
 
-// À l'arrivée d'un membre : poste le captcha + programme le kick éventuel.
+// Membres sans le rôle de vérifié (bots exclus) : ceux qui attendent la vérification.
+export async function countUnverified(guild) {
+  const settings = getVerifSettings(guild.id);
+  if (!settings?.roleId) return 0;
+  const members = await guild.members.fetch().catch(() => null);
+  return members ? members.filter((m) => !m.user.bot && !m.roles.cache.has(settings.roleId)).size : 0;
+}
+
+// À l'arrivée d'un membre : poste le captcha + programme le kick éventuel. Vérification désactivée
+// (/configverif) : le rôle de vérifié est donné tout de suite, sans captcha.
 export async function onMemberJoin(member) {
   if (member.user.bot) return;
+  const settings = getVerifSettings(member.guild.id);
+  if (settings?.enabled === false) {
+    if (settings.roleId) await member.roles.add(settings.roleId, 'Vérification désactivée : accès direct').catch(() => {});
+    return;
+  }
   const config = getVerifConfig(member.guild.id);
   if (!config) return;
   const channel = member.guild.channels.cache.get(config.channelId);

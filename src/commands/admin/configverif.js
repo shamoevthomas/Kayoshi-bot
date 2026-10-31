@@ -11,7 +11,8 @@ import {
   ComponentType,
   EmbedBuilder,
 } from 'discord.js';
-import { setVerifConfig } from '../../lib/store.js';
+import { setVerifConfig, getVerifSettings } from '../../lib/store.js';
+import { countUnverified, forceVerifyAll } from '../../lib/verification.js';
 
 const P = PermissionFlagsBits;
 
@@ -41,14 +42,14 @@ function selectRow(customId, placeholder, options) {
 export default {
   data: new SlashCommandBuilder()
     .setName('configverif')
-    .setDescription('Configurer la vérification anti-bot (captcha).')
+    .setDescription('Activer, désactiver ou configurer la vérification anti-bot (captcha).')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
 
   async execute(interaction) {
     const guild = interaction.guild;
     const filter = (i) => i.user.id === interaction.user.id;
-    const config = { channelId: null, roleId: null, maxAttempts: 3, kickAfterMs: null, successMentionChannelId: null };
+    const config = { enabled: true, channelId: null, roleId: null, maxAttempts: 3, kickAfterMs: null, successMentionChannelId: null };
 
     const rolePrompt = '\n\n**2/5 — Rôle après validation**\nQuel rôle donner au membre une fois le captcha réussi ?';
     const roleRow = new ActionRowBuilder().addComponents(
@@ -59,14 +60,54 @@ export default {
       new ButtonBuilder().setCustomId('cfgv_create').setLabel('Créer un salon').setStyle(ButtonStyle.Success).setEmoji('➕'),
       new ButtonBuilder().setCustomId('cfgv_existing').setLabel('Salon existant').setStyle(ButtonStyle.Primary).setEmoji('📁'),
     );
+
+    // ===== 0 — Activer ou désactiver =====
+    const current = getVerifSettings(guild.id);
+    const enabled = Boolean(current) && current.enabled !== false;
+    const status = !current ? '**pas configurée**' : enabled ? '**activée** ✅' : '**désactivée** ⛔';
     const msg = await interaction.reply({
-      content: '**1/5 — Salon de vérification**\nOù les membres passeront-ils le captcha ?',
-      components: [step1],
+      content: `🛡️ **Vérification anti-bot** — actuellement ${status}${current ? `\n${settingsText(current)}` : ''}\n\nVeux-tu l’**activer** ou la **désactiver** ?`,
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('cfgv_on').setLabel('Activer').setStyle(ButtonStyle.Success).setEmoji('✅'),
+          new ButtonBuilder().setCustomId('cfgv_off').setLabel('Désactiver').setStyle(ButtonStyle.Danger).setEmoji('⛔'),
+        ),
+      ],
       ephemeral: true,
       fetchReply: true,
+      allowedMentions: { parse: [] },
     });
 
     try {
+      const choice = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter });
+      if (choice.customId === 'cfgv_off') return await disable(interaction, choice, msg, filter, current, enabled);
+
+      // Activer : avec les réglages déjà enregistrés, ou en les choisissant (étapes 1 à 5).
+      let start = choice;
+      if (current?.channelId && current?.roleId) {
+        await choice.update({
+          content: `✅ **Activer la vérification** avec ces réglages ?\n${settingsText(current)}`,
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId('cfgv_keep').setLabel('Garder ces réglages').setStyle(ButtonStyle.Success),
+              new ButtonBuilder().setCustomId('cfgv_new').setLabel('Changer les réglages').setStyle(ButtonStyle.Primary).setEmoji('⚙️'),
+            ),
+          ],
+          allowedMentions: { parse: [] },
+        });
+        const keep = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter });
+        if (keep.customId === 'cfgv_keep') {
+          setVerifConfig(guild.id, { ...current, enabled: true });
+          return keep.update({
+            content: `✅ **Vérification activée** : les nouveaux membres passent de nouveau le captcha.\n${settingsText(current)}`,
+            components: [],
+            allowedMentions: { parse: [] },
+          });
+        }
+        start = keep;
+      }
+      await start.update({ content: '**1/5 — Salon de vérification**\nOù les membres passeront-ils le captcha ?', components: [step1] });
+
       // ===== 1/4 — Salon =====
       const b1 = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter });
       if (b1.customId === 'cfgv_create') {
@@ -169,3 +210,55 @@ export default {
     }
   },
 };
+
+// Résumé des réglages enregistrés (salon, rôle, essais, kick, mention).
+function settingsText(cfg) {
+  const kick =
+    cfg.kickAfterMs == null
+      ? 'aucun kick'
+      : `kick après ${KICK_OPTIONS.find((o) => o.value === String(cfg.kickAfterMs))?.label.replace('Après ', '') ?? `${Math.round(cfg.kickAfterMs / 60_000)} min`}`;
+  return (
+    `• Salon : ${cfg.channelId ? `<#${cfg.channelId}>` : '—'} · Rôle après validation : ${cfg.roleId ? `<@&${cfg.roleId}>` : '—'}\n` +
+    `• Essais max : ${cfg.maxAttempts ?? 3} · ${kick} · Mention après réussite : ${cfg.successMentionChannelId ? `<#${cfg.successMentionChannelId}>` : 'aucune'}`
+  );
+}
+
+// Désactivation : plus de captcha, de kick ni de rappel ; les nouveaux reçoivent directement le rôle.
+// Les réglages sont gardés pour la réactiver. Les membres qui attendaient peuvent être laissés entrer d'un coup.
+async function disable(interaction, button, msg, filter, current, enabled) {
+  if (!current || !enabled) {
+    return button.update({
+      content: !current ? 'ℹ️ La vérification n’est pas configurée : rien à désactiver.' : 'ℹ️ La vérification est déjà **désactivée**.',
+      components: [],
+    });
+  }
+  setVerifConfig(interaction.guild.id, { ...current, enabled: false });
+  await button.update({ content: '⏳ Désactivation…', components: [] });
+  const waiting = await countUnverified(interaction.guild);
+  const text =
+    `⛔ **Vérification désactivée** : plus de captcha, de kick ni de rappel. Les nouveaux membres reçoivent directement ${current.roleId ? `<@&${current.roleId}>` : 'le rôle de vérifié'}.\n` +
+    '-# Tes réglages sont gardés : `/configverif` → **Activer** pour la remettre.';
+  if (!waiting) return interaction.editReply({ content: text, allowedMentions: { parse: [] } });
+
+  await interaction.editReply({
+    content: `${text}\n\n👥 **${waiting}** membre(s) attendent encore la vérification. Les laisser entrer (rôle donné à tous) ?`,
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('cfgv_letin').setLabel(`Laisser entrer les ${waiting}`).setStyle(ButtonStyle.Success).setEmoji('🚪'),
+        new ButtonBuilder().setCustomId('cfgv_keepout').setLabel('Non').setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+    allowedMentions: { parse: [] },
+  });
+  const answer = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 300_000, filter }).catch(() => null);
+  if (!answer || answer.customId === 'cfgv_keepout') {
+    const final = { content: `${text}\n-# Les membres en attente n’ont pas été touchés (\`/passer-verif\` pour les laisser entrer).`, components: [], allowedMentions: { parse: [] } };
+    return (answer ? answer.update(final) : interaction.editReply(final)).catch(() => {});
+  }
+  await answer.update({ content: `${text}\n\n⏳ J’ouvre la porte aux ${waiting} membre(s)…`, components: [], allowedMentions: { parse: [] } });
+  const res = await forceVerifyAll(interaction.guild, interaction.user).catch(() => null);
+  return interaction.editReply({
+    content: `${text}\n\n🚪 ${res?.ok ? `**${res.verified}** membre(s) sont entrés${res.failed ? ` (${res.failed} impossible(s) : rôle trop haut pour moi ?)` : ''}.` : 'Je n’ai pas pu donner le rôle aux membres en attente.'}`,
+    allowedMentions: { parse: [] },
+  });
+}

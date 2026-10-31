@@ -36,15 +36,17 @@ const WORDS = [
   'SURPRISE', 'DISCORD', 'SERVEUR', 'STREAMER', 'ABONNEMENT', 'NOTIFICATION', 'MESSAGE', 'MODERATEUR', 'CASINO', 'LOTERIE',
 ];
 const MAX_ERRORS = 6;
+// Potence à gauche, pendu à droite (il regarde vers la droite).
 const GALLOWS = [
-  '  +---+\n      |\n      |\n      |\n     ===',
-  '  +---+\n  O   |\n      |\n      |\n     ===',
-  '  +---+\n  O   |\n  |   |\n      |\n     ===',
-  '  +---+\n  O   |\n /|   |\n      |\n     ===',
-  '  +---+\n  O   |\n /|\\  |\n      |\n     ===',
-  '  +---+\n  O   |\n /|\\  |\n /    |\n     ===',
-  '  +---+\n  O   |\n /|\\  |\n / \\  |\n     ===',
+  '  +---+\n  |\n  |\n  |\n ===',
+  '  +---+\n  |   O\n  |\n  |\n ===',
+  '  +---+\n  |   O\n  |   |\n  |\n ===',
+  '  +---+\n  |   O\n  |  /|\n  |\n ===',
+  '  +---+\n  |   O\n  |  /|\\\n  |\n ===',
+  '  +---+\n  |   O\n  |  /|\\\n  |  /\n ===',
+  '  +---+\n  |   O\n  |  /|\\\n  |  / \\\n ===',
 ];
+const WRONG_DELETE_MS = 5000; // un essai faux est supprimé au bout de 5 s
 
 // Récompense du gagnant (dans la limite du jour). Renvoie le texte du gain.
 function reward(game, userId) {
@@ -84,7 +86,7 @@ function penduView(game) {
         (game.winner
           ? `🎉 <@${game.winner}> a trouvé **${game.word}** !`
           : game.done
-            ? `${game.timedOut ? '⌛ Temps écoulé' : '💀 Pendu !'} Le mot était **${game.word}**.`
+            ? `${game.timedOut ? '⌛ Temps écoulé, le mot était' : '💀 Vous avez perdu, le mot était'} **${game.word}**.`
             : `Écris une **lettre** (ou le mot entier) dans le salon. 🪙 ${REWARDS.pendu} pour celui qui trouve.`),
     );
   return embed.setColor(game.winner ? 0x2ecc71 : game.done ? 0xe74c3c : 0x5865f2);
@@ -120,13 +122,17 @@ async function penduGuess(game, message, text) {
     await message.react('🔁').catch(() => {});
     return true;
   }
+  const lost = !won && game.errors >= MAX_ERRORS;
   if (won) {
     end(game);
     game.winner = message.author.id;
-  } else if (game.errors >= MAX_ERRORS) end(game);
+  } else if (lost) end(game);
   else armIdle(game);
   if (reaction) await message.react(reaction).catch(() => {});
+  // Essai faux : supprimé au bout de 5 s, pour garder le salon propre.
+  if (reaction === '❌') setTimeout(() => message.delete().catch(() => {}), WRONG_DELETE_MS);
   if (won) await message.reply({ content: `🎉 **Bravo ${message.author} !** Le mot était **${word}**. ${reward(game, message.author.id)}`, ...quiet }).catch(() => {});
+  if (lost) await message.channel.send({ content: `💀 Vous avez perdu, le mot était **${word}**.`, allowedMentions: { parse: [] } }).catch(() => {});
   await game.message.edit({ embeds: [game.view()] }).catch(() => {});
   return true;
 }

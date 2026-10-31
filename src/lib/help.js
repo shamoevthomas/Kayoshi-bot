@@ -67,7 +67,7 @@ const CATEGORIES = [
       'Le bot repère aussi quelle invitation chaque nouveau membre a utilisée et la compte à son parrain, ' +
       'en suivant ceux qui sont repartis.',
     lines: [
-      ['/configverif', 'Configurer la vérification anti-bot (captcha)'],
+      ['/configverif', 'Activer ou désactiver la vérification anti-bot (captcha), et la configurer (salon, rôle, essais, kick, mention) — désactivée : les nouveaux reçoivent directement le rôle'],
       ['/passer-verif', 'Valider manuellement la vérification d’un membre, ou de tous les non-vérifiés avec `tout` (administrateurs)'],
       ['/bienvenue', 'Configurer le message de bienvenue (arrivées)'],
       ['/quitte', 'Configurer le message de départ'],
@@ -288,6 +288,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/configverif', 'demande d’abord si on veut activer ou désactiver la vérification'],
   ['/role', '`change` remplace `rename` : nom, couleur et emplacement du rôle'],
   ['/money', '`ajouter` : le message est visible de tous'],
   ['/xp', '`ajouter` : le message est visible de tous'],
@@ -297,7 +298,6 @@ const RECENT_CHANGES = [
   ['/userinfo', 'niveau, argent, coins, réputation, team, famille, activité…'],
   ['/duel', '`membre` facultatif : sans membre, on joue contre le bot'],
   ['/profilbot', 'changements notés dans #logs-profil, avec qui les a faits'],
-  ['/gw', '`start` : option `role_gagne`, rôle donné automatiquement aux gagnants'],
 ];
 
 const HOME = 'home';
