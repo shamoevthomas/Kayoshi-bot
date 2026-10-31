@@ -2,12 +2,14 @@ import { EmbedBuilder } from 'discord.js';
 import { addCoins, getCounting, getChatGameWins, addChatGameWin } from './store.js';
 import { formatMoney } from './shop.js';
 import { EMOJI_PUZZLES } from './emojiquiz.js';
+import { POKEMON } from './pokemondata.js';
+import { pokemonImages, pokeKey, matchesPokemon } from './pokemonart.js';
 
-// Jeux dans le chat, lancés par n'importe qui : « +pendu », « +devine » (nombre mystère) et « +emoji » (deviner un
-// jeu vidéo ou un animé). Une partie à la fois par salon (jamais dans celui du compteur) ; on joue en écrivant
+// Jeux dans le chat, lancés par n'importe qui : « +pendu », « +devine » (nombre mystère), « +emoji » (deviner un
+// jeu vidéo ou un animé) et « +pokemon [génération] » (la silhouette d'un Pokémon). Une partie à la fois par salon (jamais dans celui du compteur) ; on joue en écrivant
 // dans le salon. Le gagnant reçoit des coins, 5 victoires récompensées par jour et par membre au plus.
 // Les essais (lettres, nombres, bonne réponse) ne rapportent ni XP ni argent de message.
-const REWARDS = { pendu: 250, devine: 150, emoji: 200 };
+const REWARDS = { pendu: 250, devine: 150, emoji: 200, pokemon: 200 };
 const DAILY_WINS = 5;
 const IDLE_MS = 5 * 60_000; // pendu et devine : fin après 5 min sans essai
 const EMOJI_MS = 2 * 60_000;
@@ -17,6 +19,8 @@ const dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', y
 const normalize = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const quiet = { allowedMentions: { parse: [], repliedUser: false } };
+// Contenu du message du jeu : l'embed, plus l'image pour +pokemon (silhouette, puis le Pokémon dévoilé).
+const payloadOf = (game) => (game.payload ? game.payload() : { embeds: [game.view()] });
 
 // --- Mots du pendu (sans espace ni tiret) ---
 const WORDS = [
@@ -71,7 +75,7 @@ function armIdle(game, ms = IDLE_MS) {
     if (game.done) return;
     end(game);
     game.timedOut = true;
-    await game.message.edit({ embeds: [game.view()] }).catch(() => {});
+    await game.message.edit(payloadOf(game)).catch(() => {});
   }, ms);
 }
 
@@ -133,7 +137,7 @@ async function penduGuess(game, message, text) {
   if (reaction === '❌') setTimeout(() => message.delete().catch(() => {}), WRONG_DELETE_MS);
   if (won) await message.reply({ content: `🎉 **Bravo ${message.author} !** Le mot était **${word}**. ${reward(game, message.author.id)}`, ...quiet }).catch(() => {});
   if (lost) await message.channel.send({ content: `💀 Vous avez perdu, le mot était **${word}**.`, allowedMentions: { parse: [] } }).catch(() => {});
-  await game.message.edit({ embeds: [game.view()] }).catch(() => {});
+  await game.message.edit(payloadOf(game)).catch(() => {});
   return true;
 }
 
@@ -169,7 +173,7 @@ async function devineGuess(game, message, text) {
     await message.react(n < game.target ? '⬆️' : '⬇️').catch(() => {});
     armIdle(game);
   }
-  await game.message.edit({ embeds: [game.view()] }).catch(() => {});
+  await game.message.edit(payloadOf(game)).catch(() => {});
   return true;
 }
 
@@ -207,14 +211,51 @@ async function emojiGuess(game, message, text) {
   game.winner = message.author.id;
   await message.react('🎉').catch(() => {});
   await message.reply({ content: `🎉 **Bravo ${message.author} !** C’était **${game.puzzle.answer}**. ${reward(game, message.author.id)}`, ...quiet }).catch(() => {});
-  await game.message.edit({ embeds: [game.view()] }).catch(() => {});
+  await game.message.edit(payloadOf(game)).catch(() => {});
+  return true;
+}
+
+// --- +pokemon [génération] : la silhouette d'un Pokémon, le premier qui trouve son nom gagne ---
+const POKEMON_MS = 60_000;
+const POKEMON_HINT_MS = 25_000;
+const recentPokemon = new Map(); // salon → derniers Pokémon tirés (pas de répétition)
+
+function pokemonView(game) {
+  const [id, fr, en, gen, types] = game.pokemon;
+  const names = fr === en ? `**${fr}**` : `**${fr}** (${en})`;
+  const details = `-# n°${id} · ${types} · génération ${gen}`;
+  const embed = new EmbedBuilder()
+    .setColor(game.winner ? 0x2ecc71 : game.done ? 0xe74c3c : 0xffcb05)
+    .setTitle(game.done ? `${game.winner ? '🎉' : '⌛'} C’était ${fr} !` : '❓ Quel est ce Pokémon ?')
+    .setImage('attachment://pokemon.png')
+    .setDescription(
+      game.winner
+        ? `<@${game.winner}> a trouvé : ${names} !\n${details}`
+        : game.done
+          ? `Personne n’a trouvé. C’était ${names}.\n${details}`
+          : `Écris son nom dans le salon (en français ou en anglais) ! Fin <t:${Math.floor(game.endsAt / 1000)}:R>.\n` +
+            (game.hint ? `💡 Indice : type **${types}** · génération ${gen} · commence par **${fr[0]}** (${pokeKey(fr).length} lettres)\n` : '') +
+            `🪙 ${REWARDS.pokemon} pour celui qui trouve.` +
+            (game.genFilter ? `\n-# Génération ${game.genFilter} seulement.` : ''),
+    );
+  return embed;
+}
+
+async function pokemonGuess(game, message, text) {
+  const ok = matchesPokemon(text, game.pokemon);
+  if (!ok) return false; // les autres messages restent du chat normal
+  end(game);
+  game.winner = message.author.id;
+  await message.react('🎉').catch(() => {});
+  await message.reply({ content: `🎉 **Bravo ${message.author} !** C’était **${game.pokemon[1]}**. ${reward(game, message.author.id)}`, ...quiet }).catch(() => {});
+  await game.message.edit(payloadOf(game)).catch(() => {});
   return true;
 }
 
 // Pas deux fois de suite la même devinette dans un salon.
 const lastPuzzle = new Map();
 
-async function start(message, kind) {
+async function start(message, kind, options = {}) {
   const { channel, guild } = message;
   if (getCounting(guild.id)?.channelId === channel.id) {
     await message.reply({ content: '❌ Pas de jeu dans le salon du compteur.', ...quiet }).catch(() => {});
@@ -235,20 +276,48 @@ async function start(message, kind) {
     Object.assign(game, { puzzle, hint: false, endsAt: Date.now() + EMOJI_MS, view: () => emojiView(game) });
   }
   games.set(channel.id, game);
-  game.message = await channel.send({ embeds: [game.view()], allowedMentions: { parse: [] } }).catch(() => null);
+  if (kind === 'pokemon') {
+    // Tirage (sans les 30 derniers du salon), puis les images : la partie est réservée pendant le dessin.
+    const recent = recentPokemon.get(channel.id) ?? [];
+    const pool = POKEMON.filter((p) => (!options.gen || p[3] === options.gen) && !recent.includes(p[0]));
+    const pokemon = pick(pool.length ? pool : POKEMON);
+    recentPokemon.set(channel.id, [...recent, pokemon[0]].slice(-30));
+    await channel.sendTyping().catch(() => {});
+    const images = await pokemonImages(pokemon[0]);
+    if (!images) {
+      games.delete(channel.id);
+      await message.reply({ content: '❌ Je n’ai pas pu charger l’image du Pokémon, réessaie.', ...quiet }).catch(() => {});
+      return;
+    }
+    Object.assign(game, {
+      pokemon,
+      genFilter: options.gen ?? null,
+      images,
+      hint: false,
+      endsAt: Date.now() + POKEMON_MS,
+      view: () => pokemonView(game),
+      payload: () => ({ embeds: [pokemonView(game)], files: [{ attachment: game.done ? images.reveal : images.silhouette, name: 'pokemon.png' }], attachments: [] }),
+    });
+  }
+  const { attachments, ...first } = payloadOf(game);
+  game.message = await channel.send({ ...first, allowedMentions: { parse: [] } }).catch(() => null);
   if (!game.message) return games.delete(channel.id);
-  if (kind === 'emoji') {
-    armIdle(game, EMOJI_MS);
-    game.hintTimer = setTimeout(() => {
-      if (game.done) return;
-      game.hint = true;
-      game.message.edit({ embeds: [game.view()] }).catch(() => {});
-    }, EMOJI_HINT_MS);
+  if (kind === 'emoji' || kind === 'pokemon') {
+    armIdle(game, kind === 'emoji' ? EMOJI_MS : POKEMON_MS);
+    game.hintTimer = setTimeout(
+      () => {
+        if (game.done) return;
+        game.hint = true;
+        game.message.edit(payloadOf(game)).catch(() => {});
+      },
+      kind === 'emoji' ? EMOJI_HINT_MS : POKEMON_HINT_MS,
+    );
   } else armIdle(game);
 }
 
 const STARTS = { '+pendu': 'pendu', '+devine': 'devine', '+emoji': 'emoji' };
-const GUESS = { pendu: penduGuess, devine: devineGuess, emoji: emojiGuess };
+const GUESS = { pendu: penduGuess, devine: devineGuess, emoji: emojiGuess, pokemon: pokemonGuess };
+const POKEMON_START = /^\+pok[eé]mon(?:\s+([1-9]))?$/i;
 
 // Renvoie true si le message a servi au jeu (lancement ou essai) : il ne compte alors pas pour l'XP.
 export async function handleChatGames(message) {
@@ -257,6 +326,11 @@ export async function handleChatGames(message) {
   const kind = STARTS[text.toLowerCase()];
   if (kind) {
     await start(message, kind);
+    return true;
+  }
+  const poke = text.match(POKEMON_START);
+  if (poke) {
+    await start(message, 'pokemon', { gen: poke[1] ? Number(poke[1]) : null });
     return true;
   }
   const game = games.get(message.channelId);

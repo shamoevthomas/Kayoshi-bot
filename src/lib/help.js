@@ -173,10 +173,11 @@ const CATEGORIES = [
     about: 'De quoi animer le serveur : duels entre membres, jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
       ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux (2 manches gagnantes) contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
-      ['+mentaliste', 'Pense à un personnage d’animé ou de jeu vidéo : le Mentaliste te pose des questions et le devine (3 essais). S’il perd, dis-lui à qui tu pensais : il l’apprend pour la prochaine fois · `+mentaliste oublier <nom>` (staff)'],
+      ['+mentaliste', 'Pense à un personnage d’animé ou de jeu vidéo, ou à une personnalité (youtubeur, streamer, rappeur, footballeur…) : le Mentaliste te pose des questions et le devine (3 essais), avec son image. S’il perd, dis-lui à qui tu pensais : il l’apprend pour la prochaine fois · `+mentaliste oublier <nom>` (staff)'],
       ['📖 · +citation', 'Livre des citations : réagis 📖 sous un message mémorable pour l’ajouter · `+citation` (au hasard, en image) · `+citation <n>` · `+citation @membre` · `+citation top` · `+citation supprimer <n>` (staff)'],
       ['+avent', 'Calendrier de l’Avent du 1er au 24 décembre : une case par jour (coins, argent, boosters d’XP), gros bonus le 24 pour ceux qui ont tout ouvert'],
-      ['+pendu · +devine · +emoji', 'Jeux dans le salon, lancés par n’importe qui : pendu (écrire une lettre ou le mot, 6 vies) · nombre mystère entre 1 et 1 000 (⬆️ / ⬇️) · deviner un jeu vidéo ou un animé à partir d’emojis (2 min, indice au bout d’1 min) — le gagnant reçoit 🪙 250 / 150 / 200 coins (5 victoires récompensées par jour)'],
+      ['/pokemon', '`activer` (salon, génération) — salon « Quel est ce Pokémon ? » sans fin : le premier qui écrit le nom gagne un point, le Pokémon est dévoilé avec sa description du Pokédex · ❓ indice ⏭️ passer 👑 classement 📕 Pokédex ✨ brillants (1 chance sur 64) · `desactiver`'],
+      ['+pendu · +devine · +emoji · +pokemon', 'Jeux dans le salon, lancés par n’importe qui : pendu (écrire une lettre ou le mot, 6 vies) · nombre mystère entre 1 et 1 000 (⬆️ / ⬇️) · deviner un jeu vidéo ou un animé à partir d’emojis (2 min, indice au bout d’1 min) · la silhouette d’un des 1 025 Pokémon, nom en français ou en anglais (`+pokemon 1` à `9` pour une génération, 1 min, indice au bout de 25 s) — le gagnant reçoit 🪙 250 / 150 / 200 / 200 coins (5 victoires récompensées par jour)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
       ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : chaque membre qui trouve gagne de l’argent et 🪙 500 coins (félicitations en message privé, réponse dévoilée à la fin, classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
@@ -271,6 +272,8 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['/pokemon', 'salon Pokémon sans fin, points et Pokédex'],
+  ['+pokemon', 'devine le Pokémon à sa silhouette'],
   ['+mentaliste', 'le bot devine ton personnage'],
   ['+citation', 'livre des citations (réaction 📖)'],
   ['+avent', 'calendrier de l’Avent (décembre)'],
@@ -284,8 +287,6 @@ const RECENT = [
   ['+emoji', 'deviner un jeu ou un animé en emojis'],
   ['+lock', 'verrouiller un salon (remplace /lock)'],
   ['+hide', 'masquer un salon pour le rôle Membre (staff)'],
-  ['.bourse', 'actions dont le cours change chaque heure'],
-  ['.plinko', 'la bille tombe dans une case'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).

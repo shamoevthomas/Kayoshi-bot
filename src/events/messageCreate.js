@@ -11,6 +11,7 @@ import { handleSnipeCommand } from '../lib/snipe.js';
 import { handleHideCommand } from '../lib/hidechannel.js';
 import { handleLockCommand, handleLockdownCommand } from '../lib/lockchannel.js';
 import { handleChatGames } from '../lib/chatgames.js';
+import { handlePokemonChannelMessage } from '../lib/pokemongame.js';
 import { handleQuoteBookCommand } from '../lib/quotebook.js';
 import { handleAdventCommand } from '../lib/advent.js';
 import { handleMentalistCommand } from '../lib/mentalist.js';
@@ -68,6 +69,8 @@ export default {
     if (await handlePrefixCommand(message).catch((err) => (console.error('[casino .]', err), true))) return;
     // Jeux du chat (+pendu, +devine, +emoji) : lancement et essais, sans XP ni argent pour le message.
     if (await handleChatGames(message).catch((err) => (console.error('[jeux]', err), false))) return;
+    // Salon Pokémon (/pokemon) : chaque message est une réponse, sans XP ni argent.
+    if (await handlePokemonChannelMessage(message).catch((err) => (console.error('[pokemon]', err), false))) return;
 
     // Serveur actif : le quiz ne pose ses questions que dans ce cas.
     noteQuizActivity(message);

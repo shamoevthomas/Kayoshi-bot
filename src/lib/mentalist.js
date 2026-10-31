@@ -12,7 +12,8 @@ import {
 import { getMentalist, setMentalist } from './store.js';
 import { QUESTIONS, CHARACTERS } from './mentalistdata.js';
 
-// 🔮 Le Mentaliste (« +mentaliste ») : le joueur pense à un personnage d'animé ou de jeu vidéo, le bot pose des
+// 🔮 Le Mentaliste (« +mentaliste ») : le joueur pense à un personnage d'animé ou de jeu vidéo, ou à une vraie
+// personne connue (youtubeur, streamer, rappeur, footballeur…), le bot pose des
 // questions (oui / non / je ne sais pas / probablement / probablement pas) puis propose un nom (3 essais).
 // Chaque réponse rend les personnages qui collent plus probables ; la question suivante est celle qui partage le
 // mieux les personnages restants. S'il perd, le joueur lui dit à qui il pensait : le bot l'apprend pour ce serveur.
@@ -97,7 +98,8 @@ export function advance(game) {
   let top = 0;
   weights.forEach((w, i) => w > weights[top] && (top = i));
   const asked = new Set(game.answers.map((x) => x.q));
-  const question = bestQuestion(list, weights, asked);
+  // Toujours la même première question : personnage inventé ou vraie personne.
+  const question = game.answers.length === 0 ? 'reel' : bestQuestion(list, weights, asked);
   game.confidence = weights[top];
   const ready = game.answers.length >= MIN_QUESTIONS && weights[top] >= CONFIDENT && game.sinceMiss >= AFTER_MISS;
   if (weights[top] > 0 && (ready || !question || game.answers.length >= MAX_QUESTIONS)) {
@@ -134,7 +136,7 @@ function view(game) {
       .setTitle('🔮 Le Mentaliste')
       .setDescription(
         `**Question ${game.answers.length + 1}**\n## ${QUESTIONS[game.question]}\n\n` +
-          `-# ${game.answers.length ? `Intuition : ${bar(game.confidence)}` : 'Pense à un personnage d’animé ou de jeu vidéo… je vais le deviner !'}`,
+          `-# ${game.answers.length ? `Intuition : ${bar(game.confidence)}` : 'Pense à un personnage d’animé ou de jeu vidéo, ou à une vraie personne (youtubeur, streamer, rappeur, footballeur…) : je vais le deviner !'}`,
       );
     components = [
       new ActionRowBuilder().addComponents(['y', 'n', 'u'].map((a) => button(game, a, ANSWERS[a].label, ANSWERS[a].style))),
@@ -148,6 +150,7 @@ function view(game) {
     embed
       .setTitle('🔮 Je crois que j’ai trouvé…')
       .setDescription(`Tu penses à…\n## ${game.guess.name}\n*${game.guess.work}*\n\nJ’ai bon ?\n-# Essai ${game.guesses + 1}/${MAX_GUESSES} · ${game.answers.length} question(s)`);
+    if (game.guess.img) embed.setImage(game.guess.img);
     components = [
       new ActionRowBuilder().addComponents(
         button(game, 'gy', 'Oui, c’est ça !', ButtonStyle.Success),
@@ -155,6 +158,7 @@ function view(game) {
       ),
     ];
   } else if (game.phase === 'won') {
+    if (game.guess.img) embed.setImage(game.guess.img);
     embed
       .setColor(0x2ecc71)
       .setTitle('🎉 J’ai encore deviné juste !')
@@ -173,6 +177,7 @@ function view(game) {
       ),
     ];
   } else if (game.phase === 'learned') {
+    if (game.taught.img) embed.setImage(game.taught.img);
     embed.setColor(0x3498db).setTitle('🧠 Merci, je m’en souviendrai !').setDescription(`Je retiens **${game.taught.name}** (*${game.taught.work}*).\nLa prochaine fois, je pourrais bien le trouver…\n-# Rejoue avec \`+mentaliste\`.`);
   } else {
     embed.setColor(0x95a5a6).setTitle('🔮 Le Mentaliste').setDescription(game.endText ?? 'Partie terminée.');
@@ -295,6 +300,27 @@ export async function handleMentalistInteraction(interaction) {
 // Parties perdues par le bot, en attente du nom du personnage (10 min).
 const taughtGames = new Map();
 
+// Image d'un personnage appris : MyAnimeList (le plus suivi de ce nom), sinon la page Wikipédia trouvée pour « nom œuvre ».
+const UA = { 'User-Agent': 'KayoshiBot/1.0 (bot Discord)' };
+async function getJson(url) {
+  const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(8000) }).catch(() => null);
+  return res?.ok ? res.json().catch(() => null) : null;
+}
+export async function findImage(name, work) {
+  const mal = await getJson(`https://api.jikan.moe/v4/characters?q=${encodeURIComponent(name)}&limit=3&order_by=favorites&sort=desc`);
+  const hit = mal?.data?.find((c) => norm(c.name).includes(norm(name).slice(0, 6)) || norm(name).includes(norm(c.name)));
+  if (hit?.images?.jpg?.image_url && !/questionmark/.test(hit.images.jpg.image_url)) return hit.images.jpg.image_url;
+  const search = await getJson(
+    `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=1&srsearch=${encodeURIComponent(`${name} ${work}`)}`,
+  );
+  const title = search?.query?.search?.[0]?.title;
+  if (!title) return null;
+  const pages = await getJson(
+    `https://en.wikipedia.org/w/api.php?action=query&format=json&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=600&pilicense=any&titles=${encodeURIComponent(title)}`,
+  );
+  return Object.values(pages?.query?.pages ?? {})[0]?.thumbnail?.source?.split('?')[0] ?? null;
+}
+
 async function teach(interaction, game) {
   if (interaction.isButton?.()) {
     return interaction.showModal(
@@ -306,7 +332,7 @@ async function teach(interaction, game) {
             .setLabel('Nom du personnage')
             .setTextInputComponent(new TextInputBuilder().setCustomId('name').setStyle(TextInputStyle.Short).setRequired(true).setMinLength(1).setMaxLength(50)),
           new LabelBuilder()
-            .setLabel('Animé ou jeu vidéo d’où il vient')
+            .setLabel('D’où il vient (animé, jeu, YouTube, foot…)')
             .setTextInputComponent(new TextInputBuilder().setCustomId('work').setStyle(TextInputStyle.Short).setRequired(true).setMinLength(1).setMaxLength(50)),
         ),
     );
@@ -319,10 +345,15 @@ async function teach(interaction, game) {
   // Réponses données pendant la partie ; un personnage déjà appris garde la moyenne avec ses réponses d'avant.
   const attrs = { ...(m.learned[key]?.attrs ?? {}) };
   for (const { q, a } of game.answers) if (a !== null) attrs[q] = attrs[q] === undefined ? a : (attrs[q] + a) / 2;
-  setMentalist(game.guildId, { ...m, learned: { ...m.learned, [key]: { name, work, attrs, by: game.userId, at: Date.now() } } });
+  // Image : celle de la base pour un personnage connu, celle déjà trouvée, sinon cherchée (MyAnimeList, Wikipédia).
+  await interaction.deferUpdate();
+  const known = CHARACTERS.find((c) => norm(c.name) === key);
+  const img = known?.img ?? m.learned[key]?.img ?? (await findImage(name, work));
+  const fresh = getMentalist(game.guildId);
+  setMentalist(game.guildId, { ...fresh, learned: { ...fresh.learned, [key]: { name, work, attrs, img, by: game.userId, at: Date.now() } } });
   taughtGames.delete(game.id);
-  game.taught = { name, work };
+  game.taught = { name, work, img };
   game.phase = 'learned';
-  return interaction.update(view(game));
+  return interaction.editReply(view(game));
 }
 

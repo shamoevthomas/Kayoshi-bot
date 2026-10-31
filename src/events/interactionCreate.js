@@ -26,6 +26,7 @@ import { handleCasinoShopInteraction } from '../lib/casinoshop.js';
 import { handleTeamInteraction } from '../lib/teams.js';
 import { handleTradeInteraction } from '../lib/trade.js';
 import { handleMentalistInteraction } from '../lib/mentalist.js';
+import { handlePokemonGameInteraction } from '../lib/pokemongame.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -61,6 +62,7 @@ export default {
         if (cid.startsWith('team_inv:')) return void (await handleTeamInteraction(interaction));
         if (cid.startsWith('trd:')) return void (await handleTradeInteraction(interaction));
         if (cid.startsWith('mnt:') || cid.startsWith('mnt_teach:')) return void (await handleMentalistInteraction(interaction));
+        if (cid.startsWith('pkm:')) return void (await handlePokemonGameInteraction(interaction));
         if (cid === 'shop_open') return void (await openShop(interaction));
         if (cid.startsWith('shop_')) return void (await handleShopInteraction(interaction));
       } catch (err) {

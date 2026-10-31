@@ -1461,6 +1461,16 @@ export function setLockdown(guildId, lockdown) {
   setGuildConfig(guildId, { lockdown });
 }
 
+// Salon Pokémon (/pokemon, lib/pokemongame.js) : data[guildId].pokemonGame = { channelId, gen, current, recent,
+// scores: { userId: { points, dex: [numéros trouvés], shinies: [numéros brillants] } } }.
+export function getPokemonGame(guildId) {
+  return getGuildConfig(guildId).pokemonGame ?? null;
+}
+
+export function setPokemonGame(guildId, pokemonGame) {
+  setGuildConfig(guildId, { pokemonGame });
+}
+
 // Le Mentaliste (+mentaliste, lib/mentalist.js) : data[guildId].mentalist = { played, won, learned: { clé: personnage appris } }.
 export function getMentalist(guildId) {
   const m = getGuildConfig(guildId).mentalist;
