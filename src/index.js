@@ -1,11 +1,13 @@
 import 'dotenv/config';
+import { spawn } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, Collection, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { loadCommands } from './lib/commands.js';
 import { initStore, flushStore } from './lib/store.js';
 import { startKeepAlive } from './keepalive.js';
+import { notifyOwners } from './lib/uptime.js';
 
 // Garde-fous : une erreur asynchrone non gérée ne doit JAMAIS tuer le process
 // (sinon le bot tombe et Render peut ne pas le relancer).
@@ -110,5 +112,43 @@ setInterval(async () => {
   await flushStore().catch(() => {});
   process.exit(1);
 }, 30_000);
+
+// SECOURS=1 : bot lancé ailleurs (le PC) pendant une panne de l'hébergeur. Dès qu'une autre instance se connecte à
+// Discord (l'hébergeur de nouveau joignable), celle-ci sauvegarde et s'arrête : un seul bot répond, une seule écrit.
+// Repère : chaque connexion consomme un « démarrage de session » (/gateway/bot) ; on retire celles de cette instance.
+if (process.env.SECOURS) {
+  console.log('🛟 Instance de secours : elle s’arrêtera dès que le bot de l’hébergeur sera connecté.');
+  let own = 0;
+  client.on(Events.ShardReady, () => own++);
+  let base = null;
+  let strikes = 0;
+  setInterval(async () => {
+    if (!client.isReady()) return;
+    const res = await fetch('https://discord.com/api/v10/gateway/bot', {
+      headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+    }).catch(() => null);
+    const remaining = res?.ok ? (await res.json().catch(() => ({}))).session_start_limit?.remaining : undefined;
+    if (typeof remaining !== 'number') return;
+    // Premier relevé, ou compteur remis à neuf par Discord (toutes les 24 h) : nouveau point de départ.
+    if (!base || remaining > base.remaining) {
+      base = { remaining, own };
+      strikes = 0;
+      return;
+    }
+    const others = base.remaining - remaining - (own - base.own);
+    strikes = others > 0 ? strikes + 1 : 0;
+    if (strikes < 2) return; // deux relevés de suite, pour ne pas confondre avec une reconnexion de cette instance
+    console.log('🛟 Le bot de l’hébergeur est connecté : sauvegarde puis arrêt de l’instance de secours.');
+    await notifyOwners(
+      client,
+      '🔁 **Kayøshi repasse sur Render.** Render arrive de nouveau à se connecter à Discord : le bot du PC s’arrête pour lui laisser la place.',
+    );
+    await flushStore().catch(() => {});
+    client.destroy();
+    // Second MP quand le bot de Render aura noté qu'il est en ligne, après l'arrêt de celui-ci (src/handover.js).
+    spawn(process.execPath, [join(__dirname, 'handover.js'), String(Date.now())], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    process.exit(0);
+  }, 60_000);
+}
 
 client.login(process.env.DISCORD_TOKEN).catch((err) => console.error('❌ Connexion à Discord impossible :', err.message));
