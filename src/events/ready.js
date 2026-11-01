@@ -26,6 +26,7 @@ import { buildingsTick } from '../lib/casinoshop.js';
 import { lotteryTick } from '../lib/lottery.js';
 import { happyHourTick } from '../lib/happyhour.js';
 import { marketTick } from '../lib/bourse.js';
+import { announceReturn } from '../lib/uptime.js';
 import { refundHolds } from '../lib/bets.js';
 import { ensureShopLogChannel } from '../lib/shop.js';
 import { refreshAllStatChannels, REFRESH_MS } from '../lib/statchannels.js';
@@ -48,6 +49,8 @@ export default {
   once: true,
   async execute(client) {
     console.log(`✅ Connecté en tant que ${client.user.tag}`);
+    // Retour après une coupure de plus de 15 min : MP aux personnes prévenues (lib/uptime.js).
+    announceReturn(client).catch((err) => console.error('[retour en ligne]', err));
     // Met en cache les invitations de chaque serveur (pour le suivi des invitations).
     await cacheAllInvites(client).catch((err) => console.error(err));
     // Statut du bot.
