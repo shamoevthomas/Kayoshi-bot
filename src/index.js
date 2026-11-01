@@ -73,4 +73,42 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
-client.login(process.env.DISCORD_TOKEN);
+// Avant la connexion : Discord répond-il depuis l'hébergeur ? Une adresse bloquée par Discord fait attendre la
+// connexion sans aucun message ; ici, la raison est écrite dans les journaux.
+const probe = await fetch('https://discord.com/api/v10/gateway/bot', {
+  headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+  signal: AbortSignal.timeout(15_000),
+}).catch((err) => ({ status: 0, error: err }));
+if (probe.status === 200) console.log('🔌 Discord joignable, connexion…');
+else if (probe.status === 401) console.error('❌ Jeton Discord refusé (401) : vérifie DISCORD_TOKEN dans les réglages de l’hébergeur.');
+else if (probe.status === 429) {
+  const body = (await probe.text().catch(() => '')) || '';
+  console.error(
+    `⛔ Discord bloque temporairement cette adresse (429${/1015|cloudflare/i.test(body) ? ', Cloudflare' : ''}), ` +
+      `nouvel essai possible dans ${probe.headers.get('retry-after') ?? '?'} s.`,
+  );
+} else console.error(`⚠️ Discord injoignable depuis l’hébergeur (${probe.status || probe.error?.message}).`);
+
+// Longues attentes imposées par Discord : écrites dans les journaux.
+client.rest.on('rateLimited', (info) => {
+  if (info.global || info.timeToReset > 60_000) {
+    console.warn(`⏳ Limite Discord ${info.global ? 'globale' : info.route} : reprise dans ${Math.round(info.timeToReset / 1000)} s.`);
+  }
+});
+
+// Garde-fou : pas connecté à Discord depuis 5 min (au démarrage ou après une coupure) → on sauvegarde et on quitte,
+// l'hébergeur relance le bot. Évite de rester « en ligne » sur Render mais absent de Discord pendant des heures.
+let offlineSince = Date.now();
+setInterval(async () => {
+  if (client.isReady()) {
+    offlineSince = null;
+    return;
+  }
+  offlineSince ??= Date.now();
+  if (Date.now() - offlineSince < 5 * 60_000) return;
+  console.error('⚠️ Pas connecté à Discord depuis 5 min : sauvegarde puis redémarrage du bot.');
+  await flushStore().catch(() => {});
+  process.exit(1);
+}, 30_000);
+
+client.login(process.env.DISCORD_TOKEN).catch((err) => console.error('❌ Connexion à Discord impossible :', err.message));
