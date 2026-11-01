@@ -24,7 +24,7 @@ const CATEGORIES = [
       ['/delwarn', 'Retirer un avertissement précis (son numéro est dans /casier), ou tous avec `tout`'],
       ['/casier', 'Sanctions d’un membre, ou de tout le serveur sans membre (avertissements avec leur numéro, mutes, kicks, bans, deranks), avec dates et modérateurs ; option `sanction` pour un seul type'],
       ['/sanction', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
-      ['/purge', 'Supprimer des messages dans ce salon (par lots)'],
+      ['/purge', 'Supprimer des messages dans ce salon, ou ceux d’un membre dans tous les salons'],
       ['+snipe', 'Réaffiche le dernier message supprimé du salon, avec ses images, pendant 1 h (staff : permission « Gérer les messages »)'],
       ['+lock · +unlock', 'Verrouiller (`+lock [raison]`) / déverrouiller l’écriture dans ce salon pour le rôle Membre (staff : permission « Gérer les salons »)'],
       ['+lockdown · +unlockdown', 'Verrouiller l’écriture dans **tous** les salons d’un coup pour le rôle Membre (raid…), puis tout rouvrir exactement comme avant (staff)'],
@@ -292,6 +292,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/purge', '`tous_les_salons` : supprime les derniers messages d’un membre dans tous les salons'],
   ['/embed', 'images : envoie directement le fichier (aussi `/bienvenue`, `/quitte`, `/modifierembedticket`), gardé pour toujours'],
   ['/configverif', 'demande d’abord si on veut activer ou désactiver la vérification'],
   ['/role', '`change` remplace `rename` : nom, couleur et emplacement du rôle'],
@@ -301,7 +302,6 @@ const RECENT_CHANGES = [
   ['/item', 'remplace /add-item, /change-item et /remove-item : `ajouter` `modifier` `retirer`'],
   ['/roleticket', 'remplace /ajouterroleticket et /retirerroleticket : `ajouter` `retirer`'],
   ['/userinfo', 'niveau, argent, coins, réputation, team, famille, activité…'],
-  ['/duel', '`membre` facultatif : sans membre, on joue contre le bot'],
 ];
 
 const HOME = 'home';
