@@ -2,6 +2,9 @@
 // Un trait listé = « oui », précédé de ~ = « en partie / ça dépend », absent = « non ».
 export const QUESTIONS = {
   reel: 'Est-ce une vraie personne ?',
+  proche: 'Ton personnage te connaît-il dans la vraie vie ?',
+  parent: 'Est-ce un de tes parents ?',
+  fratrie: 'Est-ce ton frère ou ta sœur ?',
   youtubeur: 'Est-ce un youtubeur ?',
   streamer: 'Fait-il des lives (Twitch, Kick…) ?',
   rappeur: 'Est-ce un rappeur ou un chanteur ?',
@@ -68,6 +71,8 @@ export const QUESTIONS = {
   vert: 'Sa tenue est-elle surtout verte ?',
   jaune: 'Est-il surtout jaune ?',
 };
+
+const FAMILY = '~frere ~francais ~sportif ~gaming ~noirs ~blonds ~bruns ~roux ~blancs ~masque ~chapeau';
 
 // [nom, œuvre, traits]
 const RAW = [
@@ -194,6 +199,11 @@ const RAW = [
   ['Antoine Griezmann', 'Football', 'R foot sportif francais vieux ~blonds ~barbe'],
   ['Erling Haaland', 'Football', 'R foot sportif blonds'],
   ['Teddy Riner', 'Judo', 'R sportif francais vieux'],
+  // --- La famille du joueur : son apparence est inconnue (~ : la réponse ne compte ni pour ni contre) ---
+  ['Ton père', 'Ta famille', `R proche parent vieux ${FAMILY} ~chauve ~barbe`],
+  ['Ta mère', 'Ta famille', `R femme proche parent vieux ${FAMILY}`],
+  ['Ton frère', 'Ta famille', `R proche fratrie ~adulte ~enfant ~vieux ~ecole ${FAMILY} ~chauve ~barbe`],
+  ['Ta sœur', 'Ta famille', `R femme proche fratrie ~adulte ~enfant ~vieux ~ecole ${FAMILY}`],
 ];
 
 // Valeur d'un trait : 1 = oui, 0.5 = en partie, 0 = non. img : image du personnage (IMAGES, plus bas).

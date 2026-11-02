@@ -173,7 +173,7 @@ const CATEGORIES = [
     about: 'De quoi animer le serveur : duels entre membres, jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
       ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux (2 manches gagnantes) contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
-      ['+mentaliste', 'Pense à un personnage d’animé ou de jeu vidéo, ou à une personnalité (youtubeur, streamer, rappeur, footballeur…) : le Mentaliste te pose des questions et le devine (3 essais), avec son image. S’il perd, dis-lui à qui tu pensais : il l’apprend pour la prochaine fois · `+mentaliste oublier <nom>` (staff)'],
+      ['+mentaliste', 'Pense à un personnage d’animé ou de jeu vidéo, à une personnalité (youtubeur, streamer, rappeur, footballeur…) ou à quelqu’un de ta famille : le Mentaliste te pose des questions et le devine (3 essais), avec son image. S’il perd, dis-lui à qui tu pensais : il l’apprend pour la prochaine fois · `+mentaliste oublier <nom>` (staff)'],
       ['📖 · +citation', 'Livre des citations : réagis 📖 sous un message mémorable pour l’ajouter · `+citation` (au hasard, en image) · `+citation <n>` · `+citation @membre` · `+citation top` · `+citation supprimer <n>` (staff)'],
       ['+avent', 'Calendrier de l’Avent du 1er au 24 décembre : une case par jour (coins, argent, boosters d’XP), gros bonus le 24 pour ceux qui ont tout ouvert'],
       ['/pokemon', '`activer` (salon, génération) — salon « Quel est ce Pokémon ? » sans fin : le premier qui écrit le nom gagne un point, le Pokémon est dévoilé avec sa description du Pokédex · ❓ indice ⏭️ passer 👑 classement 📕 Pokédex ✨ brillants (1 chance sur 64) · `desactiver`'],
@@ -292,6 +292,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['+mentaliste', 'demande si ton personnage te connaît dans la vraie vie : il devine aussi ton père, ta mère, ton frère ou ta sœur'],
   ['/purge', '`tous_les_salons` : supprime les derniers messages d’un membre dans tous les salons'],
   ['/embed', 'images : envoie directement le fichier (aussi `/bienvenue`, `/quitte`, `/modifierembedticket`), gardé pour toujours'],
   ['/configverif', 'demande d’abord si on veut activer ou désactiver la vérification'],
@@ -301,7 +302,6 @@ const RECENT_CHANGES = [
   ['/quiz', 'chaque bonne réponse gagne (félicitations en message privé), la réponse est dévoilée à la fin'],
   ['/item', 'remplace /add-item, /change-item et /remove-item : `ajouter` `modifier` `retirer`'],
   ['/roleticket', 'remplace /ajouterroleticket et /retirerroleticket : `ajouter` `retirer`'],
-  ['/userinfo', 'niveau, argent, coins, réputation, team, famille, activité…'],
 ];
 
 const HOME = 'home';

@@ -12,8 +12,8 @@ import {
 import { getMentalist, setMentalist } from './store.js';
 import { QUESTIONS, CHARACTERS } from './mentalistdata.js';
 
-// 🔮 Le Mentaliste (« +mentaliste ») : le joueur pense à un personnage d'animé ou de jeu vidéo, ou à une vraie
-// personne connue (youtubeur, streamer, rappeur, footballeur…), le bot pose des
+// 🔮 Le Mentaliste (« +mentaliste ») : le joueur pense à un personnage d'animé ou de jeu vidéo, à une vraie
+// personne connue (youtubeur, streamer, rappeur, footballeur…) ou à quelqu'un de sa famille, le bot pose des
 // questions (oui / non / je ne sais pas / probablement / probablement pas) puis propose un nom (3 essais).
 // Chaque réponse rend les personnages qui collent plus probables ; la question suivante est celle qui partage le
 // mieux les personnages restants. S'il perd, le joueur lui dit à qui il pensait : le bot l'apprend pour ce serveur.
@@ -98,8 +98,10 @@ export function advance(game) {
   let top = 0;
   weights.forEach((w, i) => w > weights[top] && (top = i));
   const asked = new Set(game.answers.map((x) => x.q));
-  // Toujours la même première question : personnage inventé ou vraie personne.
-  const question = game.answers.length === 0 ? 'reel' : bestQuestion(list, weights, asked);
+  // Toujours la même première question : personnage inventé ou vraie personne. Pour une vraie personne, la deuxième :
+  // te connaît-elle (quelqu'un de ta famille) ?
+  const [first] = game.answers;
+  const question = !first ? 'reel' : game.answers.length === 1 && first.a >= 0.75 ? 'proche' : bestQuestion(list, weights, asked);
   game.confidence = weights[top];
   const ready = game.answers.length >= MIN_QUESTIONS && weights[top] >= CONFIDENT && game.sinceMiss >= AFTER_MISS;
   if (weights[top] > 0 && (ready || !question || game.answers.length >= MAX_QUESTIONS)) {
@@ -136,7 +138,7 @@ function view(game) {
       .setTitle('🔮 Le Mentaliste')
       .setDescription(
         `**Question ${game.answers.length + 1}**\n## ${QUESTIONS[game.question]}\n\n` +
-          `-# ${game.answers.length ? `Intuition : ${bar(game.confidence)}` : 'Pense à un personnage d’animé ou de jeu vidéo, ou à une vraie personne (youtubeur, streamer, rappeur, footballeur…) : je vais le deviner !'}`,
+          `-# ${game.answers.length ? `Intuition : ${bar(game.confidence)}` : 'Pense à un personnage d’animé ou de jeu vidéo, à une vraie personne (youtubeur, streamer, rappeur, footballeur…) ou même à quelqu’un de ta famille : je vais le deviner !'}`,
       );
     components = [
       new ActionRowBuilder().addComponents(['y', 'n', 'u'].map((a) => button(game, a, ANSWERS[a].label, ANSWERS[a].style))),
