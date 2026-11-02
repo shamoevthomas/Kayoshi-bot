@@ -125,6 +125,9 @@ function bar(p) {
 
 const button = (game, action, label, style, disabled = false) =>
   new ButtonBuilder().setCustomId(`mnt:${game.id}:${action}`).setLabel(label).setStyle(style).setDisabled(disabled);
+// Partie terminée : « Jouer » lance une nouvelle partie pour celui qui clique.
+const replayRow = () =>
+  new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('mnt:replay').setLabel('Jouer').setEmoji('🔮').setStyle(ButtonStyle.Success));
 
 function view(game) {
   const embed = new EmbedBuilder()
@@ -165,6 +168,7 @@ function view(game) {
       .setColor(0x2ecc71)
       .setTitle('🎉 J’ai encore deviné juste !')
       .setDescription(`## ${game.guess.name}\n*${game.guess.work}*\n\nTrouvé en **${game.answers.length}** question(s)${game.guesses ? ` et ${game.guesses + 1} essais` : ''}.\n-# Rejoue avec \`+mentaliste\`.`);
+    components = [replayRow()];
   } else if (game.phase === 'lost') {
     embed
       .setColor(0xe67e22)
@@ -181,8 +185,10 @@ function view(game) {
   } else if (game.phase === 'learned') {
     if (game.taught.img) embed.setImage(game.taught.img);
     embed.setColor(0x3498db).setTitle('🧠 Merci, je m’en souviendrai !').setDescription(`Je retiens **${game.taught.name}** (*${game.taught.work}*).\nLa prochaine fois, je pourrais bien le trouver…\n-# Rejoue avec \`+mentaliste\`.`);
+    components = [replayRow()];
   } else {
     embed.setColor(0x95a5a6).setTitle('🔮 Le Mentaliste').setDescription(game.endText ?? 'Partie terminée.');
+    components = [replayRow()];
   }
   return { embeds: [embed], components, ...quiet };
 }
@@ -227,18 +233,26 @@ export async function handleMentalistCommand(message) {
     return true;
   }
 
-  const running = [...games.values()].find((g) => g.userId === message.author.id && g.guildId === message.guild.id);
+  const running = runningGame(message.guild.id, message.author.id);
   if (running) {
     await reply({ content: `🔮 Tu as déjà une partie en cours : ${running.message?.url ?? 'termine-la d’abord'}` });
     return true;
   }
+  await startGame(message.guild.id, message.author, message.member, message.client, (payload) => reply(payload));
+  return true;
+}
+
+const runningGame = (guildId, userId) => [...games.values()].find((g) => g.userId === userId && g.guildId === guildId);
+
+// Nouvelle partie ; `send` publie le message de la partie et le renvoie (null si l'envoi échoue).
+async function startGame(guildId, user, member, client, send) {
   const game = {
     id: newId(),
-    guildId: message.guild.id,
-    userId: message.author.id,
-    playerName: message.member?.displayName ?? message.author.username,
-    playerAvatar: message.author.displayAvatarURL(),
-    botAvatar: message.client.user.displayAvatarURL(),
+    guildId,
+    userId: user.id,
+    playerName: member?.displayName ?? user.username,
+    playerAvatar: user.displayAvatarURL(),
+    botAvatar: client.user.displayAvatarURL(),
     answers: [],
     rejected: new Set(),
     guesses: 0,
@@ -246,15 +260,29 @@ export async function handleMentalistCommand(message) {
   };
   advance(game);
   games.set(game.id, game);
-  game.message = await reply(view(game));
+  game.message = await send(view(game));
   if (!game.message) games.delete(game.id);
   else arm(game);
-  return true;
+}
+
+// Bouton « Jouer » d'une partie terminée : n'importe quel membre peut lancer la sienne.
+async function replay(interaction) {
+  const running = runningGame(interaction.guild.id, interaction.user.id);
+  if (running) {
+    return interaction.reply({ content: `🔮 Tu as déjà une partie en cours : ${running.message?.url ?? 'termine-la d’abord'}`, ephemeral: true });
+  }
+  return startGame(interaction.guild.id, interaction.user, interaction.member, interaction.client, (payload) =>
+    interaction
+      .reply({ ...payload, withResponse: true })
+      .then((res) => res.resource?.message ?? null)
+      .catch(() => null),
+  );
 }
 
 // Boutons mnt:<partie>:<action> et formulaire mnt_teach:<partie>.
 export async function handleMentalistInteraction(interaction) {
   const [kind, id, action] = interaction.customId.split(':');
+  if (kind === 'mnt' && id === 'replay') return replay(interaction);
   const game = games.get(id) ?? taughtGames.get(id);
   if (!game) return interaction.reply({ content: '⌛ Cette partie est terminée. Lance-en une avec `+mentaliste`.', ephemeral: true });
   if (interaction.user.id !== game.userId) {

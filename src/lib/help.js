@@ -292,7 +292,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
-  ['+mentaliste', 'demande si ton personnage te connaît dans la vraie vie : il devine aussi ton père, ta mère, ton frère ou ta sœur'],
+  ['+mentaliste', 'devine aussi ton père, ta mère, ton frère ou ta sœur · bouton « Jouer » pour relancer une partie'],
   ['/purge', '`tous_les_salons` : supprime les derniers messages d’un membre dans tous les salons'],
   ['/embed', 'images : envoie directement le fichier (aussi `/bienvenue`, `/quitte`, `/modifierembedticket`), gardé pour toujours'],
   ['/configverif', 'demande d’abord si on veut activer ou désactiver la vérification'],
