@@ -323,6 +323,11 @@ const IMAGES = {
   "Antoine Griezmann": "https://upload.wikimedia.org/wikipedia/commons/2/29/Antoine_Griezmann_World_Cup_Trophy.jpg",
   "Erling Haaland": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Erling_Haaland_France_v_Norway_26_June_26-008.jpg/960px-Erling_Haaland_France_v_Norway_26_June_26-008.jpg",
   "Teddy Riner": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Teddy_Riner_Cannes_2016.jpg",
+  // La famille du joueur : la famille Forger de Spy × Family (et Yuri, le frère de Yor).
+  "Ton père": "https://s4.anilist.co/file/anilistcdn/character/large/b138101-7NCB0Md8zA6G.png",
+  "Ta mère": "https://s4.anilist.co/file/anilistcdn/character/large/b138102-ZOAu9jI2d5ke.png",
+  "Ton frère": "https://s4.anilist.co/file/anilistcdn/character/large/b150425-mP852peLh9eS.jpg",
+  "Ta sœur": "https://s4.anilist.co/file/anilistcdn/character/large/b138100-4Li0tWRCa5bQ.png",
 };
 
 // « R » = vraie personne : humaine, adulte, dans le monde d'aujourd'hui, masculine sauf « femme ».
