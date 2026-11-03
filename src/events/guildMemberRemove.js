@@ -9,6 +9,7 @@ import { deleteTicketsOnLeave } from '../lib/tickets.js';
 import { noteAction } from '../lib/antinuke.js';
 import { deletePartnerMentionsOnLeave } from '../lib/partners.js';
 import { isRecentAccount } from '../lib/accountage.js';
+import { rememberLeftRoles, rolesText } from '../lib/leftroles.js';
 
 export default {
   name: Events.GuildMemberRemove,
@@ -27,6 +28,8 @@ export default {
     // Mémorise le rôle de quarantaine pour le remettre s'il revient.
     rememberQuarantineOnLeave(member);
 
+    // Ses rôles au moment du départ (montrés par /userinfo et dans le journal de départ).
+    const leftRoles = rememberLeftRoles(member);
     addMemberEvent(member.guild.id, 'leave', member.id);
 
     // Décompte d'invitation : si ce membre avait été invité par quelqu'un,
@@ -99,6 +102,8 @@ export default {
         { name: 'Invité par', value: `<@${invite.inviterId}>`, inline: true },
       );
     }
+
+    if (leftRoles) embed.addFields({ name: '🎭 Rôles avant de partir', value: rolesText(member.guild, leftRoles) });
 
     await sendLog(member.guild, embed);
   },

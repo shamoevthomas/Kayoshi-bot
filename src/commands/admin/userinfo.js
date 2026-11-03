@@ -13,7 +13,12 @@ import {
   getCasinoInv,
   getInviteTotal,
   getQuizScores,
+  getGuildConfig,
+  getMemberEvents,
+  getLeftRoles,
+  getInviter,
 } from '../../lib/store.js';
+import { rolesText } from '../../lib/leftroles.js';
 import { levelInfo } from '../../lib/levels.js';
 import { formatMoney } from '../../lib/shop.js';
 import { teamOf } from '../../lib/teams.js';
@@ -65,6 +70,30 @@ export default {
     // Activité (14 derniers jours)
     const stats = userStats(guild.id, id);
     const warns = getWarns(guild.id, id);
+    // Venues d'avant : départs enregistrés (depuis le début du suivi) et rôles au dernier départ.
+    const leaves = getMemberEvents(guild.id, id).filter((e) => e.t === 'leave');
+    const lastLeave = leaves.at(-1);
+    const left = getLeftRoles(guild.id, id);
+    const since = getGuildConfig(guild.id).trackingSince;
+    const inviter = member ? getInviter(guild.id, id) : null;
+    let presence;
+    if (member) {
+      presence =
+        `A rejoint ${ts(member.joinedTimestamp, 'D')} (${ts(member.joinedTimestamp, 'R')})\n` +
+        (inviter ? `📨 Arrivée grâce à l’invitation de <@${inviter.inviterId}>${inviter.code ? ` (\`discord.gg/${inviter.code}\`)` : ''}\n` : '') +
+        (leaves.length
+          ? `🔁 **Pas sa première fois ici** : a quitté le serveur ${leaves.length} fois, la dernière le ${ts(lastLeave.ts, 'D')}`
+          : `🆕 Première fois sur le serveur${since && member.joinedTimestamp < since ? ` (départs suivis depuis le ${ts(since, 'D')})` : ''}`);
+    } else {
+      presence = lastLeave
+        ? `🚪 A quitté le serveur le ${ts(lastLeave.ts, 'D')} (${ts(lastLeave.ts, 'R')})${leaves.length > 1 ? ` · ${leaves.length} départs en tout` : ''}`
+        : 'N’est plus sur le serveur';
+    }
+    const oldRoles = left
+      ? `-# Au départ du ${ts(left.at, 'D')}${left.audit ? ' (retrouvés dans le journal d’audit)' : ''}\n${rolesText(guild, left.roles)}`
+      : lastLeave
+        ? 'Inconnus : départ trop ancien pour les retrouver.'
+        : null;
 
     const embed = new EmbedBuilder()
       .setColor(member?.displayColor || 0x5865f2)
@@ -76,7 +105,7 @@ export default {
           value: [
             `ID : \`${id}\`${target.bot ? ' · 🤖 bot' : ''}`,
             `Compte créé ${ts(target.createdTimestamp, 'D')} (${ts(target.createdTimestamp, 'R')})`,
-            member?.joinedTimestamp ? `A rejoint ${ts(member.joinedTimestamp, 'D')} (${ts(member.joinedTimestamp, 'R')})` : 'N’est plus sur le serveur',
+            presence,
           ].join('\n'),
         },
         {
@@ -109,6 +138,7 @@ export default {
         { name: `🎭 Rôles`, value: roles.slice(0, 1024) },
       )
       .setTimestamp();
+    if (oldRoles) embed.addFields({ name: '🕰️ Anciens rôles', value: oldRoles.slice(0, 1024) });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   },

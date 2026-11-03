@@ -162,7 +162,7 @@ const CATEGORIES = [
       ['.bourse', 'Actions fictives dont le cours change chaque heure : `acheter` avec ta poche, `vendre` quand ça a monté (2 % de frais) — à l’abri des vols'],
       ['.loterie · .braquage', 'Tickets à 🪙 100, tirage de toute la cagnotte chaque dimanche à minuit · braquage de la banque à plusieurs (60 s pour rejoindre, 3 h entre deux)'],
       ['Happy hour', 'Chaque jour, 1 h au hasard entre 15 h et 22 h : les gains de `.work`, `.slut`, `.gift`, `.fish` et du `.wagon` sont doublés (annoncée dans le salon du casino)'],
-      ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux contre un membre ou contre le bot (sans membre), avec une mise en coins : le gagnant remporte tout'],
+      ['/duel', 'Morpion, puissance 4, pierre-feuille-ciseaux ou pile ou face contre un membre ou contre le bot (sans membre), avec une mise en coins : le gagnant remporte tout'],
     ],
   },
   {
@@ -172,16 +172,17 @@ const CATEGORIES = [
     summary: 'Duels, pendu, devinettes, tu préfères, drapeaux, quiz, comptage, love calc, citations, GIF',
     about: 'De quoi animer le serveur : duels entre membres, jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
-      ['/duel', 'Morpion, puissance 4 ou pierre-feuille-ciseaux (2 manches gagnantes) contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
+      ['/duel', 'Morpion, puissance 4, pierre-feuille-ciseaux (2 manches gagnantes) ou pile ou face contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
       ['+mentaliste', 'Pense à un personnage d’animé ou de jeu vidéo, à une personnalité (youtubeur, streamer, rappeur, footballeur…) ou à quelqu’un de ta famille : le Mentaliste te pose des questions et le devine (3 essais), avec son image. S’il perd, dis-lui à qui tu pensais : il l’apprend pour la prochaine fois · `+mentaliste oublier <nom>` (staff)'],
       ['📖 · +citation', 'Livre des citations : réagis 📖 sous un message mémorable pour l’ajouter · `+citation` (au hasard, en image) · `+citation <n>` · `+citation @membre` · `+citation top` · `+citation supprimer <n>` (staff)'],
       ['+avent', 'Calendrier de l’Avent du 1er au 24 décembre : une case par jour (coins, argent, boosters d’XP), gros bonus le 24 pour ceux qui ont tout ouvert'],
       ['/pokemon', '`activer` (salon, génération) — salon « Quel est ce Pokémon ? » sans fin : le premier qui écrit le nom gagne un point, le Pokémon est dévoilé avec sa description du Pokédex · ❓ indice ⏭️ passer 👑 classement 📕 Pokédex ✨ brillants (1 chance sur 64) · `desactiver`'],
-      ['+pendu · +devine · +emoji · +pokemon', 'Jeux dans le salon, lancés par n’importe qui : pendu (écrire une lettre ou le mot, 6 vies) · nombre mystère entre 1 et 1 000 (⬆️ / ⬇️) · deviner un jeu vidéo ou un animé à partir d’emojis (2 min, indice au bout d’1 min) · la silhouette d’un des 1 025 Pokémon, nom en français ou en anglais (`+pokemon 1` à `9` pour une génération, 1 min, indice au bout de 25 s) — le gagnant reçoit 🪙 250 / 150 / 200 / 200 coins (5 victoires récompensées par jour)'],
+      ['+pendu · +devine · +emoji · +pokemon · +flag', 'Jeux dans le salon, lancés par n’importe qui : pendu (écrire une lettre ou le mot, 6 vies) · nombre mystère entre 1 et 1 000 (⬆️ / ⬇️) · deviner un jeu vidéo ou un animé à partir d’emojis (2 min, indice au bout d’1 min) · la silhouette d’un des 1 025 Pokémon, nom en français ou en anglais (`+pokemon 1` à `9` pour une génération, 1 min, indice au bout de 25 s) · le pays d’un drapeau (1 min, indice au bout de 25 s ; un `+flag` toutes les 20 s par membre) — le gagnant reçoit 🪙 250 / 150 / 200 / 200 / 150 coins (5 victoires récompensées par jour)'],
+      ['+jeux top · +duel top', 'Classements : victoires aux jeux du chat (`+jeux top`, ou `+jeux top pendu` / `devine` / `emoji` / `pokemon` / `flag` pour un seul jeu) et duels gagnés entre membres (`+duel top`)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
       ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : chaque membre qui trouve gagne de l’argent et 🪙 500 coins (félicitations en message privé, réponse dévoilée à la fin, classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
-      ['^^lc ^^hc ^^fc', 'Pourcentage d’amour (`^^lc`), de haine (`^^hc`) ou d’amitié (`^^fc`) : `random`, `@membre` ou `@membre1 @membre2`'],
+      ['/lovecalc · ^^lc ^^hc ^^fc', 'Pourcentage d’amour, de haine ou d’amitié : `/lovecalc type membre membre2 prenom` (vide = un membre au hasard), ou `^^lc` (amour), `^^hc` (haine), `^^fc` (amitié) suivi de `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
       ['/gif', 'Transformer une image (fichier ou lien) en GIF, pour l’ajouter à tes GIF favoris'],
@@ -259,7 +260,7 @@ const CATEGORIES = [
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre, `s?t` le top, `s?m` les messages, `s?v` le vocal'],
       ['+vc', 'Statistiques du serveur : membres, en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute'],
       ['/serverinfo', 'Statistiques du serveur'],
-      ['/userinfo', 'Fiche d’un membre : niveau, argent, coins (poche, banque, livret), réputation, team, famille, activité, invitations, quiz, avertissements, rôles'],
+      ['/userinfo', 'Fiche d’un membre : niveau, argent, coins (poche, banque, livret), réputation, team, famille, activité, invitations, quiz, avertissements, rôles, venues d’avant et anciens rôles'],
       ['/pseudo', 'Envoyer le pseudo d’un membre'],
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
       ['/emoji', '`rename` `delete` `image` — renommer, supprimer un emoji du serveur, ou envoyer son image'],
@@ -272,6 +273,10 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+jeux top', 'classement des jeux du chat'],
+  ['+duel top', 'classement des duels entre membres'],
+  ['/lovecalc', 'amour, haine ou amitié entre deux personnes'],
+  ['+flag', 'devine le pays à son drapeau'],
   ['/pokemon', 'salon Pokémon sans fin, points et Pokédex'],
   ['+pokemon', 'devine le Pokémon à sa silhouette'],
   ['+mentaliste', 'le bot devine ton personnage'],
@@ -283,15 +288,13 @@ const RECENT = [
   ['+graph', 'courbe d’activité du serveur'],
   ['+lockdown', 'verrouiller tous les salons d’un coup'],
   ['+pendu', 'jeu du pendu dans le salon'],
-  ['+devine', 'trouver le nombre mystère'],
-  ['+emoji', 'deviner un jeu ou un animé en emojis'],
-  ['+lock', 'verrouiller un salon (remplace /lock)'],
-  ['+hide', 'masquer un salon pour le rôle Membre (staff)'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/duel', 'nouveau jeu 🪙 pile ou face · bouton 🔁 Revanche à la fin · classement avec `+duel top`'],
+  ['/userinfo', 'qui l’a invité, s’il était déjà venu et ses rôles d’avant son départ'],
   ['+mentaliste', 'devine aussi ton père, ta mère, ton frère ou ta sœur · bouton « Jouer » pour relancer une partie'],
   ['/purge', '`tous_les_salons` : supprime les derniers messages d’un membre dans tous les salons'],
   ['/embed', 'images : envoie directement le fichier (aussi `/bienvenue`, `/quitte`, `/modifierembedticket`), gardé pour toujours'],
@@ -300,8 +303,6 @@ const RECENT_CHANGES = [
   ['/money', '`ajouter` : le message est visible de tous'],
   ['/xp', '`ajouter` : le message est visible de tous'],
   ['/quiz', 'chaque bonne réponse gagne (félicitations en message privé), la réponse est dévoilée à la fin'],
-  ['/item', 'remplace /add-item, /change-item et /remove-item : `ajouter` `modifier` `retirer`'],
-  ['/roleticket', 'remplace /ajouterroleticket et /retirerroleticket : `ajouter` `retirer`'],
 ];
 
 const HOME = 'home';

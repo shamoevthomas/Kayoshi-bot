@@ -89,7 +89,7 @@ const EXACT = new Map(Object.entries(COUNTRIES).flatMap(([code, c]) => [...c.ans
 
 export const flagEmoji = (code) => String.fromCodePoint(...[...code].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
 export const countryName = (code) => COUNTRIES[code]?.name ?? code;
-const flagUrl = (code) => `https://flagcdn.com/w640/${code.toLowerCase()}.png`;
+export const flagUrl = (code) => `https://flagcdn.com/w640/${code.toLowerCase()}.png`;
 
 function distance(a, b) {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -120,7 +120,7 @@ export function isCorrect(guess, code) {
 
 // --- Partie ---
 
-function pickCode(recent) {
+export function pickCode(recent) {
   const pool = CODES.filter((c) => !recent.includes(c));
   return pool[Math.floor(Math.random() * pool.length)];
 }
@@ -280,7 +280,7 @@ export async function handleGuessFlagMessage(message) {
 // --- Boutons (préfixe « gf_ ») ---
 
 // « **K** — `K _ _ _ _ _` (6 lettres) »
-function hint(name) {
+export function hint(name) {
   const letters = [...name].filter((ch) => /\p{L}/u.test(ch)).length;
   const pattern = [...name].map((ch, i) => (i === 0 ? ch.toUpperCase() : /\p{L}/u.test(ch) ? '_' : ch === ' ' ? ' ' : ch)).join(' ');
   return `**${[...name][0].toUpperCase()}** — \`${pattern}\` (${letters} lettres)`;

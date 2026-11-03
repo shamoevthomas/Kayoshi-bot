@@ -27,6 +27,7 @@ import { lotteryTick } from '../lib/lottery.js';
 import { happyHourTick } from '../lib/happyhour.js';
 import { marketTick } from '../lib/bourse.js';
 import { announceReturn } from '../lib/uptime.js';
+import { backfillLeftRoles } from '../lib/leftroles.js';
 import { refundHolds } from '../lib/bets.js';
 import { ensureShopLogChannel } from '../lib/shop.js';
 import { refreshAllStatChannels, REFRESH_MS } from '../lib/statchannels.js';
@@ -141,6 +142,8 @@ export default {
       for (const guild of client.guilds.cache.values()) await backfillMessages(guild).catch((err) => console.error('[stats]', err));
       // Heures et échanges (+heures, +meilleurami) des 4 dernières semaines, une fois par serveur.
       for (const guild of client.guilds.cache.values()) await backfillExtras(guild).catch((err) => console.error('[stats]', err));
+      // Rôles des membres partis avant leur enregistrement (/userinfo), retrouvés une fois dans le journal d'audit.
+      for (const guild of client.guilds.cache.values()) await backfillLeftRoles(guild).catch((err) => console.error('[anciens rôles]', err.message));
     }, 60_000);
     setTimeout(() => refreshAllStats(client).catch(() => {}), 15_000);
     setInterval(() => refreshAllStats(client).catch(() => {}), 300_000);

@@ -11,7 +11,8 @@ import { font, fetchImage } from './fonts.js';
 import { proposeMarriage } from './family.js';
 
 // Calculateur d'amour / de haine / d'amitié, comme le bot Koya :
-//   ^^lc (amour), ^^hc (haine), ^^fc (amitié), suivis de « random », d'un ou de deux membres.
+//   ^^lc (amour), ^^hc (haine), ^^fc (amitié), suivis de « random », d'un ou de deux membres,
+//   ou /lovecalc type:<amour|haine|amitié> [membre] [membre2] [prenom].
 // Le pourcentage a l'air aléatoire mais reste toujours le même pour un duo et un mode.
 // Les boutons sous le message (réservés à l'auteur de la commande) gardent leur état dans leur id :
 //   lc_<action>:<mode>:<auteur>:<membre 1>:<membre 2>
@@ -352,6 +353,32 @@ async function randomMember(guild, excludeIds) {
   return pool.random()?.user ?? null;
 }
 
+// Duo comparé : 2 entités → elles ; 1 → l'auteur + elle ; aucune → l'auteur + un membre au hasard (null si personne).
+async function pairFor(guild, author, entities) {
+  if (entities.length === 2) return entities;
+  const self = userEntity(guild, author);
+  if (entities.length === 1) return [self, entities[0]];
+  const rnd = await randomMember(guild, [author.id]);
+  return rnd ? [self, userEntity(guild, rnd)] : null;
+}
+
+// --- Commande /lovecalc ---
+
+export async function handleLoveSlash(interaction) {
+  const { guild, user } = interaction;
+  const mode = interaction.options.getString('type') ?? 'love';
+  const entities = [interaction.options.getUser('membre'), interaction.options.getUser('membre2')].filter(Boolean).map((u) => userEntity(guild, u));
+  const name = interaction.options.getString('prenom')?.trim();
+  if (name) entities.push(nameEntity(name));
+  if (entities.length > 2) {
+    return interaction.reply({ content: '❌ Choisis deux personnes au plus (membres ou prénom).', ephemeral: true });
+  }
+  const pair = await pairFor(guild, user, entities);
+  if (!pair) return interaction.reply({ content: '❌ Je n’ai trouvé personne d’autre sur le serveur.', ephemeral: true });
+  await interaction.deferReply();
+  await interaction.editReply(await resultPayload(mode, user.id, ...pair));
+}
+
 
 // --- Commandes en message ---
 
@@ -377,24 +404,14 @@ export async function handleLoveCommand(message) {
     } else entities.push(nameEntity(token)); // texte libre (ou ID inconnu) → prénom
   }
 
-  let entA;
-  let entB;
-  if (entities.length === 2) [entA, entB] = entities;
-  else {
-    entA = userEntity(message.guild, message.author);
-    if (entities.length === 1) entB = entities[0];
-    else {
-      const rnd = await randomMember(message.guild, [message.author.id]);
-      if (!rnd) {
-        await message.reply({ content: '❌ Je n’ai trouvé personne d’autre sur le serveur.', allowedMentions: { repliedUser: false } }).catch(() => {});
-        return true;
-      }
-      entB = userEntity(message.guild, rnd);
-    }
+  const pair = await pairFor(message.guild, message.author, entities);
+  if (!pair) {
+    await message.reply({ content: '❌ Je n’ai trouvé personne d’autre sur le serveur.', allowedMentions: { repliedUser: false } }).catch(() => {});
+    return true;
   }
 
   await message.channel.sendTyping().catch(() => {});
-  const payload = await resultPayload(mode, message.author.id, entA, entB);
+  const payload = await resultPayload(mode, message.author.id, ...pair);
   delete payload.attachments;
   await message.reply({ ...payload, allowedMentions: { parse: [], repliedUser: false } }).catch(() => {});
   return true;
@@ -406,7 +423,7 @@ export async function handleLoveInteraction(interaction) {
   const [action, mode, authorId, a, b] = interaction.customId.split(':');
   if (!MODES[mode]) return;
   if (interaction.user.id !== authorId) {
-    return interaction.reply({ content: '❌ Ces boutons sont réservés à la personne qui a lancé la commande. Lance la tienne avec `^^lc` !', ephemeral: true });
+    return interaction.reply({ content: '❌ Ces boutons sont réservés à la personne qui a lancé la commande. Lance la tienne avec `/lovecalc` !', ephemeral: true });
   }
   const { guild, client } = interaction;
   const fetchUser = (id) => client.users.fetch(id).catch(() => null);

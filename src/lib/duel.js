@@ -1,13 +1,15 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getCoins } from './store.js';
+import { getCoins, getDuelStats, addDuelResult } from './store.js';
 import { checkBet, holdBet, settleHold, newGameId } from './bets.js';
 import { formatMoney } from './shop.js';
 
-// Duels (/duel) entre deux membres : morpion, puissance 4 ou pierre-feuille-ciseaux (en 2 manches gagnantes),
-// avec une mise facultative (chacun mise autant, le gagnant remporte tout ; égalité = mises rendues).
+// Duels (/duel) entre deux membres : morpion, puissance 4, pierre-feuille-ciseaux (en 2 manches gagnantes) ou
+// pile ou face (un joueur tiré au sort choisit son côté, l'autre a le côté opposé), avec une mise facultative (chacun mise autant, le gagnant remporte tout ; égalité = mises rendues).
 // Sans membre, on joue contre le bot (vsBot) : il joue tout de suite après chaque coup ; la mise se joue
 // contre la banque (gagné = mise ×2, perdu = mise perdue, égalité = rendue).
 // Boutons duel:<id>:<action>[:<valeur>] ; 60 s pour accepter, 60 s par coup (sinon le joueur perd par forfait).
+// À la fin, « Revanche » (duel:rematch:<jeu>:<mise>:<joueur 1>:<joueur 2 | bot>) relance le même duel.
+// Les résultats entre membres comptent pour « +duel top ».
 const WAIT_MS = 60_000;
 const duels = new Map();
 
@@ -15,8 +17,10 @@ export const DUEL_GAMES = {
   morpion: { label: 'Morpion', emoji: '❌' },
   puissance4: { label: 'Puissance 4', emoji: '🔴' },
   pfc: { label: 'Pierre-feuille-ciseaux', emoji: '✂️' },
+  pof: { label: 'Pile ou face', emoji: '🪙' },
 };
-const MARKS = { morpion: ['❌', '⭕'], puissance4: ['🔴', '🟡'], pfc: ['🔵', '🟠'] };
+const MARKS = { morpion: ['❌', '⭕'], puissance4: ['🔴', '🟡'], pfc: ['🔵', '🟠'], pof: ['🔵', '🟠'] };
+const COIN = { pile: 'Pile', face: 'Face' };
 const RPS = { pierre: '🪨', feuille: '📄', ciseaux: '✂️' };
 const BEATS = { pierre: 'ciseaux', feuille: 'pierre', ciseaux: 'feuille' };
 const LINES3 = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
@@ -27,12 +31,16 @@ const inDuel = (userId) => [...duels.values()].some((d) => d.players.includes(us
 const holdKey = (duel, i) => `duel:${duel.id}:${duel.players[i]}`;
 
 export async function startDuel(interaction) {
-  const { guild, user } = interaction;
-  const target = interaction.options.getMember('membre');
   const game = interaction.options.getString('jeu', true);
   const raw = interaction.options.getString('mise');
-  const reply = (content) => interaction.reply({ content, ephemeral: true });
   if (!interaction.options.getUser('membre')) return startBotDuel(interaction, game, raw);
+  return challenge(interaction, interaction.options.getMember('membre'), game, raw);
+}
+
+// Défi envoyé à un membre (par /duel, ou par le bouton « Revanche »).
+async function challenge(interaction, target, game, raw, rematch = false) {
+  const { guild, user } = interaction;
+  const reply = (content) => interaction.reply({ content, ephemeral: true });
   if (!target) return reply('❌ Ce membre n’est pas sur le serveur.');
   if (target.user.bot) return reply('❌ On ne peut pas défier un bot : laisse `membre` vide pour jouer contre moi.');
   if (target.id === user.id) return reply('❌ Tu ne peux pas te défier toi-même.');
@@ -61,9 +69,9 @@ export async function startDuel(interaction) {
     embeds: [
       new EmbedBuilder()
         .setColor(0xe67e22)
-        .setTitle(`⚔️ Défi — ${DUEL_GAMES[game].label}`)
+        .setTitle(`⚔️ ${rematch ? 'Revanche' : 'Défi'} — ${DUEL_GAMES[game].label}`)
         .setDescription(
-          `${user} te défie au **${DUEL_GAMES[game].label.toLowerCase()}** !\n` +
+          `${user} ${rematch ? 'te propose une revanche au' : 'te défie au'} **${DUEL_GAMES[game].label.toLowerCase()}** !\n` +
             (bet ? `🪙 Mise : **${formatMoney(bet)}** chacun — le gagnant remporte 🪙 **${formatMoney(bet * 2)}**.` : 'Sans mise, juste pour la gloire.') +
             '\n\nTu as 60 secondes pour répondre.',
         ),
@@ -92,7 +100,8 @@ async function startBotDuel(interaction, game, raw) {
   const duel = { id: newGameId(), guildId: guild.id, game, bet, players: [user.id, interaction.client.user.id], vsBot: true, status: 'pending' };
   duels.set(duel.id, duel);
   begin(duel);
-  if (duel.turn === 1 && game !== 'pfc') playMove(duel, 1, botMove(duel));
+  if (game === 'pof') duel.turn = 0; // contre le bot, c'est le joueur qui choisit son côté
+  if (duel.turn === 1 && (game === 'morpion' || game === 'puissance4')) playMove(duel, 1, botMove(duel));
   duel.last = interaction;
   await interaction.reply(view(duel));
   arm(duel);
@@ -114,6 +123,7 @@ function arm(duel) {
       const missing = [0, 1].filter((i) => !duel.picks[i]);
       loser = missing.length === 1 ? missing[0] : null; // personne n'a joué : duel annulé
     } else loser = duel.turn;
+    duel.cancelled = loser === null;
     end(duel, loser === null ? null : 1 - loser, loser === null ? 'Personne n’a joué : duel annulé.' : `<@${duel.players[loser]}> n’a pas joué à temps : forfait.`);
     await duel.last.editReply(view(duel)).catch(() => {});
   }, WAIT_MS);
@@ -128,6 +138,7 @@ function begin(duel) {
   duel.turn = Math.random() < 0.5 ? 0 : 1;
   if (duel.game === 'morpion') duel.board = Array(9).fill(null);
   else if (duel.game === 'puissance4') duel.board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  else if (duel.game === 'pof') duel.calls = [null, null];
   else {
     duel.picks = [null, null];
     duel.score = [0, 0];
@@ -144,6 +155,10 @@ function end(duel, winner, reason) {
   duel.status = 'done';
   duel.winner = winner;
   duel.reason = reason;
+  // Classement (+duel top) : seulement les duels entre membres, pas ceux annulés.
+  if (!duel.vsBot && !duel.cancelled) {
+    duel.players.forEach((id, i) => addDuelResult(duel.guildId, id, winner === null ? 'd' : winner === i ? 'w' : 'l'));
+  }
   if (!duel.bet) return;
   if (duel.vsBot) {
     settleHold(duel.guildId, holdKey(duel, 0), winner === null ? duel.bet : winner === 0 ? duel.bet * 2 : 0);
@@ -176,6 +191,14 @@ function playMove(duel, who, value) {
   }
   if (duel.status !== 'done') duel.turn = 1 - who;
   return true;
+}
+
+// Pile ou face : `who` choisit son côté, l'autre joueur a le côté opposé, puis la pièce est lancée.
+function flipCoin(duel, who, side) {
+  duel.calls[who] = side;
+  duel.calls[1 - who] = side === 'pile' ? 'face' : 'pile';
+  duel.coin = Math.random() < 0.5 ? 'pile' : 'face';
+  end(duel, duel.calls.indexOf(duel.coin));
 }
 
 // --- Le bot (joueur 1) : gagne s'il peut, bloque sinon, et laisse un peu de hasard pour rester battable. ---
@@ -263,6 +286,8 @@ function view(duel) {
       lines.push(`Manche ${i + 1} : ${RPS[r[0]]} contre ${RPS[r[1]]} → ${r.winner === null ? 'égalité' : `<@${duel.players[r.winner]}>`}`);
     }
     lines.push('');
+  } else if (duel.game === 'pof' && duel.coin) {
+    lines.push(duel.calls.map((side, i) => `<@${duel.players[i]}> : **${COIN[side]}**`).join('  ·  '), `🪙 La pièce tombe sur… **${COIN[duel.coin]}** !`, '');
   }
 
   let color = 0xe67e22;
@@ -274,6 +299,8 @@ function view(duel) {
     else lines.push(`🏆 **<@${duel.players[duel.winner]}> gagne le duel !**${duel.bet ? ` 🪙 **+${formatMoney(duel.bet)}**` : ''}`);
   } else if (duel.game === 'pfc') {
     lines.push(duel.picks.map((p, i) => `${p ? '✅' : '⏳'} <@${duel.players[i]}>`).join('  ·  '), '-# Chacun choisit en secret, 60 s par manche.');
+  } else if (duel.game === 'pof') {
+    lines.push(`<@${duel.players[duel.turn]}>, choisis ton côté : **pile ou face ?**`, '-# L’autre joueur a le côté opposé. 60 secondes, sinon forfait.');
   } else {
     lines.push(`C’est au tour de <@${duel.players[duel.turn]}> ${marks[duel.turn]}`, '-# 60 secondes par coup, sinon forfait.');
   }
@@ -282,11 +309,21 @@ function view(duel) {
   return { content: '', embeds: [embed], components: buttons(duel), allowedMentions: { parse: [] } };
 }
 
+// Fin de duel : « Revanche », même jeu, même mise, mêmes joueurs.
+const rematchRow = (duel) =>
+  new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`duel:rematch:${duel.game}:${duel.bet}:${duel.players[0]}:${duel.vsBot ? 'bot' : duel.players[1]}`)
+      .setLabel('Revanche')
+      .setEmoji('🔁')
+      .setStyle(ButtonStyle.Success),
+  );
+
 function buttons(duel) {
   const done = duel.status === 'done';
   if (duel.game === 'morpion') {
     const win = new Set(duel.winCells ?? []);
-    return [0, 1, 2].map((row) =>
+    const grid = [0, 1, 2].map((row) =>
       new ActionRowBuilder().addComponents(
         [0, 1, 2].map((col) => {
           const i = row * 3 + col;
@@ -299,8 +336,9 @@ function buttons(duel) {
         }),
       ),
     );
+    return done ? [...grid, rematchRow(duel)] : grid;
   }
-  if (done) return [];
+  if (done) return [rematchRow(duel)];
   if (duel.game === 'puissance4') {
     const col = (c) =>
       new ButtonBuilder()
@@ -309,6 +347,13 @@ function buttons(duel) {
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(duel.board[0][c] !== null);
     return [new ActionRowBuilder().addComponents([0, 1, 2, 3].map(col)), new ActionRowBuilder().addComponents([4, 5, 6].map(col))];
+  }
+  if (duel.game === 'pof') {
+    return [
+      new ActionRowBuilder().addComponents(
+        Object.entries(COIN).map(([side, label]) => new ButtonBuilder().setCustomId(`duel:${duel.id}:c:${side}`).setLabel(label).setStyle(ButtonStyle.Primary)),
+      ),
+    ];
   }
   return [
     new ActionRowBuilder().addComponents(
@@ -319,8 +364,43 @@ function buttons(duel) {
   ];
 }
 
+// « +duel top » (ou « +duels ») : classement des duels entre membres, par victoires puis le moins de défaites.
+export async function handleDuelTopCommand(message) {
+  if (!message.guild || message.author.bot || !/^\+duels?(?:\s+top)?$/i.test(message.content.trim())) return false;
+  const ranking = Object.entries(getDuelStats(message.guild.id))
+    .map(([id, s]) => ({ id, ...s }))
+    .filter((r) => r.w + r.l + r.d > 0)
+    .sort((a, b) => b.w - a.w || a.l - b.l);
+  const medals = ['🥇', '🥈', '🥉'];
+  const lines = ranking
+    .slice(0, 10)
+    .map((r, i) => `${medals[i] ?? `**${i + 1}.**`} <@${r.id}> — **${r.w}** victoire(s) · ${r.l} défaite(s)${r.d ? ` · ${r.d} égalité(s)` : ''}`);
+  const mine = ranking.findIndex((r) => r.id === message.author.id);
+  const embed = new EmbedBuilder()
+    .setColor(0xe67e22)
+    .setTitle('🏆 Classement des duels')
+    .setDescription(lines.length ? lines.join('\n') : 'Aucun duel entre membres pour l’instant… Défie quelqu’un avec `/duel` !')
+    .setFooter({ text: `${mine >= 10 ? `Toi : ${mine + 1}ᵉ avec ${ranking[mine].w} victoire(s) · ` : ''}Duels entre membres seulement (pas contre le bot)` });
+  await message.reply({ embeds: [embed], allowedMentions: { parse: [], repliedUser: false } }).catch(() => {});
+  return true;
+}
+
+// « Revanche » : seul un des deux joueurs peut la demander ; contre un membre, c'est un nouveau défi à accepter.
+async function rematch(interaction, [game, bet, a, b]) {
+  if (interaction.user.id !== a && interaction.user.id !== b) {
+    return interaction.reply({ content: '❌ Seuls les joueurs de ce duel peuvent demander une revanche : lance le tien avec `/duel`.', ephemeral: true });
+  }
+  if (!DUEL_GAMES[game]) return interaction.deferUpdate();
+  const raw = Number(bet) > 0 ? bet : null;
+  if (b === 'bot') return startBotDuel(interaction, game, raw);
+  const otherId = interaction.user.id === a ? b : a;
+  const target = await interaction.guild.members.fetch(otherId).catch(() => null);
+  return challenge(interaction, target, game, raw, true);
+}
+
 export async function handleDuelInteraction(interaction) {
-  const [, id, action, value] = interaction.customId.split(':');
+  const [, id, action, value, ...rest] = interaction.customId.split(':');
+  if (id === 'rematch') return rematch(interaction, [action, value, ...rest]);
   const duel = duels.get(id);
   const reply = (content) => interaction.reply({ content, ephemeral: true });
   if (!duel) return reply('⌛ Ce duel est terminé.');
@@ -368,6 +448,14 @@ export async function handleDuelInteraction(interaction) {
     await interaction.update(view(duel));
     if (!roundDone) await interaction.followUp({ content: `Choix enregistré en secret : ${RPS[value]}`, ephemeral: true }).catch(() => {});
     return;
+  }
+
+  if (duel.game === 'pof') {
+    if (action !== 'c' || !COIN[value]) return interaction.deferUpdate();
+    if (me !== duel.turn) return reply('⏳ C’est à ton adversaire de choisir pile ou face.');
+    flipCoin(duel, me, value);
+    duel.last = interaction;
+    return interaction.update(view(duel));
   }
 
   if (me !== duel.turn) return reply('⏳ Ce n’est pas ton tour.');

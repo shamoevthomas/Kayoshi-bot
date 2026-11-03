@@ -311,6 +311,29 @@ export function setInviteRanks(guildId, ranks) {
   return sorted;
 }
 
+// Parrain d'un membre présent (suivi des invitations) : { inviterId, code } ou null.
+export function getInviter(guildId, userId) {
+  return getGuildConfig(guildId).invitedBy?.[userId] ?? null;
+}
+
+// Arrivées et départs enregistrés d'un membre, du plus ancien au plus récent.
+export function getMemberEvents(guildId, userId) {
+  return (getGuildConfig(guildId).memberEvents ?? []).filter((e) => e.u === userId);
+}
+
+// Rôles d'un membre à son dernier départ (/userinfo) : { at, roles: [[id, nom], …], audit? }. Le nom reste lisible si
+// le rôle a été supprimé depuis. Les 3 000 départs les plus récents sont gardés.
+export function getLeftRoles(guildId, userId) {
+  return getGuildConfig(guildId).leftRoles?.[userId] ?? null;
+}
+
+export function setLeftRoles(guildId, userId, entry) {
+  const all = { ...(getGuildConfig(guildId).leftRoles ?? {}), [userId]: entry };
+  const ids = Object.keys(all);
+  if (ids.length > 3000) for (const id of ids.sort((a, b) => all[a].at - all[b].at).slice(0, ids.length - 3000)) delete all[id];
+  setGuildConfig(guildId, { leftRoles: all });
+}
+
 // Nombre d'arrivées enregistrées pour un membre (inclut l'arrivée courante).
 export function countJoins(guildId, userId) {
   const events = getGuildConfig(guildId).memberEvents ?? [];
@@ -1519,6 +1542,26 @@ export function getChatGameWins(guildId, userId, day) {
 
 export function addChatGameWin(guildId, userId, day) {
   return setEntry(guildId, 'chatGames', userId, { day, wins: getChatGameWins(guildId, userId, day) + 1 });
+}
+
+// Victoires aux jeux du chat depuis le début (+jeux top) : data[guildId].chatGameStats = { userId: { pendu: n, … } }.
+export function getChatGameStats(guildId) {
+  return getGuildConfig(guildId).chatGameStats ?? {};
+}
+
+export function addChatGameStat(guildId, userId, kind) {
+  const s = getChatGameStats(guildId)[userId] ?? {};
+  return setEntry(guildId, 'chatGameStats', userId, { ...s, [kind]: (s[kind] ?? 0) + 1 });
+}
+
+// Duels entre membres (+duel top) : data[guildId].duelStats = { userId: { w, l, d } } (victoires, défaites, égalités).
+export function getDuelStats(guildId) {
+  return getGuildConfig(guildId).duelStats ?? {};
+}
+
+export function addDuelResult(guildId, userId, result) {
+  const s = { w: 0, l: 0, d: 0, ...getDuelStats(guildId)[userId] };
+  return setEntry(guildId, 'duelStats', userId, { ...s, [result]: s[result] + 1 });
 }
 
 // Récompense unique du statut (lib/statusreward.js) : data[guildId].statusRewarded = { userId: date }.

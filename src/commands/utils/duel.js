@@ -1,12 +1,12 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { DUEL_GAMES, startDuel } from '../../lib/duel.js';
 
-// Duel contre un membre, ou contre le bot si personne n'est choisi : morpion, puissance 4 ou
-// pierre-feuille-ciseaux, mise facultative (voir lib/duel.js).
+// Duel contre un membre, ou contre le bot si personne n'est choisi : morpion, puissance 4,
+// pierre-feuille-ciseaux ou pile ou face, mise facultative (voir lib/duel.js).
 export default {
   data: new SlashCommandBuilder()
     .setName('duel')
-    .setDescription('Morpion, puissance 4 ou pierre-feuille-ciseaux contre un membre ou contre le bot.')
+    .setDescription('Morpion, puissance 4, pierre-feuille-ciseaux ou pile ou face contre un membre ou contre le bot.')
     .addStringOption((o) =>
       o
         .setName('jeu')
