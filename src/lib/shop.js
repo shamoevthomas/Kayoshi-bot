@@ -190,7 +190,7 @@ async function buy(interaction, itemId) {
     return `❌ Il te faut ${COIN} **${formatMoney(price)}** pour **${item.name}**, tu as **${formatMoney(balance)}**.`;
   }
   // Exécute l'effet de l'objet selon son type (ticket / rôle permanent / rôle temporaire / booster d'XP).
-  const outcome = await fulfill(interaction, item);
+  const outcome = await fulfill(interaction, item, price);
   if (outcome.error) return `❌ ${outcome.error} Rien n’a été débité.`;
 
   const after = addMoney(guildId, userId, -price);
@@ -204,7 +204,7 @@ async function buy(interaction, itemId) {
 }
 
 // Effet d'un objet acheté. Renvoie { note } en cas de succès, ou { error } (achat annulé).
-async function fulfill(interaction, item) {
+async function fulfill(interaction, item, price) {
   const { guild, user } = interaction;
   const type = item.type ?? 'personnalise';
 
@@ -244,8 +244,9 @@ async function fulfill(interaction, item) {
     return { note: `🎖️ Tu as reçu le rôle ${role}.`, log: `🎖️ Rôle ${role} donné` };
   }
 
-  // personnalisé : ouvre un ticket (système 1) avec le motif choisi.
-  const result = await openTicketFor(guild, user, 1, item.motifId);
+  // personnalisé : ouvre un ticket (système 1) avec le motif choisi, où l'achat est noté (et chaque nouvel achat annoncé).
+  const bought = `**${item.name}** pour ${COIN} **${formatMoney(price)}**${price < item.price ? ` (promo -${PROMO_PERCENT} %)` : ''}`;
+  const result = await openTicketFor(guild, user, 1, item.motifId, { text: bought });
   if (result.error) return { error: result.error };
   return {
     note: result.already

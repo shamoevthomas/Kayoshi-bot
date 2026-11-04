@@ -1504,16 +1504,6 @@ export function setPokemonGame(guildId, pokemonGame) {
   setGuildConfig(guildId, { pokemonGame });
 }
 
-// Le Mentaliste (+mentaliste, lib/mentalist.js) : data[guildId].mentalist = { played, won, learned: { clé: personnage appris } }.
-export function getMentalist(guildId) {
-  const m = getGuildConfig(guildId).mentalist;
-  return { played: m?.played ?? 0, won: m?.won ?? 0, learned: m?.learned ?? {} };
-}
-
-export function setMentalist(guildId, mentalist) {
-  setGuildConfig(guildId, { mentalist });
-}
-
 // Livre des citations (réaction 📖, +citation, lib/quotebook.js) : data[guildId].quotes = { next, list: [citations] }.
 export function getQuotes(guildId) {
   const quotes = getGuildConfig(guildId).quotes;

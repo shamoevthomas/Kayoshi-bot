@@ -173,7 +173,6 @@ const CATEGORIES = [
     about: 'De quoi animer le serveur : duels entre membres, jeux dans un salon, votes, pourcentages d’amour et citations en image.',
     lines: [
       ['/duel', 'Morpion, puissance 4, pierre-feuille-ciseaux (2 manches gagnantes) ou pile ou face contre un membre, ou contre le bot si tu ne choisis personne ; mise facultative en coins : le gagnant remporte tout'],
-      ['+mentaliste', 'Pense à un personnage d’animé ou de jeu vidéo, à une personnalité (youtubeur, streamer, rappeur, footballeur…) ou à quelqu’un de ta famille : le Mentaliste te pose des questions et le devine (3 essais), avec son image. S’il perd, dis-lui à qui tu pensais : il l’apprend pour la prochaine fois · `+mentaliste oublier <nom>` (staff)'],
       ['📖 · +citation', 'Livre des citations : réagis 📖 sous un message mémorable pour l’ajouter · `+citation` (au hasard, en image) · `+citation <n>` · `+citation @membre` · `+citation top` · `+citation supprimer <n>` (staff)'],
       ['+avent', 'Calendrier de l’Avent du 1er au 24 décembre : une case par jour (coins, argent, boosters d’XP), gros bonus le 24 pour ceux qui ont tout ouvert'],
       ['/pokemon', '`activer` (salon, génération) — salon « Quel est ce Pokémon ? » sans fin : le premier qui écrit le nom gagne un point, le Pokémon est dévoilé avec sa description du Pokédex · ❓ indice ⏭️ passer 👑 classement 📕 Pokédex ✨ brillants (1 chance sur 64) · `desactiver`'],
@@ -260,7 +259,7 @@ const CATEGORIES = [
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre, `s?t` le top, `s?m` les messages, `s?v` le vocal'],
       ['+vc', 'Statistiques du serveur : membres, en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute'],
       ['/serverinfo', 'Statistiques du serveur'],
-      ['/userinfo', 'Fiche d’un membre : niveau, argent, coins (poche, banque, livret), réputation, team, famille, activité, invitations, quiz, avertissements, rôles, venues d’avant et anciens rôles'],
+      ['/userinfo', 'Fiche d’un membre : niveau, argent, coins (poche, banque, livret), réputation, team, famille, activité et dernier message, invitations, quiz, avertissements, rôles, venues d’avant et anciens rôles'],
       ['/pseudo', 'Envoyer le pseudo d’un membre'],
       ['/copyemoji', 'Copier des emojis d’un autre serveur sur celui-ci'],
       ['/emoji', '`rename` `delete` `image` — renommer, supprimer un emoji du serveur, ou envoyer son image'],
@@ -279,7 +278,6 @@ const RECENT = [
   ['+flag', 'devine le pays à son drapeau'],
   ['/pokemon', 'salon Pokémon sans fin, points et Pokédex'],
   ['+pokemon', 'devine le Pokémon à sa silhouette'],
-  ['+mentaliste', 'le bot devine ton personnage'],
   ['+citation', 'livre des citations (réaction 📖)'],
   ['+avent', 'calendrier de l’Avent (décembre)'],
   ['+recap', 'ton mois en image'],
@@ -288,14 +286,14 @@ const RECENT = [
   ['+graph', 'courbe d’activité du serveur'],
   ['+lockdown', 'verrouiller tous les salons d’un coup'],
   ['+pendu', 'jeu du pendu dans le salon'],
+  ['+devine', 'trouver le nombre mystère'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
   ['/duel', 'nouveau jeu 🪙 pile ou face · bouton 🔁 Revanche à la fin · classement avec `+duel top`'],
-  ['/userinfo', 'qui l’a invité, s’il était déjà venu et ses rôles d’avant son départ'],
-  ['+mentaliste', 'devine aussi ton père, ta mère, ton frère ou ta sœur · bouton « Jouer » pour relancer une partie'],
+  ['/userinfo', 'qui l’a invité, s’il était déjà venu, ses rôles d’avant son départ et son dernier message'],
   ['/purge', '`tous_les_salons` : supprime les derniers messages d’un membre dans tous les salons'],
   ['/embed', 'images : envoie directement le fichier (aussi `/bienvenue`, `/quitte`, `/modifierembedticket`), gardé pour toujours'],
   ['/configverif', 'demande d’abord si on veut activer ou désactiver la vérification'],
@@ -303,6 +301,7 @@ const RECENT_CHANGES = [
   ['/money', '`ajouter` : le message est visible de tous'],
   ['/xp', '`ajouter` : le message est visible de tous'],
   ['/quiz', 'chaque bonne réponse gagne (félicitations en message privé), la réponse est dévoilée à la fin'],
+  ['/item', 'remplace /add-item, /change-item et /remove-item : `ajouter` `modifier` `retirer`'],
 ];
 
 const HOME = 'home';

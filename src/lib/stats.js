@@ -135,6 +135,8 @@ export function recordMessage(message) {
   const channelId = message.channel.isThread?.() ? message.channel.parentId : message.channelId;
   const ts = message.createdTimestamp || Date.now();
   addMessage(data, message.author.id, channelId, ts);
+  // Dernier message de chaque membre (/userinfo) : moment, salon (ou fil) et message, pour le lien.
+  (data.last ??= {})[message.author.id] = { t: ts, c: message.channelId, m: message.id };
   // Heures et échanges comptés en direct à partir de là ; ceux d'avant sont récupérés par backfillExtras.
   data.extraSince ??= ts;
   addExtras(data, message.author.id, ts, messageTargets(message));
@@ -285,6 +287,21 @@ export function userStats(guildId, userId) {
     topVoiceChannel: ranking(sumMaps(d14.map((d) => d?.uv?.[userId])))[0] ?? null,
     graph: d14.map((d) => ({ messages: d?.m?.[userId] ?? 0, voice: d?.v?.[userId] ?? 0 })),
   };
+}
+
+// Dernier message d'un membre : { ts, channelId, messageId, exact: true } s'il a été noté, sinon le dernier jour où
+// il a écrit d'après les stats des 62 derniers jours ({ ts: midi ce jour-là, channelId, exact: false }), ou null.
+export function lastMessage(guildId, userId) {
+  const data = getStatsData(guildId);
+  const last = data.last?.[userId];
+  if (last) return { ts: last.t, channelId: last.c, messageId: last.m, exact: true };
+  const day = Object.keys(data.days ?? {})
+    .filter((k) => data.days[k].m?.[userId])
+    .sort()
+    .at(-1);
+  if (!day) return null;
+  const channels = Object.entries(data.days[day].um?.[userId] ?? {}).sort((a, b) => b[1] - a[1]);
+  return { ts: Date.parse(`${day}T12:00:00+01:00`), channelId: channels[0]?.[0] ?? null, exact: false };
 }
 
 // Stats du serveur sur la période (s?t, s?m, s?v).

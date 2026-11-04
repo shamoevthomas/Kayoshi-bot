@@ -23,7 +23,7 @@ import { levelInfo } from '../../lib/levels.js';
 import { formatMoney } from '../../lib/shop.js';
 import { teamOf } from '../../lib/teams.js';
 import { familySummary } from '../../lib/family.js';
-import { userStats } from '../../lib/stats.js';
+import { userStats, lastMessage } from '../../lib/stats.js';
 
 // Fiche d'un membre : identité, niveau, argent des niveaux, coins du casino, réputation, team, famille,
 // activité des 14 derniers jours, invitations, quiz et avertissements.
@@ -70,6 +70,15 @@ export default {
     // Activité (14 derniers jours)
     const stats = userStats(guild.id, id);
     const warns = getWarns(guild.id, id);
+    // Dernier message : noté à chaque message ; avant ça, seulement le jour (stats des 62 derniers jours).
+    const last = lastMessage(guild.id, id);
+    const where = last?.channelId ? ` dans <#${last.channelId}>` : '';
+    const lastText = !last
+      ? `💬 Dernier message : aucun depuis ${stats.since ? `le ${ts(stats.since, 'D')}` : 'le début du suivi'}`
+      : last.exact
+        ? `💬 Dernier message : ${ts(last.ts, 'f')} (${ts(last.ts, 'R')})${where}` +
+          (last.messageId ? ` · [voir](https://discord.com/channels/${guild.id}/${last.channelId}/${last.messageId})` : '')
+        : `💬 Dernier message : le ${ts(last.ts, 'D')}${where}`;
     // Venues d'avant : départs enregistrés (depuis le début du suivi) et rôles au dernier départ.
     const leaves = getMemberEvents(guild.id, id).filter((e) => e.t === 'leave');
     const lastLeave = leaves.at(-1);
@@ -131,7 +140,8 @@ export default {
           name: '📊 Activité (14 derniers jours)',
           value:
             `💬 **${formatMoney(stats.messages.d14)}** message(s)${stats.rank.messages ? ` (${place(stats.rank.messages)})` : ''} · ` +
-            `🔊 **${voiceText(stats.voice.d14)}** en vocal${stats.rank.voice ? ` (${place(stats.rank.voice)})` : ''}`,
+            `🔊 **${voiceText(stats.voice.d14)}** en vocal${stats.rank.voice ? ` (${place(stats.rank.voice)})` : ''}\n` +
+            lastText,
         },
         { name: '💍 Famille', value: familySummary(guild, id).data.description?.slice(0, 1024) || '💍 Célibataire' },
         { name: '⚠️ Avertissements', value: warns.length ? `**${warns.length}** — détail : \`/casier\`` : 'Aucun', inline: true },
