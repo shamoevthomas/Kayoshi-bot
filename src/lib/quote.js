@@ -143,18 +143,19 @@ function quoteButtons(state, messageId, requesterId) {
   );
 }
 
+// Mention du bot écrite dans le message : le bot, ou son rôle (« @Kayoshi » propose les deux).
+// La mention automatique d'une réponse à un message du bot ne compte pas.
+// (Le rôle est lu dans le texte : un rôle non mentionnable n'apparaît pas dans message.mentions.)
+export function botMentionRe(message) {
+  const botRoleId = message.guild.members.me?.roles.botRole?.id;
+  return new RegExp(`<@!?${message.client.user.id}>${botRoleId ? `|<@&${botRoleId}>` : ''}`, 'g');
+}
+
 // Message qui répond à un autre en mentionnant le bot → citation du message visé.
 export async function handleQuoteCommand(message) {
   if (!message.guild || message.author.bot || !message.reference?.messageId) return false;
   if (message.reference.type === MessageReferenceType.Forward) return false;
-  // Mention écrite dans le message : le bot, ou son rôle (« @Kayoshi » propose les deux).
-  // La mention automatique d'une réponse à un message du bot ne compte pas.
-  // (Le rôle est lu dans le texte : un rôle non mentionnable n'apparaît pas dans message.mentions.)
-  const botId = message.client.user.id;
-  const botRoleId = message.guild.members.me?.roles.botRole?.id;
-  const mentioned =
-    new RegExp(`<@!?${botId}>`).test(message.content) || Boolean(botRoleId && message.content.includes(`<@&${botRoleId}>`));
-  if (!mentioned) return false;
+  if (!botMentionRe(message).test(message.content)) return false;
   const answer = (content) => message.reply({ content, allowedMentions: { repliedUser: false } }).catch(() => {});
   const original = await message.fetchReference().catch(() => null);
   if (!original) {

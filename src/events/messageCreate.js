@@ -5,7 +5,7 @@ import { handleAntiSpam } from '../lib/antispam.js';
 import { handleGifPermHint } from '../lib/gifhint.js';
 import { cacheAttachments } from '../lib/attachmentCache.js';
 import { handleDisboardBump } from '../lib/bumpreminder.js';
-import { handlePartnerMessage } from '../lib/partners.js';
+import { handlePartnerMessage, handlePartnerCopyCommand } from '../lib/partners.js';
 import { handleVoiceStatsCommand } from '../lib/voicestats.js';
 import { handleSnipeCommand } from '../lib/snipe.js';
 import { handleHideCommand } from '../lib/hidechannel.js';
@@ -65,6 +65,8 @@ export default {
     });
     if (spam) return;
 
+    // « @Kayoshi part » en réponse à une pub : recopiée dans le salon partenariat, puis l'embed partenariat.
+    if (await handlePartnerCopyCommand(message).catch((err) => (console.error('[partenariat]', err), true))) return;
     // Commandes du casino « . » (.balance, .dep, .bj…) : traitées ici, sans XP ni argent pour le message.
     if (await handlePrefixCommand(message).catch((err) => (console.error('[casino .]', err), true))) return;
     // Jeux du chat (+pendu, +devine, +emoji) : lancement et essais, sans XP ni argent pour le message.
