@@ -1,8 +1,10 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getRoleBoosts, setRoleBoosts } from '../../lib/store.js';
+import { SERVER_BOOSTER_MULTIPLIER } from '../../lib/levels.js';
 
 // Rôles boostés : les membres qui ont le rôle gagnent plus d'XP et/ou d'argent en étant actifs
 // (messages, vocal, niveaux, daily, drops, quêtes). Plusieurs rôles boostés : le plus fort compte.
+// Les boosters du serveur ont d'office XP et argent ×1,8 (SERVER_BOOSTER_MULTIPLIER), comptés comme un rôle boosté.
 // Se cumule avec l'événement XP et le booster acheté. Appliqué dans lib/levels.js (roleBoost).
 const fmt = (n) => `×${n.toLocaleString('fr-FR')}`;
 
@@ -49,11 +51,15 @@ export default {
     const boosts = getRoleBoosts(guildId);
 
     if (sub === 'liste') {
-      const lines = Object.entries(boosts).map(([roleId, b]) => `<@&${roleId}> — ${describe(b)}`);
+      const booster = { xp: SERVER_BOOSTER_MULTIPLIER, money: SERVER_BOOSTER_MULTIPLIER };
+      const lines = [
+        `💎 Boosters du serveur — ${describe(booster)} _(automatique)_`,
+        ...Object.entries(boosts).map(([roleId, b]) => `<@&${roleId}> — ${describe(b)}`),
+      ];
       const embed = new EmbedBuilder()
         .setColor(0xf5c542)
         .setTitle('🚀 Rôles boostés')
-        .setDescription(lines.length ? lines.join('\n') : '_Aucun rôle boosté._ Utilise `/boostrole ajouter`.')
+        .setDescription(lines.join('\n'))
         .setFooter({ text: 'Plusieurs rôles boostés : le plus fort compte. Se cumule avec l’événement XP et le booster acheté.' });
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }

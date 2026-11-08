@@ -103,7 +103,7 @@ const CATEGORIES = [
     about:
       'Chaque message rapporte de l’XP selon sa longueur (de 3 à 75 XP, au plus une fois toutes les 3 s), et chaque minute ' +
       'en conversation vocale 5 XP (sans sourdine, à 2 au moins, hors AFK). Un événement du staff (×2 ou ×3), un booster ' +
-      'acheté dans la boutique et un rôle boosté (ex : VIP) multiplient l’XP. Passer un niveau rapporte 💰 200, s’annonce avec une carte en image et met à ' +
+      'acheté dans la boutique et un rôle boosté (ex : VIP) multiplient l’XP ; booster le serveur donne ×1,8. Passer un niveau rapporte 💰 200, s’annonce avec une carte en image et met à ' +
       'jour les rôles-récompenses : en addition (gardés) ou évolutifs (remplacés au palier suivant), dès le niveau 0. ' +
       'Un palier peut aussi donner de l’argent.',
     lines: [
@@ -121,11 +121,11 @@ const CATEGORIES = [
     about:
       'L’**argent** 💰 se gagne en étant actif : en écrivant (💰 5 par message, 25 au-delà de 125 caractères), en passant des niveaux (💰 200), ' +
       'avec les drops d’argent à ramasser dans les salons, les quêtes, le quiz, les giveaways et les récompenses des membres de la ' +
-      'semaine (top 3 messages et top 3 vocal, chaque lundi). Un rôle boosté (ex : VIP ×1,5) fait gagner plus en étant actif. ' +
+      'semaine (top 3 messages et top 3 vocal, chaque lundi). Un rôle boosté (ex : VIP ×1,5) fait gagner plus en étant actif, et booster le serveur donne ×1,8. ' +
       'Il se dépense dans la boutique `/shop` : rôles, rôles temporaires, boosters d’XP, objets personnalisés qui ouvrent un ticket. ' +
       'Les **coins** 🪙 du casino sont une monnaie à part, qui ne sert pas dans `/shop` : catégorie 🎰 Casino.',
     lines: [
-      ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,5) (admin)'],
+      ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,5) ; les boosters du serveur ont d’office ×1,8 d’XP et d’argent (le plus fort bonus compte) (admin)'],
       ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire — chaque jour, un objet en promo à -10 % ; chaque achat est noté dans #logs-boutique'],
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
       ['/configeconomie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
@@ -212,10 +212,10 @@ const CATEGORIES = [
     about: 'Pour publier au nom du bot : annonces, embeds personnalisés (avec boutons de rôles), giveaways et messages sauvegardés.',
     lines: [
       ['/announce', 'Publier une annonce dans un salon précis'],
-      ['/embed', 'Créer un embed (aperçu modifiable, images en lien ou en fichier) : envoi, role-react (boutons ou sélecteur de rôle), partenariat, ou bienvenue / départ'],
+      ['/embed', 'Créer un embed (aperçu modifiable, images en lien ou en fichier) : envoi, role-react (boutons ou sélecteur de rôle), partenariat (un membre mentionné dans le salon partenariat reçoit le rôle Partenaire, et le message est supprimé s’il quitte le serveur), ou bienvenue / départ'],
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs, qu’on peut réorganiser)'],
       ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants), prix personnalisé (ex : Nitro) et/ou rôle à gagner (`role_gagne`, donné automatiquement)'],
-      ['@Kayoshi part (en réponse)', 'Réponds à une pub de partenariat (dans un ticket…) avec `@Kayoshi part` : son texte et ses images sont recopiés dans le salon partenariat, puis l’embed partenariat est envoyé à ton nom (`[@]` = toi, +1 partenariat pour toi) — réservé à ceux qui peuvent écrire dans ce salon'],
+      ['@Kayoshi part (en réponse)', 'Réponds à une pub de partenariat (dans un ticket…) avec `@Kayoshi part` : son texte et ses images sont recopiés dans le salon partenariat en mentionnant son auteur, puis l’embed partenariat est envoyé à ton nom (`[@]` = toi, +1 partenariat pour toi) — réservé à ceux qui peuvent écrire dans ce salon'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
       ['/save', '`emplacement` (save1 à save5, avec aperçu) · `action` : enregistrer un message ou envoyer celui enregistré'],
       ['/profilbot', '`modifier` `reinitialiser` — photo, bannière et bio du bot sur ce serveur uniquement ; chaque changement est noté dans #logs-profil (qui et quoi)'],
@@ -293,6 +293,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['Boosters du serveur', 'XP et argent ×1,8 en étant actif (visible dans `/niveau` et `/boostrole liste`)'],
   ['/duel', 'nouveau jeu 🪙 pile ou face · bouton 🔁 Revanche à la fin · classement avec `+duel top`'],
   ['/userinfo', 'qui l’a invité, s’il était déjà venu, ses rôles d’avant son départ et son dernier message'],
   ['/purge', '`tous_les_salons` : supprime les derniers messages d’un membre dans tous les salons'],
@@ -302,7 +303,6 @@ const RECENT_CHANGES = [
   ['/money', '`ajouter` : le message est visible de tous'],
   ['/xp', '`ajouter` : le message est visible de tous'],
   ['/quiz', 'chaque bonne réponse gagne (félicitations en message privé), la réponse est dévoilée à la fin'],
-  ['/item', 'remplace /add-item, /change-item et /remove-item : `ajouter` `modifier` `retirer`'],
 ];
 
 const HOME = 'home';

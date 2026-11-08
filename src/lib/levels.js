@@ -241,10 +241,14 @@ export async function grantMessageXp(message) {
   await afterXpChange(message, levelFromXp(before), levelFromXp(after));
 }
 
-// Boost des rôles du membre (/boostrole) pour « xp » ou « money » : le plus fort de ses rôles boostés.
+// Membres qui boostent le serveur : XP et argent ×1,8, comme un rôle boosté.
+export const SERVER_BOOSTER_MULTIPLIER = 1.8;
+
+// Boost des rôles du membre (/boostrole) pour « xp » ou « money », et celui des boosters du serveur :
+// le plus fort compte.
 export function roleBoost(member, kind) {
   if (!member?.roles?.cache) return 1;
-  let best = 1;
+  let best = member.premiumSinceTimestamp ? SERVER_BOOSTER_MULTIPLIER : 1;
   for (const [roleId, boost] of Object.entries(getRoleBoosts(member.guild.id))) {
     if (boost[kind] && member.roles.cache.has(roleId)) best = Math.max(best, boost[kind]);
   }
