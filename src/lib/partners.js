@@ -4,8 +4,8 @@ import { renderEmbedFor } from './greetings.js';
 import { withHostedImages } from './rehost.js';
 import { botMentionRe } from './quote.js';
 
-// Rôle donné aux membres mentionnés dans le salon partenariat.
-const MENTIONED_ROLE_ID = '1410934072603185255';
+// Rôle donné aux membres mentionnés dans le salon partenariat : « Partenaire » sur Hanami, puis sur l'ancien serveur.
+const MENTIONED_ROLE_IDS = ['1563160600211759114', '1410934072603185255'];
 // Une pub recopiée ne mentionne que des membres : ni @everyone, ni @here, ni rôle.
 const COPY_MENTIONS = { parse: ['users'] };
 
@@ -17,7 +17,7 @@ export async function handlePartnerMessage(message) {
   const cfg = getPartner(message.guild.id);
   if (!cfg.embed || cfg.channelId !== message.channelId) return;
 
-  await handlePartnerMentions(message);
+  await handlePartnerMentions([message]);
   await sendPartnerEmbed(message.channel, message.member ?? message.author, cfg).catch((err) =>
     console.error('[partenariat] envoi impossible :', err.message),
   );
@@ -45,8 +45,9 @@ async function sendPartnerEmbed(channel, who, cfg) {
 }
 
 // « @Kayoshi part » en réponse à un message (la pub d'un partenaire, souvent dans un ticket) : son texte
-// et ses fichiers sont recopiés dans le salon partenariat, puis l'embed partenariat est envoyé au nom de
-// celui qui a écrit la commande ([@] = lui), qui gagne le partenariat.
+// et ses fichiers sont recopiés dans le salon partenariat en mentionnant son auteur (rôle Partenaire, pub
+// supprimée s'il quitte le serveur), puis l'embed partenariat est envoyé au nom de celui qui a écrit la
+// commande ([@] = lui), qui gagne le partenariat.
 // Réservé à ceux qui peuvent écrire dans le salon partenariat.
 export async function handlePartnerCopyCommand(message) {
   if (!message.guild || message.author.bot || !message.reference?.messageId) return false;
@@ -78,14 +79,16 @@ export async function handlePartnerCopyCommand(message) {
   }
 
   try {
-    // Texte en messages de 2 000 caractères au plus, les fichiers avec le dernier.
-    const chunks = splitText(original.content);
+    // Texte en messages de 2 000 caractères au plus ; la mention de l'auteur et les fichiers avec le dernier.
+    const tag = original.author.bot ? '' : `<@${original.author.id}>`;
+    const chunks = splitText(original.content, 2000 - tag.length - 2);
+    chunks[chunks.length - 1] = [chunks.at(-1), tag].filter(Boolean).join('\n\n');
     const copies = [];
     for (const [i, content] of chunks.entries()) {
       const last = i === chunks.length - 1;
       copies.push(await sendCopy(channel, content, last ? files : []));
     }
-    for (const copy of copies) await handlePartnerMentions(copy);
+    await handlePartnerMentions(copies);
     await sendPartnerEmbed(channel, who, cfg);
     await answer(`✅ Partenariat publié : ${copies[0].url}`);
   } catch (err) {
@@ -120,17 +123,20 @@ function splitText(text, max = 2000) {
   return chunks;
 }
 
-// Membres mentionnés dans le message : ils reçoivent le rôle, et le message est
-// mémorisé pour être supprimé s'ils quittent le serveur.
-async function handlePartnerMentions(message) {
-  for (const user of message.mentions.parsedUsers.values()) {
+// Membres mentionnés dans les messages (un message posté, ou les morceaux d'une pub recopiée) : ils
+// reçoivent le rôle Partenaire, et tous ces messages sont mémorisés pour être supprimés s'ils quittent le serveur.
+async function handlePartnerMentions(messages) {
+  const { guild } = messages[0];
+  const users = new Map(messages.flatMap((m) => [...m.mentions.parsedUsers]));
+  const roleId = MENTIONED_ROLE_IDS.find((id) => guild.roles.cache.has(id));
+  for (const user of users.values()) {
     if (user.bot) continue;
-    const member = await message.guild.members.fetch(user.id).catch(() => null);
+    const member = await guild.members.fetch(user.id).catch(() => null);
     if (!member) continue;
-    addPartnerMention(message.guild.id, user.id, { channelId: message.channelId, messageId: message.id });
-    if (message.guild.roles.cache.has(MENTIONED_ROLE_ID)) {
+    for (const m of messages) addPartnerMention(guild.id, user.id, { channelId: m.channelId, messageId: m.id });
+    if (roleId) {
       await member.roles
-        .add(MENTIONED_ROLE_ID, 'Mentionné dans le salon partenariat')
+        .add(roleId, 'Mentionné dans le salon partenariat')
         .catch((err) => console.error('[partenariat] rôle impossible à donner :', err.message));
     }
   }
