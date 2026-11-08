@@ -1,5 +1,25 @@
 import { AuditLogEvent } from 'discord.js';
-import { getGuildConfig, setGuildConfig, getLeftRoles, setLeftRoles } from './store.js';
+import { getGuildConfig, setGuildConfig, getLeftRoles, setLeftRoles, isBlacklistSticky } from './store.js';
+import { DANGEROUS } from './antinuke.js';
+
+// Rôles perso (Hanami) : ceux rangés entre ces deux séparateurs « -------------------- ».
+const PERSONAL_ROLE_BOUNDS = ['1563160652002893867', '1563160734140207255'];
+
+// Au retour d'un membre : rend les rôles perso qu'il avait en partant, s'ils existent encore. Pas ceux qui donnent
+// une permission dangereuse (gérer les rôles…), ni rien à un membre en quarantaine. Renvoie les rôles rendus.
+export async function restorePersonalRoles(member) {
+  const left = getLeftRoles(member.guild.id, member.id);
+  const [a, b] = PERSONAL_ROLE_BOUNDS.map((id) => member.guild.roles.cache.get(id)?.position);
+  if (!left?.roles.length || a === undefined || b === undefined) return [];
+  if (isBlacklistSticky(member.guild.id, member.id)) return [];
+  const [low, high] = [Math.min(a, b), Math.max(a, b)];
+  const roles = left.roles
+    .map(([id]) => member.guild.roles.cache.get(id))
+    .filter((r) => r && r.position > low && r.position < high && r.editable && !r.permissions.any(DANGEROUS));
+  if (!roles.length) return [];
+  await member.roles.add(roles, 'Rôles perso rendus au retour du membre');
+  return roles;
+}
 
 // Rôles d'un membre au moment où il quitte le serveur (events/guildMemberRemove.js), montrés par /userinfo et dans
 // le journal de départ. Renvoie la liste [[id, nom], …], ou null si le membre n'était pas en cache.

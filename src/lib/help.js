@@ -65,7 +65,8 @@ const CATEGORIES = [
       'À son arrivée, un membre passe la vérification anti-bot (captcha) si elle est configurée, reçoit le message ' +
       'de bienvenue et, si activé, un MP. Les comptes créés il y a moins de 2 jours sont expulsés automatiquement. ' +
       'Le bot repère aussi quelle invitation chaque nouveau membre a utilisée et la compte à son parrain, ' +
-      'en suivant ceux qui sont repartis.',
+      'en suivant ceux qui sont repartis. Un membre qui revient récupère ses rôles perso (sauf ceux qui donnent ' +
+      'des permissions de gestion ou de modération), notés dans le log d’arrivée.',
     lines: [
       ['/configverif', 'Activer ou désactiver la vérification anti-bot (captcha), et la configurer (salon, rôle, essais, kick, mention) — désactivée : les nouveaux reçoivent directement le rôle'],
       ['/passer-verif', 'Valider manuellement la vérification d’un membre, ou de tous les non-vérifiés avec `tout` (administrateurs)'],

@@ -10,6 +10,7 @@ import { reconcileAutoRoles } from '../lib/autoroles.js';
 import { applyNickLock } from '../lib/nicklock.js';
 import { kickIfRecentAccount } from '../lib/accountage.js';
 import { syncMemberLevelRoles } from '../lib/levels.js';
+import { restorePersonalRoles } from '../lib/leftroles.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -34,6 +35,8 @@ export default {
 
     // Rend le rôle de quarantaine s'il l'avait avant de partir (persistance).
     await restoreQuarantineOnJoin(member).catch((err) => console.error(err));
+    // Rend les rôles perso qu'il avait avant de partir.
+    const personalRoles = await restorePersonalRoles(member).catch((err) => (console.error('[rôles perso]', err.message), []));
     // Remet le pseudo verrouillé (/lockpseudo) s'il en avait un avant de partir.
     await applyNickLock(member).catch((err) => console.error(err));
     // Rôles automatiques (tag / statut) si le membre y est déjà éligible.
@@ -54,11 +57,14 @@ export default {
         .setColor(Colors.join)
         .setAuthor({ name: '📥 Arrivée', iconURL: member.user.displayAvatarURL() })
         .setDescription(`${member} (${member.user.tag}) a rejoint le serveur`)
-        .addFields({
-          name: 'Compte créé',
-          value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
-          inline: true,
-        })
+        .addFields(
+          {
+            name: 'Compte créé',
+            value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
+            inline: true,
+          },
+          ...(personalRoles.length ? [{ name: '🎭 Rôles perso rendus', value: personalRoles.join(' ').slice(0, 1024) }] : []),
+        )
         .setTimestamp(),
     );
 
