@@ -217,6 +217,7 @@ const CATEGORIES = [
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs, qu’on peut réorganiser)'],
       ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants), prix personnalisé (ex : Nitro) et/ou rôle à gagner (`role_gagne`, donné automatiquement)'],
       ['@Kayoshi part (en réponse)', 'Réponds à une pub de partenariat (dans un ticket…) avec `@Kayoshi part` : son texte et ses images sont recopiés dans le salon partenariat en mentionnant son auteur, puis l’embed partenariat est envoyé à ton nom (`[@]` = toi, +1 partenariat pour toi) — réservé à ceux qui peuvent écrire dans ce salon'],
+      ['@Kayoshi dml', 'DM de masse, **propriétaire du serveur uniquement** : panneau pour choisir le bot qui envoie (token, ou Kayoshi), le message et/ou un embed, la cible (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger) et des IDs à ignorer — un DM toutes les 1,5 à 2 s, MP fermés ignorés, bouton ⏹️ pour arrêter et récapitulatif à la fin'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
       ['/save', '`emplacement` (save1 à save5, avec aperçu) · `action` : enregistrer un message ou envoyer celui enregistré'],
       ['/profilbot', '`modifier` `reinitialiser` — photo, bannière et bio du bot sur ce serveur uniquement ; chaque changement est noté dans #logs-profil (qui et quoi)'],
@@ -274,6 +275,7 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['@Kayoshi dml', 'DM de masse (propriétaire)'],
   ['@Kayoshi part', 'recopier une pub dans le salon partenariat'],
   ['+jeux top', 'classement des jeux du chat'],
   ['+duel top', 'classement des duels entre membres'],
@@ -288,7 +290,6 @@ const RECENT = [
   ['+meilleurami', 'top 5 de tes meilleurs amis'],
   ['+graph', 'courbe d’activité du serveur'],
   ['+lockdown', 'verrouiller tous les salons d’un coup'],
-  ['+pendu', 'jeu du pendu dans le salon'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
