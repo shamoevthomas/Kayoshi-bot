@@ -8,7 +8,8 @@ import { getRelations, marry, divorce, adopt, removeAdoption, getFamily } from '
 // Les demandes de mariage et d'adoption attendent l'accord du membre visé (boutons).
 
 const PROPOSE_TIMEOUT = 5 * 60_000;
-const MAX_SPOUSES = 10;
+// Pas de limite de mariages : l'arbre en image montre les premiers conjoints, le texte de /family les liste tous.
+const MAX_DRAWN_SPOUSES = 20;
 
 // --- Vérifications ---
 
@@ -29,8 +30,6 @@ export function marriageProblem(guildId, proposerId, targetId, target) {
   if (proposerId === targetId) return 'Tu ne peux pas te marier avec toi-même.';
   const me = getRelations(guildId, proposerId);
   if (me.spouses.includes(targetId)) return 'Vous êtes déjà mariés tous les deux.';
-  if (me.spouses.length >= MAX_SPOUSES) return `Tu as déjà ${MAX_SPOUSES} conjoints (le maximum). Fais \`/divorce\` d’abord.`;
-  if (getRelations(guildId, targetId).spouses.length >= MAX_SPOUSES) return `Cette personne a déjà ${MAX_SPOUSES} conjoints (le maximum).`;
   if (me.parent === targetId || me.children.includes(targetId)) return 'On ne peut pas se marier avec son parent ou son enfant adoptif.';
   return null;
 }
@@ -177,7 +176,8 @@ function familyChildren(rel, guildId, userId) {
 }
 
 export async function renderFamilyCard(guild, userId) {
-  const rel = getRelations(guild.id, userId);
+  const all = getRelations(guild.id, userId);
+  const rel = { ...all, spouses: all.spouses.slice(0, MAX_DRAWN_SPOUSES) };
   const AV = 96;
   const ROW = AV + 78; // avatar + ses deux lignes de texte + espace pour le trait
   const GAP = 175;
@@ -283,7 +283,16 @@ export function familySummary(guild, userId) {
     if (!ids.length) continue;
     lines.push(parentId === userId ? `🍼 Enfant(s) : ${ids.join(', ')}` : `🍼 Enfant(s) de <@${parentId}> : ${ids.join(', ')}`);
   }
-  return new EmbedBuilder().setColor(0xeb459e).setDescription(lines.join('\n'));
+  // Beaucoup de conjoints : le texte s'arrête avant la limite de Discord.
+  let text = '';
+  for (const [i, line] of lines.entries()) {
+    if (text.length + line.length > 4000) {
+      text += `\n… et ${lines.length - i} ligne(s) de plus`;
+      break;
+    }
+    text += (text ? '\n' : '') + line;
+  }
+  return new EmbedBuilder().setColor(0xeb459e).setDescription(text);
 }
 
 export { removeAdoption, divorce, getFamily, getRelations };

@@ -17,9 +17,11 @@ import {
   TextInputStyle,
 } from 'discord.js';
 import { botMentionRe } from './quote.js';
+import { getGuildConfig, setGuildConfig } from './store.js';
 
-// « @Kayoshi dml » (propriétaire du serveur uniquement) : DM de masse aux membres du serveur. Un panneau
-// (Components V2) règle le token du bot qui envoie (vide = Kayoshi), le message et/ou un embed, la cible
+// « @Kayoshi dml » (propriétaire du serveur, et membres qu'il autorise) : DM de masse aux membres du serveur. Un panneau
+// (Components V2) règle le token du bot qui envoie (obligatoire : Kayoshi n'envoie jamais de DM de masse lui-même,
+// pour ne pas risquer d'être banni), le message et/ou un embed, la cible
 // (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger) et des IDs à ignorer. « DMall »
 // demande confirmation, puis envoie un DM toutes les 1,5 à 2 s : les MP fermés (erreur 50007) sont comptés
 // sans arrêter l'envoi, l'avancement s'affiche sur le panneau et un récapitulatif est envoyé à la fin.
@@ -33,6 +35,17 @@ const MAX_ERRORS_IN_A_ROW = 10; // le bot n'arrive plus à envoyer (bloqué par 
 const COLOR = 0x5865f2;
 const STATUSES = { online: '🟢 En ligne', idle: '🌙 Absent', dnd: '⛔ Ne pas déranger' };
 const ID_RE = /\d{17,20}/g;
+// Qui peut utiliser le DMall sur un serveur : son propriétaire, les membres qu'il y a autorisés lui-même
+// (« @Kayoshi dml autoriser @membre », data[guildId].dmlAllowed), et sur les serveurs de laysox_off (Hanami,
+// Ichima…) crown2ito, l0un4tik et le rôle Crown de Hanami.
+const DELEGATING_OWNER_ID = '1079335251551191061'; // laysox_off
+const DELEGATES = ['1543615549974515763', '1260266494839754866']; // crown2ito, l0un4tik
+const CROWN_ROLE_ID = '1566530617150021873'; // Crown (Hanami)
+const allowedIds = (guildId) => getGuildConfig(guildId).dmlAllowed ?? [];
+const canUse = (guild, userId, member) =>
+  userId === guild.ownerId ||
+  allowedIds(guild.id).includes(userId) ||
+  (guild.ownerId === DELEGATING_OWNER_ID && (DELEGATES.includes(userId) || Boolean(member?.roles?.cache?.has(CROWN_ROLE_ID))));
 
 const sessions = new Map(); // guildId → { panel, rest, botName, content, embed, target, ignore, count, pending, at }
 const runs = new Map(); // guildId → { stopped }
@@ -52,17 +65,46 @@ const button = (id, label, style) => new ButtonBuilder().setCustomId(id).setLabe
 export async function handleMassDmCommand(message) {
   if (!message.guild || message.author.bot) return false;
   if (!botMentionRe(message).test(message.content)) return false;
-  if (message.content.replace(botMentionRe(message), '').trim().toLowerCase() !== 'dml') return false;
-  if (message.author.id !== message.guild.ownerId) return true; // réservé au propriétaire : ignoré
+  const words = message.content.replace(botMentionRe(message), '').trim().split(/\s+/);
+  if (words[0].toLowerCase() !== 'dml') return false;
+  const sub = (words[1] ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  if (['autoriser', 'retirer', 'autorises'].includes(sub)) {
+    await handleAccessCommand(message, sub, words.slice(2).join(' '));
+    return true;
+  }
+  if (sub) return false;
+  if (!canUse(message.guild, message.author.id, message.member)) return true; // pas autorisé : ignoré
 
   if (runs.has(message.guild.id)) {
     await message.reply({ content: '⏳ Un DMall est déjà en cours sur ce serveur.', allowedMentions: { repliedUser: false } }).catch(() => {});
     return true;
   }
-  const session = { rest: message.client.rest, botName: null, content: '', embed: null, target: null, ignore: [], count: 0, at: Date.now() };
+  const session = { rest: null, botName: null, content: '', embed: null, target: null, ignore: [], count: 0, at: Date.now() };
   session.panel = await message.reply({ ...panelPayload(session), allowedMentions: { parse: [] } }).catch(() => null);
   if (session.panel) sessions.set(message.guild.id, session);
   return true;
+}
+
+// « @Kayoshi dml autoriser @membre… » / « retirer @membre… » / « autorisés » : le propriétaire du serveur donne ou
+// reprend lui-même le droit d'utiliser le DMall sur son serveur (le membre autorisé envoie avec le token de son bot).
+async function handleAccessCommand(message, sub, text) {
+  const { guild } = message;
+  const reply = (content) => message.reply({ content, allowedMentions: { parse: [], repliedUser: false } }).catch(() => {});
+  if (message.author.id !== guild.ownerId) return reply('❌ Seul le propriétaire du serveur peut donner ou retirer le droit d’utiliser `@Kayoshi dml`.');
+  const current = allowedIds(guild.id);
+  if (sub === 'autorises') {
+    return reply(current.length ? `👥 Autorisés à utiliser \`@Kayoshi dml\` ici : ${current.map((id) => `<@${id}>`).join(', ')}` : 'ℹ️ Personne d’autre que toi n’est autorisé ici.');
+  }
+  const targets = ids(text).filter((id) => id !== guild.ownerId && id !== message.client.user.id);
+  if (!targets.length) return reply(`❌ Mentionne le ou les membres (ou leurs IDs) : \`@Kayoshi dml ${sub} @membre\`.`);
+  const allowed = sub === 'autoriser' ? [...new Set([...current, ...targets])] : current.filter((id) => !targets.includes(id));
+  setGuildConfig(guild.id, { dmlAllowed: allowed });
+  const who = targets.map((id) => `<@${id}>`).join(', ');
+  return reply(
+    sub === 'autoriser'
+      ? `✅ ${who} peut maintenant utiliser \`@Kayoshi dml\` sur ce serveur, avec le token de son propre bot.\n-# Pour reprendre ce droit : \`@Kayoshi dml retirer @membre\`.`
+      : `✅ ${who} ne peut plus utiliser \`@Kayoshi dml\` sur ce serveur.`,
+  );
 }
 
 // --- Panneau ---
@@ -77,7 +119,7 @@ function panelPayload(session) {
     new SectionBuilder()
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `**🤖 Token**\n${session.botName ? `Bot : **${session.botName}**` : '*Aucun token ajouté : Kayoshi envoie lui-même*'}`,
+          `**🤖 Token**\n${session.botName ? `Bot : **${session.botName}**` : '*Aucun token ajouté (obligatoire : Kayoshi n’envoie pas les DM lui-même)*'}`,
         ),
       )
       .setButtonAccessory(button('dml_token', '➕ Définir le token', ButtonStyle.Primary)),
@@ -110,7 +152,7 @@ function panelPayload(session) {
     ),
   );
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('-# Kayoshi · réservé au propriétaire du serveur · un DM toutes les 1,5 à 2 s'),
+    new TextDisplayBuilder().setContent('-# Kayoshi · réservé au propriétaire du serveur et aux membres autorisés · un DM toutes les 1,5 à 2 s'),
   );
   return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
@@ -132,8 +174,8 @@ function tokenModal() {
     .addLabelComponents(
       new LabelBuilder()
         .setLabel('Token du bot qui envoie les DM')
-        .setDescription('Vide = Kayoshi envoie lui-même. Le bot doit être sur ce serveur.')
-        .setTextInputComponent(new TextInputBuilder().setCustomId('token').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)),
+        .setDescription('Obligatoire. Le bot doit être sur ce serveur.')
+        .setTextInputComponent(new TextInputBuilder().setCustomId('token').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200)),
     );
 }
 
@@ -196,12 +238,12 @@ function statusModal({ target }) {
     );
 }
 
-// --- Interactions « dml_… » (propriétaire du serveur uniquement) ---
+// --- Interactions « dml_… » (propriétaire du serveur et membres autorisés) ---
 
 export async function handleMassDmInteraction(interaction) {
   const { guild, customId: action } = interaction;
-  if (interaction.user.id !== guild.ownerId) {
-    return interaction.reply({ content: '❌ Réservé au propriétaire du serveur.', ephemeral: true });
+  if (!canUse(guild, interaction.user.id, interaction.member)) {
+    return interaction.reply({ content: '❌ Réservé au propriétaire du serveur et aux membres autorisés.', ephemeral: true });
   }
   if (action === 'dml_stop') {
     const run = runs.get(guild.id);
@@ -246,10 +288,7 @@ async function refreshPanel(interaction, session, error) {
 async function submitToken(interaction, session) {
   await interaction.deferUpdate();
   const token = interaction.fields.getTextInputValue('token').trim().replace(/^Bot\s+/i, '');
-  if (!token) {
-    Object.assign(session, { rest: interaction.client.rest, botName: null });
-    return refreshPanel(interaction, session);
-  }
+  if (!token) return refreshPanel(interaction, session, 'Il faut le token d’un bot : Kayoshi n’envoie pas les DM de masse lui-même.');
   const rest = new REST({ hashSweepInterval: 0, handlerSweepInterval: 0 }).setToken(token);
   const me = await rest.get(Routes.user()).catch(() => null);
   if (!me?.bot) return refreshPanel(interaction, session, 'Token invalide : il faut le token d’un **bot** (Developer Portal → Bot → Reset Token).');
@@ -325,6 +364,9 @@ async function confirmDmAll(interaction, session) {
     return interaction.reply({ content: '❌ Définis d’abord le message ou l’embed (📝 Définir le message).', ephemeral: true });
   }
   if (!session.target) return interaction.reply({ content: '❌ Choisis d’abord la cible (⚙️ Options de DM ou ⭐ Définir le status).', ephemeral: true });
+  if (!session.botName) {
+    return interaction.reply({ content: '❌ Ajoute d’abord le token du bot qui envoie (➕ Définir le token) : Kayoshi n’envoie pas les DM de masse lui-même.', ephemeral: true });
+  }
   await interaction.deferReply({ ephemeral: true });
   session.pending = await resolveTargets(interaction.guild, session);
   const n = session.pending.length;
@@ -332,7 +374,7 @@ async function confirmDmAll(interaction, session) {
   const minutes = Math.max(1, Math.round((n * (PAUSE_MIN_MS + PAUSE_MAX_MS)) / 2 / 60_000));
   return interaction.editReply({
     content:
-      `⚠️ Envoyer le DM à **${plural(n, 'membre')}** avec **${session.botName ?? interaction.client.user.username}** ?\n` +
+      `⚠️ Envoyer le DM à **${plural(n, 'membre')}** avec **${session.botName}** ?\n` +
       `-# Environ ${minutes} min · tu pourras l’arrêter avec le bouton ⏹️ sur le panneau.`,
     components: [
       new ActionRowBuilder().addComponents(
@@ -359,7 +401,7 @@ const DM_ERRORS = { closed: 50007 }; // MP fermés ou bot bloqué
 
 async function runDmAll(interaction, session, run) {
   const { rest, content, embed, panel, pending: targets } = session;
-  const botName = session.botName ?? interaction.client.user.username;
+  const { botName } = session;
   const stats = { sent: 0, closed: 0, failed: 0 };
   const startedAt = Date.now();
   let errorsInARow = 0;
@@ -369,7 +411,7 @@ async function runDmAll(interaction, session, run) {
   await show(false);
   for (const [i, userId] of targets.entries()) {
     if (run.stopped) {
-      stopReason = '⏹️ Arrêté par le propriétaire';
+      stopReason = '⏹️ Arrêté avec le bouton';
       break;
     }
     try {

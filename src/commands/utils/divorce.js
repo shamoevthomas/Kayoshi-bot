@@ -22,7 +22,7 @@ export default {
       ex = spouses[0];
     } else {
       return interaction.reply({
-        content: `❌ Tu es marié(e) à plusieurs personnes (${spouses.map((id) => `<@${id}>`).join(', ')}) : précise avec l’option \`membre\` de qui tu divorces.`,
+        content: `❌ Tu es marié(e) à plusieurs personnes (${spouses.slice(0, 20).map((id) => `<@${id}>`).join(', ')}${spouses.length > 20 ? '…' : ''}) : précise avec l’option \`membre\` de qui tu divorces.`,
         ephemeral: true,
       });
     }
