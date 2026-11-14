@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.js';
 import { parseDuration } from '../../lib/time.js';
 import { formatMoney } from '../../lib/shop.js';
 import { roleCommandProblem } from '../../lib/roles.js';
@@ -16,6 +16,9 @@ import {
   endGiveawayNow,
   rerollGiveaway,
   refreshGiveawayCount,
+  getWinnersChannelId,
+  setWinnersChannelId,
+  postWinnersHistory,
 } from '../../lib/giveaways.js';
 
 // Renvoie l'ID du dernier giveaway correspondant au filtre (par ordre de création).
@@ -85,6 +88,13 @@ export default {
         .setDescription('Retirer un membre de la liste des participants d’un giveaway.')
         .addUserOption((o) => o.setName('membre').setDescription('Le membre à retirer').setRequired(true))
         .addStringOption((o) => o.setName('message_id').setDescription('ID du message du giveaway (sinon le dernier actif)')),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('salon-gagnants')
+        .setDescription('Salon où sont notés tous les gagnants des giveaways (créé si tu n’en choisis pas).')
+        .addChannelOption((o) => o.setName('salon').setDescription('Un salon existant (sinon j’en crée un)').addChannelTypes(ChannelType.GuildText))
+        .addBooleanOption((o) => o.setName('desactiver').setDescription('Ne plus noter les gagnants')),
     ),
 
   async execute(interaction) {
@@ -95,6 +105,38 @@ export default {
     if (sub === 'end') return this.end(interaction, guildId);
     if (sub === 'reroll') return this.reroll(interaction, guildId);
     if (sub === 'retirer-participant') return this.removeParticipant(interaction, guildId);
+    if (sub === 'salon-gagnants') return this.winnersChannel(interaction, guildId);
+  },
+
+  // Salon des gagnants : choisi, ou créé en lecture seule à côté du salon des giveaways. Les giveaways déjà
+  // terminés y sont recopiés la première fois.
+  async winnersChannel(interaction, guildId) {
+    if (interaction.options.getBoolean('desactiver')) {
+      setWinnersChannelId(guildId, null);
+      return interaction.reply({ content: '✅ Les gagnants des giveaways ne sont plus notés.', ephemeral: true });
+    }
+    await interaction.deferReply({ ephemeral: true });
+    const { guild } = interaction;
+    let channel = interaction.options.getChannel('salon');
+    if (!channel) {
+      // Dans la catégorie du dernier giveaway lancé, sinon hors catégorie.
+      const last = Object.values(getGuildGiveaways(guildId)).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
+      const parent = last && guild.channels.cache.get(last.channelId)?.parentId;
+      channel = await guild.channels
+        .create({ name: '🏆・gagnants-giveaways', type: ChannelType.GuildText, parent: parent ?? null, topic: 'Tous les gagnants des giveaways du serveur.', reason: `Salon des gagnants (${interaction.user.tag})` })
+        .catch(() => null);
+      if (!channel) return interaction.editReply('❌ Je n’ai pas pu créer le salon (il me faut la permission **Gérer les salons**).');
+      // Mêmes permissions que sa catégorie, mais personne n'y écrit à part le bot.
+      await channel.permissionOverwrites.edit(guild.id, { SendMessages: false, AddReactions: false }).catch(() => {});
+      await channel.permissionOverwrites.edit(guild.members.me.id, { ViewChannel: true, SendMessages: true, EmbedLinks: true }).catch(() => {});
+    }
+    const isNew = getWinnersChannelId(guildId) !== channel.id;
+    setWinnersChannelId(guildId, channel.id);
+    const count = isNew ? await postWinnersHistory(channel, guildId) : 0;
+    return interaction.editReply(
+      `✅ ${channel} : chaque giveaway terminé, et chaque nouveau tirage, y sera noté.` +
+        (count ? `\n-# J’y ai recopié les **${count}** giveaway(s) déjà terminés.` : ''),
+    );
   },
 
   async start(interaction, guildId) {

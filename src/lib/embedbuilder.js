@@ -4,14 +4,21 @@ import {
   ButtonStyle,
   ChannelSelectMenuBuilder,
   ChannelType,
+  ContainerBuilder,
   EmbedBuilder,
   FileUploadBuilder,
   LabelBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
   ModalBuilder,
   RoleSelectMenuBuilder,
+  SectionBuilder,
   StringSelectMenuBuilder,
+  TextDisplayBuilder,
   TextInputBuilder,
   TextInputStyle,
+  ThumbnailBuilder,
   PermissionFlagsBits,
   parseEmoji,
 } from 'discord.js';
@@ -27,6 +34,8 @@ import {
   removeSentEmbed,
   addReactButton,
   getReactButtonText,
+  addLinkButton,
+  getLinkButtonUrl,
 } from './store.js';
 import { TEMPLATE_HELP, renderEmbedFor } from './greetings.js';
 import {
@@ -74,14 +83,15 @@ const UNSAFE_PERMS = [
   PermissionFlagsBits.ManageMessages,
 ];
 
-const NO_ROLE_REACT = { buttons: [], options: [], reacts: [] };
+const NO_ROLE_REACT = { buttons: [], options: [], reacts: [], links: [] };
 const MAX_OPTIONS = 25;
 // 2 rangées sur les 5 du message (les 3 autres servent à l'aperçu) : le sélecteur en prend une entière.
-// Les boutons de rôle et les boutons « react » partagent ces rangées (5 par rangée).
+// Les boutons de rôle, « react » et lien partagent ces rangées (5 par rangée).
 const maxRoleButtons = (rr) => (rr.options.length ? 5 : 10);
-const countButtons = (rr) => rr.buttons.length + (rr.reacts?.length ?? 0);
+const countButtons = (rr) => rr.buttons.length + (rr.reacts?.length ?? 0) + (rr.links?.length ?? 0);
 const hasRoleReact = (rr) => rr.buttons.length > 0 || rr.options.length > 0;
 const hasReacts = (rr) => (rr.reacts?.length ?? 0) > 0;
+const hasLinks = (rr) => (rr.links?.length ?? 0) > 0;
 
 function cleanEmoji(emoji) {
   if (!emoji) return undefined;
@@ -90,7 +100,8 @@ function cleanEmoji(emoji) {
 }
 
 // mode : 'preview' (un clic retire), 'disabled' (aperçu inactif) ou 'live' (message envoyé).
-function roleReactRows({ buttons, options, reacts = [] }, mode) {
+// Dans l'aperçu, un bouton lien est un bouton gris « emb_linkdel:<id> » (son lien est en base) ; envoyé, un vrai lien.
+function roleReactRows({ buttons, options, reacts = [], links = [] }, mode) {
   const live = mode === 'live';
   const disabled = mode === 'disabled';
   const rows = [];
@@ -105,23 +116,33 @@ function roleReactRows({ buttons, options, reacts = [] }, mode) {
       ),
     );
   }
-  // Boutons de rôle (gris) + boutons « react » (bleus) dans les mêmes rangées, 5 par rangée.
+  // Boutons de rôle, « react » et lien dans les mêmes rangées, 5 par rangée.
   const all = [
     ...buttons.map((b) => ({ ...b, kind: 'role' })),
     ...reacts.map((r) => ({ ...r, kind: 'react' })),
+    ...links.map((l) => ({ ...l, kind: 'link' })),
   ];
   for (let i = 0; i < all.length; i += 5) {
     rows.push(
       new ActionRowBuilder().addComponents(
         all.slice(i, i + 5).map((b) => {
+          if (b.kind === 'link' && live) {
+            const link = new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(b.url);
+            if (b.emoji) link.setEmoji(b.emoji);
+            if (b.label) link.setLabel(b.label);
+            return link;
+          }
           const customId =
             b.kind === 'role'
               ? `${live ? 'emb_role' : 'emb_rrdel'}:${b.roleId}`
-              : `${live ? 'emb_react' : 'emb_reactdel'}:${b.id}`;
+              : b.kind === 'react'
+                ? `${live ? 'emb_react' : 'emb_reactdel'}:${b.id}`
+                : `emb_linkdel:${b.id}`;
           const button = new ButtonBuilder()
             .setCustomId(customId)
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(disabled);
+          if (b.kind === 'link' && !b.emoji) button.setEmoji('🔗');
           if (b.emoji) button.setEmoji(b.emoji);
           if (b.label) button.setLabel(b.label);
           return button;
@@ -142,8 +163,9 @@ function cleanOption({ label, value, description, emoji }) {
 const selectOptions = (components, customId) => (components.find((c) => c.customId === customId)?.options ?? []).map(cleanOption);
 
 // Boutons et sélecteur de rôles d'une liste de composants : l'aperçu ("emb_rrdel:" / "emb_rsdel")
-// ou un message envoyé ("emb_role:" / "emb_rsel").
-function readRoleReact(components, buttonPrefix, selectId, reactPrefix) {
+// ou un message envoyé ("emb_role:" / "emb_rsel"). Les boutons lien : ceux de l'aperçu ("emb_linkdel:<id>",
+// lien relu en base) ou, sur un message envoyé, les vrais boutons lien (enregistrés en base pour l'aperçu).
+function readRoleReact(components, buttonPrefix, selectId, reactPrefix, guildId) {
   const buttons = components
     .filter((c) => c.customId?.startsWith(buttonPrefix))
     .map((c) => ({ roleId: c.customId.slice(buttonPrefix.length), emoji: cleanEmoji(c.emoji), label: c.label ?? undefined }));
@@ -152,8 +174,25 @@ function readRoleReact(components, buttonPrefix, selectId, reactPrefix) {
         .filter((c) => c.customId?.startsWith(reactPrefix))
         .map((c) => ({ id: c.customId.slice(reactPrefix.length), emoji: cleanEmoji(c.emoji), label: c.label ?? undefined }))
     : [];
-  return { buttons, options: selectOptions(components, selectId), reacts };
+  const emoji = (c) => (c.emoji?.name === '🔗' && !c.emoji.id ? undefined : cleanEmoji(c.emoji));
+  const links = guildId
+    ? components.flatMap((c) => {
+        if (c.customId?.startsWith('emb_linkdel:')) {
+          const id = c.customId.slice('emb_linkdel:'.length);
+          const url = getLinkButtonUrl(guildId, id);
+          return url ? [{ id, url, emoji: emoji(c), label: c.label ?? undefined }] : [];
+        }
+        if (c.style === ButtonStyle.Link && c.url) {
+          return [{ id: addLinkButton(guildId, c.url), url: c.url, emoji: cleanEmoji(c.emoji), label: c.label ?? undefined }];
+        }
+        return [];
+      })
+    : [];
+  return { buttons, options: selectOptions(components, selectId), reacts, links };
 }
+
+// Composants d'un message, rangées et cadre (Components V2) compris, à plat.
+const flatComponents = (components) => components.flatMap((c) => (c.components ? flatComponents(c.components) : [c]));
 
 // "<:nom:id>" / "<a:nom:id>" ou l'emoji unicode, comme les motifs de tickets le stockent.
 function emojiText(emoji) {
@@ -266,8 +305,8 @@ function applyRoleReactModal(interaction, kind, rr) {
   if (kind === 'button') {
     const index = rr.buttons.findIndex((b) => b.roleId === role.id);
     const max = maxRoleButtons(rr);
-    if (index < 0 && rr.buttons.length >= max) {
-      throw new Error(`${max} boutons de rôle maximum${rr.options.length ? ' avec un sélecteur' : ''} : retire-en un d’abord.`);
+    if (index < 0 && countButtons(rr) >= max) {
+      throw new Error(`${max} boutons maximum${rr.options.length ? ' avec un sélecteur' : ''} (rôle, react et lien) : retires-en un d’abord.`);
     }
     const button = { roleId: role.id, emoji: emojiFromInput(interaction, get('emoji')), label: get('label') || role.name.slice(0, 80) };
     return { ...rr, buttons: upsert(rr.buttons, index, button) };
@@ -336,6 +375,40 @@ function applyReactModal(interaction, rr) {
   return { ...rr, reacts: [...reacts, react] };
 }
 
+// --- Bouton lien : ouvre une adresse (site, invitation, règlement…) ---
+function linkButtonModal() {
+  const short = (id, required, max, placeholder) =>
+    new TextInputBuilder().setCustomId(id).setStyle(TextInputStyle.Short).setRequired(required).setMaxLength(max).setPlaceholder(placeholder);
+  return new ModalBuilder()
+    .setCustomId('emb_linkmodal')
+    .setTitle('Bouton lien')
+    .addLabelComponents(
+      new LabelBuilder().setLabel('Texte du bouton').setTextInputComponent(short('label', false, 80, 'Conditions d’utilisation de Discord')),
+      new LabelBuilder().setLabel('Emoji (optionnel)').setDescription(EMOJI_HELP).setTextInputComponent(short('emoji', false, 100, '📜')),
+      new LabelBuilder()
+        .setLabel('Lien')
+        .setDescription('Commence par https:// (ou discord://)')
+        .setTextInputComponent(short('url', true, 512, 'https://discord.com/terms')),
+    );
+}
+
+function applyLinkModal(interaction, rr) {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)) {
+    throw new Error('Il te faut la permission « Gérer les messages » pour ajouter un bouton lien.');
+  }
+  const get = (k) => interaction.fields.getTextInputValue(k)?.trim() ?? '';
+  const [label, emojiInput, url] = [get('label'), get('emoji'), get('url')];
+  if (!label && !emojiInput) throw new Error('Mets au moins un texte ou un emoji sur le bouton.');
+  if (!/^(https?|discord):\/\/\S+$/i.test(url)) throw new Error('Le lien doit commencer par `https://` (ou `discord://`), sans espace.');
+  const max = maxRoleButtons(rr);
+  if (countButtons(rr) >= max) {
+    throw new Error(`${max} boutons maximum${rr.options.length ? ' avec un sélecteur' : ''} (rôle, react et lien) : retires-en un d’abord.`);
+  }
+  const link = { id: addLinkButton(interaction.guild.id, url), url, label: label || undefined };
+  if (emojiInput) link.emoji = emojiFromInput(interaction, emojiInput);
+  return { ...rr, links: [...(rr.links ?? []), link] };
+}
+
 // --- Modification d'un embed existant (/modifierembed) ---
 // La cible est gardée dans l'id du bouton 💾 ("emb_save:<cible>") :
 //   m.<salon>.<message>  embed envoyé par le bot (role-react possible)
@@ -352,7 +425,7 @@ function targetLabel(target) {
 }
 
 // État de l'aperçu : rôle du mode partenariat, role-react, cible modifiée et motifs du panneau de tickets.
-function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, motifs = [], shop = false }) {
+function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, motifs = [], shop = false, frame = false }) {
   const edit = (section, label) =>
     new ButtonBuilder().setCustomId(`emb_edit:${section}`).setLabel(label).setStyle(ButtonStyle.Secondary);
   const editRow = new ActionRowBuilder().addComponents(
@@ -361,11 +434,23 @@ function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, m
     edit('footer', 'edit footer'),
     edit('images', 'edit images'),
   );
+  // Format « cadre » (boutons dans l'embed) : pour un nouvel embed ou un message envoyé avec /embed.
+  const type = target?.split('.')[0];
+  if (!roleId && (!target || type === 'm')) {
+    editRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`emb_frame:${frame ? 1 : 0}`)
+        .setLabel(frame ? 'Boutons dans l’embed' : 'Boutons sous l’embed')
+        .setStyle(frame ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setEmoji('🖼️'),
+    );
+  }
   const roleReactTools = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('emb_rr').setLabel('role-react : bouton').setStyle(ButtonStyle.Primary).setEmoji('🎭'),
       new ButtonBuilder().setCustomId('emb_rs').setLabel('role-react : sélecteur').setStyle(ButtonStyle.Primary).setEmoji('📋'),
       new ButtonBuilder().setCustomId('emb_addreact').setLabel('bouton react (texte)').setStyle(ButtonStyle.Primary).setEmoji('💬'),
+      new ButtonBuilder().setCustomId('emb_addlink').setLabel('bouton lien').setStyle(ButtonStyle.Primary).setEmoji('🔗'),
       new ButtonBuilder()
         .setCustomId('emb_shop')
         .setLabel(shop ? 'Boutique : activée' : 'Ajouter un bouton Boutique')
@@ -376,7 +461,6 @@ function builderRows({ role: roleId = null, rr = NO_ROLE_REACT, target = null, m
   ];
 
   if (target) {
-    const type = target.split('.')[0];
     const extra = [];
     if (type === 'm') extra.push(...roleReactTools);
     if (type === 'ticket') {
@@ -454,15 +538,21 @@ function withRole(text, roleId) {
 
 function currentState(interaction) {
   const components = (interaction.message?.components ?? []).flatMap((row) => row.components ?? []);
+  // Écrans « choisir un salon » / bienvenue : sans les boutons bascules, Boutique et cadre sont gardés dans
+  // l'id des boutons Retour et du menu de salon (« emb_back:sf », s = boutique, f = cadre).
+  const carried = components.find((c) => /^emb_(back|sendchan):/.test(c.customId ?? ''))?.customId.split(':')[1] ?? '';
   return {
     role: interaction.message?.content?.match(/<@&(\d+)>/)?.[1] ?? null,
-    rr: readRoleReact(components, 'emb_rrdel:', 'emb_rsdel', 'emb_reactdel:'),
+    rr: readRoleReact(components, 'emb_rrdel:', 'emb_rsdel', 'emb_reactdel:', interaction.guild?.id),
     target: components.find((c) => c.customId?.startsWith('emb_save:'))?.customId.slice('emb_save:'.length) ?? null,
     motifs: selectOptions(components, 'emb_tmotif'),
     // Le bouton bascule « emb_shop » garde l'état activé/désactivé dans son libellé.
-    shop: components.some((c) => c.customId === 'emb_shop' && /activé/.test(c.label ?? '')),
+    shop: components.some((c) => c.customId === 'emb_shop' && /activé/.test(c.label ?? '')) || carried.includes('s'),
+    frame: components.some((c) => c.customId === 'emb_frame:1') || carried.includes('f'),
   };
 }
+
+const carriedFlags = (state) => `${state.shop ? 's' : ''}${state.frame ? 'f' : ''}`;
 
 // Les notes ne doivent pas contenir de mention de rôle : currentState() lit la première du texte.
 export function builderPayload(embed, note = '', state = {}) {
@@ -485,6 +575,18 @@ export function builderPayload(embed, note = '', state = {}) {
     hints.push(
       `💬 **Bouton react** — ajouté sous l’embed ${target ? 'à l’enregistrement (💾)' : 'à l’envoi (📨 / 📁)'} : au clic, il affiche un message (visible par la personne seule), sans donner de rôle.\n` +
         '-# Clique sur un bouton react de l’aperçu pour le retirer.',
+    );
+  }
+  if (hasLinks(rr)) {
+    hints.push(
+      `🔗 **Bouton lien** — ${target ? 'à l’enregistrement (💾)' : 'à l’envoi (📨 / 📁)'}, un vrai bouton qui ouvre le lien.\n` +
+        '-# Dans l’aperçu, clique dessus pour le retirer.',
+    );
+  }
+  if (state.frame) {
+    hints.push(
+      '🖼️ **Boutons dans l’embed** — le message part en format « cadre » : la barre de couleur, le texte, l’image et les boutons dans le même bloc.\n' +
+        '-# Les icônes d’auteur et de pied de page n’y apparaissent pas.',
     );
   }
   if (type === 'ticket') {
@@ -713,13 +815,49 @@ const shopButtonRow = () =>
     new ButtonBuilder().setCustomId('shop_open').setLabel('Boutique').setStyle(ButtonStyle.Success).setEmoji('🛒'),
   );
 
-// Message envoyé : templates remplacés, heure d'envoi, role-react, bouton boutique, et mention du rôle (partenariat).
-async function outgoing(interaction, embed, roleId, rr, shop = false) {
+// Boutons d'un message envoyé : role-react, react, lien, puis Boutique.
+const liveRows = (rr, shop) => [...roleReactRows(rr, 'live'), ...(shop ? [shopButtonRow()] : [])];
+
+// Format « cadre » (Components V2) : l'embed devient un bloc à barre de couleur, avec ses boutons dedans.
+// Le texte d'un tel message est limité à 4 000 caractères : la description est raccourcie s'il le faut.
+const FRAME_TEXT_MAX = 4000;
+async function framePayload(rendered, rows) {
+  const hosted = await withHostedImages({ embeds: [rendered] });
+  const e = hosted.embeds[0].toJSON();
+  const container = new ContainerBuilder();
+  if (e.color != null) container.setAccentColor(e.color);
+  const linked = (text, url) => (url ? `[${text}](${url})` : text);
+  const footer = [e.footer?.text, e.timestamp ? `<t:${Math.floor(Date.parse(e.timestamp) / 1000)}:f>` : null].filter(Boolean).join(' · ');
+  const fields = (e.fields ?? []).map((f) => `**${f.name}**\n${f.value}`);
+  const head = [e.author?.name ? `-# ${linked(e.author.name, e.author.url)}` : null, e.title ? `## ${linked(e.title, e.url)}` : null];
+  const used = [...head, ...fields, footer].filter(Boolean).join('\n').length;
+  let description = e.description ?? '';
+  if (used + description.length > FRAME_TEXT_MAX) description = `${description.slice(0, Math.max(0, FRAME_TEXT_MAX - used - 1))}…`;
+  const top = [...head, description].filter(Boolean).join('\n') || '​';
+  if (e.thumbnail?.url) {
+    container.addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(top))
+        .setThumbnailAccessory(new ThumbnailBuilder().setURL(e.thumbnail.url)),
+    );
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(top));
+  }
+  for (const field of fields) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(field));
+  if (e.image?.url) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(e.image.url)));
+  if (footer) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${footer}`));
+  for (const row of rows) container.addActionRowComponents(row);
+  return { components: [container], files: hosted.files, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } };
+}
+
+// Message envoyé : templates remplacés, heure d'envoi, boutons (sous l'embed ou dedans) et mention du rôle (partenariat).
+async function outgoing(interaction, embed, roleId, rr, shop = false, frame = false) {
   const rendered = await renderEmbedFor(interaction.guild, interaction.user, embed);
   if (rendered.timestamp) rendered.timestamp = new Date().toISOString();
-  const components = [...roleReactRows(rr, 'live'), ...(shop ? [shopButtonRow()] : [])];
-  if (!roleId) return { embeds: [rendered], components };
-  return { content: `<@&${roleId}>`, embeds: [rendered], components, allowedMentions: { roles: [roleId] } };
+  const components = liveRows(rr, shop);
+  if (roleId) return { content: `<@&${roleId}>`, embeds: [rendered], components, allowedMentions: { roles: [roleId] } };
+  if (frame) return framePayload(rendered, components);
+  return { embeds: [rendered], components };
 }
 
 // L'embed est stocké à part : le message texte de /config accueil bienvenue ou /config accueil depart n'est pas touché.
@@ -736,8 +874,15 @@ function embedName(embed) {
 }
 
 // Mémorise un embed envoyé avec le créateur pour le proposer dans /modifierembed.
+// Un message au format « cadre » n'a pas d'embed à relire : l'embed d'origine est gardé avec lui.
 function trackSentEmbed(message, embed) {
-  recordSentEmbed(message.guildId, message.id, { channelId: message.channelId, title: embedName(embed), ts: message.createdTimestamp });
+  const frame = message.flags?.has(MessageFlags.IsComponentsV2);
+  recordSentEmbed(message.guildId, message.id, {
+    channelId: message.channelId,
+    title: embedName(embed),
+    ts: message.createdTimestamp,
+    ...(frame ? { embed } : {}),
+  });
 }
 
 function requireAdmin(interaction) {
@@ -814,13 +959,23 @@ async function loadTarget(interaction, value) {
       rememberTicketPanel(guild, panelConfig, panelSlot, message);
       [type, a] = ['ticket', String(panelSlot)];
     } else {
-      const embed = cleanEmbed(message.embeds[0].toJSON());
-      const components = message.components.flatMap((row) => row.components ?? []);
-      const roleReactOnly = components.every(
-        (c) => c.customId?.startsWith('emb_role:') || c.customId === 'emb_rsel' || c.customId?.startsWith('emb_react:'),
+      // Format « cadre » : pas d'embed dans le message, celui d'origine a été gardé à l'envoi.
+      const frame = message.flags.has(MessageFlags.IsComponentsV2);
+      const saved = frame ? getSentEmbeds(guild.id)[message.id]?.embed : null;
+      if (frame && !saved) throw new Error('Ce message n’a pas été envoyé avec `/embed` : je ne peux pas le modifier.');
+      const embed = frame ? structuredClone(saved) : cleanEmbed(message.embeds[0].toJSON());
+      const components = flatComponents(message.components).filter((c) => c.type === 2 || c.type === 3);
+      const ours = components.every(
+        (c) =>
+          c.customId?.startsWith('emb_role:') ||
+          c.customId === 'emb_rsel' ||
+          c.customId?.startsWith('emb_react:') ||
+          c.customId === 'shop_open' ||
+          (c.style === ButtonStyle.Link && c.url),
       );
-      if (!roleReactOnly) return { embed, state: { target: `e.${a}.${b}` } };
-      return { embed, state: { target: `m.${a}.${b}`, rr: readRoleReact(components, 'emb_role:', 'emb_rsel', 'emb_react:') } };
+      if (!ours) return { embed, state: { target: `e.${a}.${b}` } };
+      const rr = readRoleReact(components, 'emb_role:', 'emb_rsel', 'emb_react:', guild.id);
+      return { embed, state: { target: `m.${a}.${b}`, rr, shop: components.some((c) => c.customId === 'shop_open'), frame } };
     }
   }
 
@@ -865,16 +1020,32 @@ export async function openEmbedEditor(interaction, value) {
 }
 
 // Applique l'aperçu à la cible. Renvoie la note à afficher, lève une Error si impossible.
-async function saveTarget(interaction, embed, { target, rr, motifs }) {
+async function saveTarget(interaction, embed, { target, rr, motifs, shop, frame }) {
   const { guild } = interaction;
   const [type, a, b] = target.split('.');
 
   if (type === 'm' || type === 'e') {
     const message = await fetchOwnMessage(interaction, a, b);
     const rendered = await renderEmbedFor(guild, interaction.user, embed);
+    if (type === 'm') {
+      const isFrame = message.flags.has(MessageFlags.IsComponentsV2);
+      if (isFrame !== Boolean(frame)) {
+        throw new Error(
+          `Discord ne permet pas de changer le format d’un message déjà envoyé : utilise 📨 **Renvoyer** pour l’envoyer avec les boutons ${frame ? 'dans' : 'sous'} l’embed.`,
+        );
+      }
+      if (isFrame) {
+        const payload = await framePayload(rendered, liveRows(rr, shop));
+        await message.edit({ ...payload, attachments: [] }).catch((err) => {
+          throw new Error(`Discord a refusé la modification : ${err.message}`);
+        });
+        trackSentEmbed(message, embed);
+        return `✅ Embed modifié : ${message.url}`;
+      }
+    }
     // Les autres embeds et, pour "e", les composants du message ne sont pas touchés.
     const edit = { embeds: [rendered, ...message.embeds.slice(1)] };
-    if (type === 'm') edit.components = roleReactRows(rr, 'live');
+    if (type === 'm') edit.components = liveRows(rr, shop);
     await message.edit(await withHostedImages(edit, message)).catch((err) => {
       throw new Error(`Discord a refusé la modification : ${err.message}`);
     });
@@ -972,7 +1143,7 @@ async function applyTicketPanel(guild, slot, embed, motifs) {
 // 📨 Renvoyer : l'aperçu part en nouveau message dans le salon d'origine (le panneau de
 // tickets dans son salon), l'ancien message n'est pas touché. Renvoie la note et la
 // nouvelle cible (le message envoyé), lève une Error si impossible.
-async function resendTarget(interaction, embed, { target, rr, motifs }) {
+async function resendTarget(interaction, embed, { target, rr, motifs, shop, frame }) {
   const { guild } = interaction;
   const [type, a] = target.split('.');
 
@@ -980,7 +1151,10 @@ async function resendTarget(interaction, embed, { target, rr, motifs }) {
     const channel = await writableChannel(interaction, a);
     const rendered = await renderEmbedFor(guild, interaction.user, embed);
     if (rendered.timestamp) rendered.timestamp = new Date().toISOString();
-    const sent = await channel.send(await withHostedImages({ embeds: [rendered], components: roleReactRows(rr, 'live') })).catch((err) => {
+    const payload = frame
+      ? await framePayload(rendered, liveRows(rr, shop))
+      : await withHostedImages({ embeds: [rendered], components: liveRows(rr, shop) });
+    const sent = await channel.send(payload).catch((err) => {
       throw new Error(`Impossible d’envoyer l’embed dans ${channel} : ${err.message}`);
     });
     trackSentEmbed(sent, embed);
@@ -1171,6 +1345,37 @@ export async function handleEmbedBuilderInteraction(interaction) {
     return interaction.update(builderPayload(currentEmbed(interaction), '🗑️ Bouton react retiré.', { ...state, rr: next }));
   }
 
+  // --- Bouton lien : formulaire → bouton ajouté à l'aperçu (un clic dessus le retire) ---
+  if (interaction.isButton() && action === 'emb_addlink') {
+    return interaction.showModal(linkButtonModal());
+  }
+
+  if (interaction.isModalSubmit() && action === 'emb_linkmodal') {
+    let next;
+    try {
+      next = applyLinkModal(interaction, rr);
+    } catch (err) {
+      return errorReply(interaction, err.message);
+    }
+    return interaction
+      .update(builderPayload(currentEmbed(interaction), '✅ Bouton lien enregistré.', { ...state, rr: next }))
+      .catch((err) => errorReply(interaction, `Discord a refusé le bouton (emoji ou lien invalide ?) : ${err.message}`));
+  }
+
+  if (interaction.isButton() && action === 'emb_linkdel') {
+    const next = { ...rr, links: (rr.links ?? []).filter((l) => l.id !== arg) };
+    return interaction.update(builderPayload(currentEmbed(interaction), '🗑️ Bouton lien retiré.', { ...state, rr: next }));
+  }
+
+  // --- Boutons sous l'embed, ou dedans (format « cadre ») ---
+  if (interaction.isButton() && action === 'emb_frame') {
+    const frame = arg !== '1';
+    const note = frame
+      ? '🖼️ Les boutons seront **dans l’embed** (format cadre), comme sur les messages officiels de Discord.'
+      : '🖼️ Les boutons seront **sous l’embed**.';
+    return interaction.update(builderPayload(currentEmbed(interaction), note, { ...state, frame }));
+  }
+
   if (interaction.isStringSelectMenu() && action === 'emb_rsdel') {
     const next = { ...rr, options: rr.options.filter((o) => o.value !== interaction.values[0]) };
     return interaction.update(builderPayload(currentEmbed(interaction), '🗑️ Option du sélecteur retirée.', { ...state, rr: next }));
@@ -1350,7 +1555,7 @@ export async function handleEmbedBuilderInteraction(interaction) {
   // --- Envoyer l'embed dans le salon ---
   if (interaction.isButton() && action === 'emb_send') {
     const embed = currentEmbed(interaction);
-    const sent = await interaction.channel.send(await withHostedImages(await outgoing(interaction, embed, role, rr, state.shop))).catch(() => null);
+    const sent = await interaction.channel.send(await withHostedImages(await outgoing(interaction, embed, role, rr, state.shop, state.frame))).catch(() => null);
     if (sent) trackSentEmbed(sent, embed);
     if (!sent) return errorReply(interaction, 'Impossible d’envoyer l’embed ici (permissions ?).');
     return interaction.update(builderPayload(embed, '✅ Embed envoyé dans ce salon.', state));
@@ -1365,12 +1570,12 @@ export async function handleEmbedBuilderInteraction(interaction) {
       components: [
         new ActionRowBuilder().addComponents(
           new ChannelSelectMenuBuilder()
-            .setCustomId('emb_sendchan')
+            .setCustomId(`emb_sendchan:${carriedFlags(state)}`)
             .setPlaceholder('Choisis un salon')
             .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
         ),
         new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('emb_back').setLabel('Retour').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId(`emb_back:${carriedFlags(state)}`).setLabel('Retour').setStyle(ButtonStyle.Secondary),
         ),
         ...roleReactRows(rr, 'disabled'),
       ],
@@ -1384,7 +1589,7 @@ export async function handleEmbedBuilderInteraction(interaction) {
     if (!channel?.permissionsFor(interaction.member)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
       return errorReply(interaction, 'Tu ne peux pas écrire dans ce salon.');
     }
-    const sent = await channel.send(await withHostedImages(await outgoing(interaction, embed, role, rr, state.shop))).catch(() => null);
+    const sent = await channel.send(await withHostedImages(await outgoing(interaction, embed, role, rr, state.shop, state.frame))).catch(() => null);
     if (sent) trackSentEmbed(sent, embed);
     if (!sent) return errorReply(interaction, `Impossible d’envoyer l’embed dans ${channel} (permissions ?).`);
     return interaction.update(builderPayload(embed, `✅ Embed envoyé dans ${channel}.`, state));
@@ -1409,7 +1614,7 @@ export async function handleEmbedBuilderInteraction(interaction) {
       if (current) {
         buttons.push(new ButtonBuilder().setCustomId(`emb_greetoff:${arg}`).setLabel(`Désactiver l’embed de ${GREET_LABEL[arg]}`).setStyle(ButtonStyle.Danger));
       }
-      buttons.push(new ButtonBuilder().setCustomId('emb_back').setLabel('Retour').setStyle(ButtonStyle.Secondary));
+      buttons.push(new ButtonBuilder().setCustomId(`emb_back:${carriedFlags(state)}`).setLabel('Retour').setStyle(ButtonStyle.Secondary));
       return interaction.update({
         content: withRole(
           `📁 Dans quel salon envoyer l’**embed de ${GREET_LABEL[arg]}** ?` +

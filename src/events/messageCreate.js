@@ -13,6 +13,7 @@ import { handleSnipeCommand } from '../lib/snipe.js';
 import { handleHideCommand } from '../lib/hidechannel.js';
 import { handleLockCommand, handleLockdownCommand } from '../lib/lockchannel.js';
 import { handleChatGames } from '../lib/chatgames.js';
+import { handleUndercoverMessage } from '../lib/undercover.js';
 import { handleDuelTopCommand } from '../lib/duel.js';
 import { handlePokemonChannelMessage } from '../lib/pokemongame.js';
 import { handleQuoteBookCommand } from '../lib/quotebook.js';
@@ -75,6 +76,8 @@ export default {
     if (await handlePartnerCopyCommand(message).catch((err) => (console.error('[partenariat]', err), true))) return;
     // Commandes du casino « . » (.balance, .dep, .bj…) : traitées ici, sans XP ni argent pour le message.
     if (await handlePrefixCommand(message).catch((err) => (console.error('[casino .]', err), true))) return;
+    // Undercover (+undercover) : lancement et description du joueur dont c'est le tour, sans XP ni argent.
+    if (await handleUndercoverMessage(message).catch((err) => (console.error('[undercover]', err), false))) return;
     // Jeux du chat (+pendu, +devine, +emoji) : lancement et essais, sans XP ni argent pour le message.
     if (await handleChatGames(message).catch((err) => (console.error('[jeux]', err), false))) return;
     // « +duel top » : classement des duels entre membres.

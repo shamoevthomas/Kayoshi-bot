@@ -178,10 +178,11 @@ const CATEGORIES = [
       ['+avent', 'Calendrier de l’Avent du 1er au 24 décembre : une case par jour (coins, argent, boosters d’XP), gros bonus le 24 pour ceux qui ont tout ouvert'],
       ['/pokemon', '`activer` (salon, génération) — salon « Quel est ce Pokémon ? » sans fin : le premier qui écrit le nom gagne un point, le Pokémon est dévoilé avec sa description du Pokédex · ❓ indice ⏭️ passer 👑 classement 📕 Pokédex ✨ brillants (1 chance sur 64) · `desactiver`'],
       ['+pendu · +devine · +emoji · +pokemon · +flag', 'Jeux dans le salon, lancés par n’importe qui : pendu (écrire une lettre ou le mot, 6 vies) · nombre mystère entre 1 et 1 000 (⬆️ / ⬇️) · deviner un jeu vidéo ou un animé à partir d’emojis (2 min, indice au bout d’1 min) · la silhouette d’un des 1 025 Pokémon, nom en français ou en anglais (`+pokemon 1` à `9` pour une génération, 1 min, indice au bout de 25 s) · le pays d’un drapeau (1 min, indice au bout de 25 s ; un `+flag` toutes les 20 s par membre) — le gagnant reçoit 🪙 250 / 150 / 200 / 200 / 150 coins (5 victoires récompensées par jour)'],
-      ['+jeux top · +duel top', 'Classements : victoires aux jeux du chat (`+jeux top`, ou `+jeux top pendu` / `devine` / `emoji` / `pokemon` / `flag` pour un seul jeu) et duels gagnés entre membres (`+duel top`)'],
+      ['+undercover', 'Jeu de l’imposteur (3 à 12 joueurs) : un mot secret chacun (🔍 en privé), celui des undercovers est proche ; décrivez-le sans le dire, puis votez pour éliminer un suspect — coins pour l’équipe gagnante'],
+      ['+jeux top · +duel top', 'Classements : victoires aux jeux du chat (`+jeux top`, ou `+jeux top pendu` / `devine` / `emoji` / `pokemon` / `flag` / `undercover` pour un seul jeu) et duels gagnés entre membres (`+duel top`)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
-      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : chaque membre qui trouve gagne de l’argent et 🪙 500 coins (félicitations en message privé, réponse dévoilée à la fin, classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
+      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : chaque membre qui trouve gagne de l’argent et 🪙 500 coins (réponse dévoilée à la fin, classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
       ['/lovecalc · ^^lc ^^hc ^^fc', 'Pourcentage d’amour, de haine ou d’amitié : `/lovecalc type membre membre2 prenom` (vide = un membre au hasard), ou `^^lc` (amour), `^^hc` (haine), `^^fc` (amitié) suivi de `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · kiss · slap', 'Écrire `kayo hug @membre` (ou `kiss`, `slap`) : câlin, bisou ou gifle avec un GIF d’anime (`hana` marche aussi)'],
@@ -213,9 +214,9 @@ const CATEGORIES = [
     about: 'Pour publier au nom du bot : annonces, embeds personnalisés (avec boutons de rôles), giveaways et messages sauvegardés.',
     lines: [
       ['/announce', 'Publier une annonce dans un salon précis'],
-      ['/embed', 'Créer un embed (aperçu modifiable, images en lien ou en fichier) : envoi, role-react (boutons ou sélecteur de rôle), partenariat (un membre mentionné dans le salon partenariat reçoit le rôle Partenaire, et le message est supprimé s’il quitte le serveur), ou bienvenue / départ'],
+      ['/embed', 'Créer un embed (aperçu modifiable, images en lien ou en fichier) : envoi, 🔗 boutons lien, boutons sous l’embed ou dedans (format cadre 🖼️), role-react (boutons ou sélecteur de rôle), partenariat (un membre mentionné dans le salon partenariat reçoit le rôle Partenaire, et le message est supprimé s’il quitte le serveur), ou bienvenue / départ'],
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs, qu’on peut réorganiser)'],
-      ['/gw', '`start` `end` `reroll` `retirer-participant` — giveaways : argent (crédité automatiquement aux gagnants), prix personnalisé (ex : Nitro) et/ou rôle à gagner (`role_gagne`, donné automatiquement)'],
+      ['/gw', '`start` `end` `reroll` `retirer-participant` · `salon-gagnants` (salon où tous les gagnants sont notés, créé si besoin) — giveaways : argent (crédité automatiquement aux gagnants), prix personnalisé (ex : Nitro) et/ou rôle à gagner (`role_gagne`, donné automatiquement)'],
       ['@Kayoshi part (en réponse)', 'Réponds à une pub de partenariat (dans un ticket…) avec `@Kayoshi part` : son texte et ses images sont recopiés dans le salon partenariat en mentionnant son auteur, puis l’embed partenariat est envoyé à ton nom (`[@]` = toi, +1 partenariat pour toi) — réservé à ceux qui peuvent écrire dans ce salon'],
       ['@Kayoshi dml', 'DM de masse, réservé au **propriétaire du serveur** et aux membres qu’il autorise lui-même (`@Kayoshi dml autoriser @membre` · `retirer @membre` · `autorisés`) — sur Hanami, aussi le rôle Crown. Panneau : token du bot qui envoie (**obligatoire**, Kayoshi n’envoie pas les DM lui-même), message et/ou embed, cible (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger), IDs à ignorer — un DM toutes les 1,5 à 2 s, MP fermés ignorés, bouton ⏹️ et récapitulatif'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
@@ -277,6 +278,8 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+undercover', 'jeu de l’imposteur à plusieurs'],
+  ['/gw salon-gagnants', 'tous les gagnants des giveaways'],
   ['/config', 'tous les réglages en une commande'],
   ['/config securite', 'protections du serveur et anti-bot'],
   ['@Kayoshi dml', 'DM de masse (propriétaire et membres autorisés)'],
@@ -290,13 +293,12 @@ const RECENT = [
   ['+citation', 'livre des citations (réaction 📖)'],
   ['+avent', 'calendrier de l’Avent (décembre)'],
   ['+recap', 'ton mois en image'],
-  ['+heures', 'heures les plus actives du serveur'],
-  ['+meilleurami', 'top 5 de tes meilleurs amis'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/embed', '🔗 boutons lien, et boutons dans l’embed (format cadre) ou dessous'],
   ['/rank', 'jusqu’à 6 rôles d’un coup'],
   ['/marry', 'plus de limite de conjoints'],
   ['Boosters du serveur', 'XP et argent ×1,8 en étant actif (visible dans `/niveau` et `/boostrole liste`)'],
@@ -306,7 +308,6 @@ const RECENT_CHANGES = [
   ['/embed', 'images : envoie directement le fichier (aussi `/config accueil bienvenue`, `/config accueil depart`, `/modifierembedticket`), gardé pour toujours'],
   ['/config accueil verif', 'demande d’abord si on veut activer ou désactiver la vérification'],
   ['/role', '`change` remplace `rename` : nom, couleur et emplacement du rôle'],
-  ['/money', '`ajouter` : le message est visible de tous'],
 ];
 
 const HOME = 'home';

@@ -28,6 +28,7 @@ import { handleTradeInteraction } from '../lib/trade.js';
 import { handlePokemonGameInteraction } from '../lib/pokemongame.js';
 import { handleMassDmInteraction } from '../lib/massdm.js';
 import { handleSecurityInteraction } from '../lib/security.js';
+import { handleUndercoverInteraction } from '../lib/undercover.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -65,6 +66,7 @@ export default {
         if (cid.startsWith('pkm:')) return void (await handlePokemonGameInteraction(interaction));
         if (cid.startsWith('dml_')) return void (await handleMassDmInteraction(interaction));
         if (cid.startsWith('sec:')) return void (await handleSecurityInteraction(interaction));
+        if (cid.startsWith('uc:')) return void (await handleUndercoverInteraction(interaction));
         if (cid === 'shop_open') return void (await openShop(interaction));
         if (cid.startsWith('shop_')) return void (await handleShopInteraction(interaction));
       } catch (err) {

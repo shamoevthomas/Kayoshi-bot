@@ -75,7 +75,13 @@ export async function withHostedImages(payload, existing = null) {
   }
   // Les anciennes images jointes par le bot sont remplacées ; les autres pièces jointes du message restent.
   const kept = attached.filter((a) => !HOSTED.test(a.name));
-  return { ...payload, embeds, files: [...(payload.files ?? []), ...files], ...(existing ? { attachments: kept } : {}) };
+  // Un message au format « cadre » (Components V2) n'a pas d'embeds : on n'en ajoute pas.
+  return {
+    ...payload,
+    ...(payload.embeds ? { embeds } : {}),
+    files: [...(payload.files ?? []), ...files],
+    ...(existing ? { attachments: kept } : {}),
+  };
 }
 
 // Avant d'enregistrer un embed qui sera renvoyé plus tard (bienvenue, partenariat, panneau, ouverture de ticket) :

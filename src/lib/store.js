@@ -1679,6 +1679,23 @@ export function getReactButtonText(guildId, id) {
   return getGuildConfig(guildId).reactButtons?.[id] ?? null;
 }
 
+// Boutons lien de /embed : linkButtons = { id: url }. L'aperçu ne garde que l'id dans le bouton (un vrai bouton
+// lien n'envoie rien au bot quand on clique dessus, il ne pourrait pas être retiré de l'aperçu).
+export function addLinkButton(guildId, url) {
+  const data = load();
+  const g = data[guildId] ?? {};
+  g.linkButtons = g.linkButtons ?? {};
+  const id = `lk${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+  g.linkButtons[id] = url;
+  data[guildId] = g;
+  save(data, guildId);
+  return id;
+}
+
+export function getLinkButtonUrl(guildId, id) {
+  return getGuildConfig(guildId).linkButtons?.[id] ?? null;
+}
+
 const MAX_PURCHASES = 500;
 
 export function addPurchase(guildId, record) {

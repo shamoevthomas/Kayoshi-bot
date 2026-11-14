@@ -5,13 +5,14 @@ import { EMOJI_PUZZLES } from './emojiquiz.js';
 import { POKEMON } from './pokemondata.js';
 import { pokemonImages, pokeKey, matchesPokemon } from './pokemonart.js';
 import { pickCode, flagUrl, hint as flagHint, isCorrect, countryName, flagEmoji } from './guessflag.js';
+import { undercoverRunning } from './undercover.js';
 
 // Jeux dans le chat, lancés par n'importe qui : « +pendu », « +devine » (nombre mystère), « +emoji » (deviner un
 // jeu vidéo ou un animé), « +pokemon [génération] » (la silhouette d'un Pokémon) et « +flag » (le drapeau d'un pays).
 // Une partie à la fois par salon (jamais dans celui du compteur) ; on joue en écrivant
 // dans le salon. Le gagnant reçoit des coins, 5 victoires récompensées par jour et par membre au plus.
 // Les essais (lettres, nombres, bonne réponse) ne rapportent ni XP ni argent de message.
-const REWARDS = { pendu: 250, devine: 150, emoji: 200, pokemon: 200, flag: 150 };
+const REWARDS = { pendu: 250, devine: 150, emoji: 200, pokemon: 200, flag: 150, undercover: 200 };
 const DAILY_WINS = 5;
 const IDLE_MS = 5 * 60_000; // pendu et devine : fin après 5 min sans essai
 const EMOJI_MS = 2 * 60_000;
@@ -54,13 +55,22 @@ const GALLOWS = [
 ];
 const WRONG_DELETE_MS = 5000; // un essai faux est supprimé au bout de 5 s
 
-// Récompense du gagnant (dans la limite du jour). Renvoie le texte du gain. La victoire compte toujours pour +jeux top.
-function reward(game, userId) {
-  addChatGameStat(game.guildId, userId, game.kind);
+// Récompense d'un gagnant (dans la limite du jour). Renvoie true s'il a reçu des coins. La victoire compte
+// toujours pour +jeux top. Utilisée aussi par +undercover (lib/undercover.js).
+export function awardChatGameWin(guildId, userId, kind) {
+  addChatGameStat(guildId, userId, kind);
   const day = dayFormat.format(new Date());
-  if (getChatGameWins(game.guildId, userId, day) >= DAILY_WINS) return `-# Limite de ${DAILY_WINS} victoires récompensées par jour atteinte : pas de coins cette fois.`;
-  addChatGameWin(game.guildId, userId, day);
-  addCoins(game.guildId, userId, REWARDS[game.kind]);
+  if (getChatGameWins(guildId, userId, day) >= DAILY_WINS) return false;
+  addChatGameWin(guildId, userId, day);
+  addCoins(guildId, userId, REWARDS[kind]);
+  return true;
+}
+export const chatGameReward = (kind) => REWARDS[kind];
+export const chatGameRunning = (channelId) => games.has(channelId);
+
+// Texte du gain du gagnant d'une partie.
+function reward(game, userId) {
+  if (!awardChatGameWin(game.guildId, userId, game.kind)) return `-# Limite de ${DAILY_WINS} victoires récompensées par jour atteinte : pas de coins cette fois.`;
   return `🪙 **+${formatMoney(REWARDS[game.kind])}** coins`;
 }
 
@@ -332,6 +342,10 @@ async function start(message, kind, options = {}) {
     await message.reply({ content: `❌ Une partie est déjà en cours ici : ${running.message.url}`, ...quiet }).catch(() => {});
     return;
   }
+  if (undercoverRunning(channel.id)) {
+    await message.reply({ content: '❌ Une partie d’Undercover est en cours dans ce salon.', ...quiet }).catch(() => {});
+    return;
+  }
   const game = { kind, guildId: guild.id, channelId: channel.id, done: false, winner: null };
   if (kind === 'pendu') Object.assign(game, { word: pick(WORDS), found: new Set(), wrong: [], errors: 0, view: () => penduView(game) });
   if (kind === 'devine') Object.assign(game, { target: 1 + Math.floor(Math.random() * DEVINE_MAX), lo: 1, hi: DEVINE_MAX, tries: 0, view: () => devineView(game) });
@@ -387,8 +401,8 @@ async function start(message, kind, options = {}) {
 }
 
 // --- +jeux top [jeu] : classement des victoires (tous les jeux, ou un seul) ---
-const GAME_INFO = { pendu: ['🪢', 'Pendu'], devine: ['🔢', 'Devine'], emoji: ['🧩', 'Emoji'], pokemon: ['❓', 'Pokémon'], flag: ['🏳️', 'Drapeaux'] };
-const GAME_ALIASES = { drapeau: 'flag', drapeaux: 'flag', nombre: 'devine' };
+const GAME_INFO = { pendu: ['🪢', 'Pendu'], devine: ['🔢', 'Devine'], emoji: ['🧩', 'Emoji'], pokemon: ['❓', 'Pokémon'], flag: ['🏳️', 'Drapeaux'], undercover: ['🕵️', 'Undercover'] };
+const GAME_ALIASES = { drapeau: 'flag', drapeaux: 'flag', nombre: 'devine', uc: 'undercover' };
 const TOP_COMMAND = /^\+jeux(?:\s+top)?(?:\s+(\S+))?$/i;
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -422,7 +436,7 @@ async function showTop(message, arg) {
     .setFooter({
       text:
         (mine >= 10 ? `Toi : ${mine + 1}ᵉ avec ${ranking[mine].n} victoire(s) · ` : '') +
-        (only ? '' : '🪢 pendu · 🔢 devine · 🧩 emoji · ❓ Pokémon · 🏳️ drapeaux · ') +
+        (only ? '' : '🪢 pendu · 🔢 devine · 🧩 emoji · ❓ Pokémon · 🏳️ drapeaux · 🕵️ undercover · ') +
         '« +jeux top pendu » pour un seul jeu',
     });
   await message.reply({ embeds: [embed], ...quiet }).catch(() => {});

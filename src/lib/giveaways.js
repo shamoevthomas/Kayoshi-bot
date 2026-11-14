@@ -5,8 +5,11 @@ import {
   addGiveawayParticipant,
   removeGiveawayParticipant,
   getAllGiveaways,
+  getGuildGiveaways,
   getInviteTotal,
   addMoney,
+  getGuildConfig,
+  setGuildConfig,
 } from './store.js';
 
 // Texte visible de la présence (statut perso + activités), en minuscules.
@@ -151,6 +154,48 @@ async function announceWinners(channel, gw, winners, reroll = false) {
     .catch(() => {});
 }
 
+// --- Salon des gagnants (/gw salon-gagnants) : chaque tirage y est noté (prix, gagnants, organisateur, lien) ---
+export const getWinnersChannelId = (guildId) => getGuildConfig(guildId).giveawayWinnersChannelId ?? null;
+export const setWinnersChannelId = (guildId, channelId) => setGuildConfig(guildId, { giveawayWinnersChannelId: channelId });
+
+function winnersEmbed(gw, messageId, winners, reroll, at) {
+  return new EmbedBuilder()
+    .setColor(0xf5c542)
+    .setTitle(`${reroll ? '🔁' : '🎉'} ${gw.prize}`.slice(0, 256))
+    .setURL(`https://discord.com/channels/${gw.guildId}/${gw.channelId}/${messageId}`)
+    .setDescription(winners.length ? winners.map((id) => `🏆 <@${id}>`).join('\n') : '😔 Aucun participant éligible')
+    .addFields(
+      { name: 'Organisé par', value: `<@${gw.hostId}>`, inline: true },
+      { name: 'Participants', value: String(gw.participants?.length ?? 0), inline: true },
+    )
+    .setFooter({ text: reroll ? 'Nouveau tirage' : 'Giveaway terminé' })
+    .setTimestamp(at);
+}
+
+async function winnersChannel(client, guildId) {
+  const channelId = getWinnersChannelId(guildId);
+  const guild = channelId && client.guilds.cache.get(guildId);
+  const channel = guild && (guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null)));
+  return channel?.isTextBased() ? channel : null;
+}
+
+async function logWinners(client, gw, messageId, winners, reroll = false) {
+  const channel = await winnersChannel(client, gw.guildId);
+  await channel?.send({ embeds: [winnersEmbed(gw, messageId, winners, reroll, Date.now())], allowedMentions: { parse: [] } }).catch(() => {});
+}
+
+// Giveaways déjà terminés, du plus ancien au plus récent, notés dans le salon. Renvoie leur nombre.
+export async function postWinnersHistory(channel, guildId) {
+  const ended = Object.entries(getGuildGiveaways(guildId))
+    .filter(([, gw]) => gw.ended)
+    .sort(([, a], [, b]) => (a.endsAt ?? 0) - (b.endsAt ?? 0));
+  for (const [messageId, gw] of ended) {
+    const embed = winnersEmbed({ ...gw, guildId }, messageId, gw.winnerIds ?? [], false, gw.endsAt ?? Date.now());
+    await channel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(() => {});
+  }
+  return ended.length;
+}
+
 // Chaque gagnant reçoit le montant (giveaway d'argent) et le rôle à gagner (role_gagne).
 async function payWinners(client, gw, winners) {
   if (gw.rewardMoney) for (const id of winners) addMoney(gw.guildId, id, gw.rewardMoney);
@@ -192,6 +237,7 @@ export async function endGiveawayNow(client, guildId, messageId) {
     }
     await announceWinners(channel, gw, winners);
   }
+  await logWinners(client, gw, messageId, winners);
   return winners;
 }
 
@@ -217,6 +263,7 @@ export async function rerollGiveaway(client, guildId, messageId) {
 
   const channel = await resolveChannel(client, gw);
   if (channel?.isTextBased()) await announceWinners(channel, gw, winners, true);
+  await logWinners(client, gw, messageId, winners, true);
   return { ok: true, winners };
 }
 
