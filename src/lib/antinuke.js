@@ -1,13 +1,18 @@
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { getGuildConfig, setGuildConfig } from './store.js';
 import { sendLog } from './logger.js';
+import { getSecurity } from './securityconfig.js';
 
-// Anti-nuke (/antinuke) : si quelqu'un supprime ou crée en masse (salons, rôles), ou bannit / expulse en
+// Anti-nuke (/config antinuke) : si quelqu'un supprime ou crée en masse (salons, rôles), ou bannit / expulse en
 // masse, en moins d'une minute, le bot lui retire tous ses rôles (un bot est expulsé), puis prévient le
 // propriétaire en MP et dans les logs. Ne sont jamais visés : le propriétaire du serveur, le bot lui-même
 // et les membres de confiance. Actif par défaut ; réglages : data[guildId].antinuke = { enabled, trusted: [ids] }.
+// Les bans en masse suivent leur propre seuil (/config securite → Anti-Ban-Masse).
 // Les actions sont lues dans le journal d'audit (événements channelDelete, roleDelete, guildBanAdd…).
 const WINDOW_MS = 60_000;
+// Toujours de confiance sur les serveurs de laysox_off : crown2ito et l0un4tik.
+const DELEGATING_OWNER_ID = '1079335251551191061';
+const ALWAYS_TRUSTED = ['1543615549974515763', '1260266494839754866'];
 export const LIMITS = {
   channelDelete: { max: 3, label: 'salons supprimés' },
   roleDelete: { max: 3, label: 'rôles supprimés' },
@@ -30,26 +35,43 @@ export function setAntiNuke(guildId, patch) {
   setGuildConfig(guildId, { antinuke: { ...getAntiNuke(guildId), ...patch } });
 }
 
-const isExempt = (guild, userId) => userId === guild.ownerId || userId === guild.client.user.id || getAntiNuke(guild.id).trusted.includes(userId);
+// Jamais sanctionnés par les protections : le propriétaire, le bot, les membres de confiance (/config antinuke
+// ajouter), et crown2ito et l0un4tik sur les serveurs de laysox_off.
+export const isTrusted = (guild, userId) =>
+  userId === guild.ownerId ||
+  userId === guild.client.user.id ||
+  getAntiNuke(guild.id).trusted.includes(userId) ||
+  (guild.ownerId === DELEGATING_OWNER_ID && ALWAYS_TRUSTED.includes(userId));
+
+const durationText = (ms) => (ms % 60_000 ? `${ms / 1000} s` : `${ms / 60_000} min`);
 
 // Une action destructrice de `executor` (utilisateur du journal d'audit). Sanctionne au-delà de la limite.
 export async function noteAction(guild, executor, kind) {
-  if (!guild || !executor || !LIMITS[kind] || !getAntiNuke(guild.id).enabled || isExempt(guild, executor.id)) return;
+  if (!guild || !executor || !LIMITS[kind] || isTrusted(guild, executor.id)) return;
+  const ban = kind === 'ban' ? getSecurity(guild.id, 'ban') : null;
+  if (ban ? !ban.enabled : !getAntiNuke(guild.id).enabled) return;
+  const max = ban?.max ?? LIMITS[kind].max;
+  const windowMs = ban ? ban.seconds * 1000 : WINDOW_MS;
   const key = `${guild.id}:${executor.id}:${kind}`;
   const now = Date.now();
-  const recent = (actions.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
+  const recent = (actions.get(key) ?? []).filter((t) => now - t < windowMs);
   recent.push(now);
   actions.set(key, recent);
-  if (recent.length < LIMITS[kind].max) return;
-  const who = `${guild.id}:${executor.id}`;
-  if (now - (punished.get(who) ?? 0) < PUNISHED_MS) return;
-  punished.set(who, now);
-  await punish(guild, executor, kind, recent.length).catch((err) => console.error('[anti-nuke]', err));
+  if (recent.length < max) return;
+  await sanctionStaff(guild, executor, {
+    title: ban ? '🚨 Anti-ban de masse déclenché' : '🚨 Anti-nuke déclenché',
+    what: `**${recent.length} ${LIMITS[kind].label}** en moins de ${durationText(windowMs)}`,
+    reason: `${ban ? 'Anti-ban de masse' : 'Anti-nuke'} : ${recent.length} ${LIMITS[kind].label} en moins de ${durationText(windowMs)}`,
+  }).catch((err) => console.error('[anti-nuke]', err));
 }
 
-async function punish(guild, executor, kind, count) {
+// Sanction d'un membre qui abuse de ses permissions (anti-nuke, anti-bot, anti-déco…) : tous ses rôles retirés
+// (un bot est expulsé), puis le propriétaire est prévenu en MP et dans les logs. Pas deux fois en 5 min.
+export async function sanctionStaff(guild, executor, { title, what, reason }) {
+  const who = `${guild.id}:${executor.id}`;
+  if (Date.now() - (punished.get(who) ?? 0) < PUNISHED_MS) return false;
+  punished.set(who, Date.now());
   const member = await guild.members.fetch(executor.id).catch(() => null);
-  const reason = `Anti-nuke : ${count} ${LIMITS[kind].label} en moins d’une minute`;
   let outcome;
   if (!member) outcome = 'il n’est plus sur le serveur';
   else if (member.user.bot) {
@@ -67,17 +89,18 @@ async function punish(guild, executor, kind, count) {
 
   const embed = new EmbedBuilder()
     .setColor(0xe74c3c)
-    .setTitle('🚨 Anti-nuke déclenché')
+    .setTitle(title)
     .setDescription(
-      `${executor} (\`${executor.tag ?? executor.username}\`) : **${count} ${LIMITS[kind].label}** en moins d’une minute.\n\n` +
+      `${executor} (\`${executor.tag ?? executor.username}\`) : ${what}.\n\n` +
         `➡️ Sanction : ${outcome}.\n\n` +
-        '-# Pour recréer ce qui a été supprimé : `/backup restaurer`. Pour éviter qu’un membre de confiance soit visé : `/antinuke ajouter`.',
+        '-# Pour recréer ce qui a été supprimé : `/backup restaurer`. Pour qu’un membre de confiance ne soit jamais visé : `/config antinuke ajouter`.',
     )
     .setTimestamp();
   await sendLog(guild, embed);
   const owner = await guild.fetchOwner().catch(() => null);
   await owner?.send({ content: `Sur **${guild.name}** :`, embeds: [embed] }).catch(() => {});
+  return true;
 }
 
-// Membres qui ont la permission d'agir en masse (pour le message de /antinuke voir).
+// Membres qui ont la permission d'agir en masse (pour le message de /config antinuke voir).
 export const DANGEROUS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers];

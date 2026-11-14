@@ -62,12 +62,12 @@ export async function renderEmbedFor(guild, user, data) {
   return templateEmbed(data, await templateVars(guild, user, true));
 }
 
-// Texte avec les templates remplacés pour ce membre (message privé de /dmjoin).
+// Texte avec les templates remplacés pour ce membre (message privé de /config accueil mp).
 export async function renderTextFor(guild, user, text) {
   return applyTemplates(text, await templateVars(guild, user, true)).slice(0, 2000);
 }
 
-// Message privé de /dmjoin au membre qui arrive. Renvoie false s'il n'est pas
+// Message privé de /config accueil mp au membre qui arrive. Renvoie false s'il n'est pas
 // configuré ou si le membre a fermé ses MP.
 export async function sendJoinDm(member) {
   const message = getDmJoin(member.guild.id)?.message;
@@ -97,7 +97,7 @@ async function textChannel(guild, channelId) {
 }
 
 // Envoie le message de bienvenue ('welcome') ou de départ ('leave') : le
-// message texte (/bienvenue, /quitte) et l'embed (/embed) sont indépendants,
+// message texte (/config accueil bienvenue, /config accueil depart) et l'embed (/embed) sont indépendants,
 // chacun envoyé dans son propre salon s'il est configuré.
 export async function sendGreeting(guild, type, member) {
   const cfg = getGreetConfig(guild.id, type);
@@ -136,7 +136,7 @@ export async function sendGreeting(guild, type, member) {
   }
 }
 
-// Assistant de configuration commun à /bienvenue et /quitte.
+// Assistant de configuration commun à /config accueil bienvenue et /config accueil depart.
 export async function runGreetingWizard(interaction, type) {
   const guild = interaction.guild;
   const filter = (i) => i.user.id === interaction.user.id;

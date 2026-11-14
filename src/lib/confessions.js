@@ -12,7 +12,7 @@ import {
 } from 'discord.js';
 import { getConfessionConfig, nextConfessionNumber, getConfessionAuthor, setConfessionAuthor } from './store.js';
 
-// Confessions anonymes (/configconfessions) : un formulaire (texte et/ou image) publie la
+// Confessions anonymes (/config confessions) : un formulaire (texte et/ou image) publie la
 // confession dans le salon configuré, sans dire aux membres qui l'a écrite. Sous chaque confession :
 // « Soumettre une confession ! » et « Répondre » (réponse anonyme dans un fil sous la confession).
 // L'auteur de chaque confession et réponse est envoyé dans le salon des logs (staff) ; l'auteur
@@ -31,7 +31,7 @@ function confessionButtons() {
   );
 }
 
-// Message publié par /configconfessions dans le salon : de quoi envoyer la première confession.
+// Message publié par /config confessions dans le salon : de quoi envoyer la première confession.
 export function confessionPanel() {
   return {
     embeds: [
@@ -128,7 +128,7 @@ async function submitConfession(interaction) {
   const channelId = getConfessionConfig(guild.id)?.channelId;
   const channel = channelId && (guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null)));
   if (!channel?.isTextBased?.()) {
-    return interaction.editReply('❌ Le salon des confessions n’est pas configuré (ou a été supprimé). Un admin doit refaire `/configconfessions`.');
+    return interaction.editReply('❌ Le salon des confessions n’est pas configuré (ou a été supprimé). Un admin doit refaire `/config confessions`.');
   }
   const form = await readForm(interaction);
   if (form.error) return interaction.editReply(`❌ ${form.error}`);

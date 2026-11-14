@@ -58,7 +58,7 @@ export default {
     client.user.setActivity('.gg/hanamifr', { type: ActivityType.Custom });
     // Casino et duels : les parties en cours sont perdues au redémarrage, les mises en jeu sont rendues.
     refundHolds(client);
-    // Salons de statistiques (/salon-stats) : noms mis à jour toutes les 10 min (limite de Discord).
+    // Salons de statistiques (/config salon-stats) : noms mis à jour toutes les 10 min (limite de Discord).
     setTimeout(() => refreshAllStatChannels(client).catch(() => {}), 40_000);
     setInterval(() => refreshAllStatChannels(client).catch(() => {}), REFRESH_MS);
     // Sauvegarde automatique de chaque serveur (/backup), une fois par jour (vérifié toutes les heures).
@@ -122,7 +122,7 @@ export default {
     // avec nouvelle session (l'état vocal est alors perdu ; pas sur une simple reprise).
     rejoinVoiceChannels(client);
     client.on(Events.ShardReady, () => rejoinVoiceChannels(client));
-    // Rappels de bump Disboard (/bremind) arrivés à échéance, toutes les 30 s.
+    // Rappels de bump Disboard (/config bump rappel) arrivés à échéance, toutes les 30 s.
     processBumpReminders(client).catch(() => {});
     setInterval(() => processBumpReminders(client).catch(() => {}), 30_000);
     // Tickets sans message depuis 3 jours : le staff est mentionné et on lui demande s'il faut les fermer (vérifié toutes les heures).

@@ -24,7 +24,7 @@ function panel(guild, note = null, active = true) {
     .setColor(Colors.role)
     .setTitle('⏰ Rappel de bump Disboard')
     .setDescription(
-      `Statut : **${cfg.enabled ? 'activé' : 'désactivé'}** (\`/bremind\` pour changer)\n` +
+      `Statut : **${cfg.enabled ? 'activé' : 'désactivé'}** (\`/config bump rappel\` pour changer)\n` +
         (cfg.enabled && cfg.nextAt ? `Prochain rappel : <t:${Math.floor(cfg.nextAt / 1000)}:R>\n` : '') +
         `\n${BUMP_TEMPLATE_HELP}`,
     )

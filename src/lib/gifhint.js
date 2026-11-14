@@ -5,7 +5,7 @@ import { getGifHint } from './store.js';
 const GIF_RE = /tenor\.(com|co)|giphy\.com|kl?ipl?y\.[a-z]+|\.gif(\?|#|$)/i;
 
 // Si un membre poste un GIF mais n'a PAS la permission « Intégrer les liens »
-// (donc le GIF ne s'affiche pas), on lui envoie le message configuré avec /messimage.
+// (donc le GIF ne s'affiche pas), on lui envoie le message configuré avec /config messimage.
 export async function handleGifPermHint(message) {
   if (!message.guild || message.author.bot || !message.member) return;
 

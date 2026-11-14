@@ -1,4 +1,4 @@
-// Annonces de /rank et /derank : messages configurés avec /configrank, postés en embed.
+// Annonces de /rank et /derank : messages configurés avec /config rank, postés en embed.
 
 export const RANK_TEMPLATE_HELP =
   'Templates : `[@]` (le membre) · `[role]` (le ou les rôles donnés / retirés) · `[motif]` (le motif) · `[staff]` (celui qui a fait le /rank ou le /derank)';
@@ -20,7 +20,7 @@ export function renderRankMessage(template, { member, roles, motif, staff }) {
     .replace(/\[staff\]/gi, `${staff}`);
 }
 
-// Annonce postée dans le salon de /configrank : le message configuré, puis
+// Annonce postée dans le salon de /config rank : le message configuré, puis
 // « Rank up par @staff » ou « Derank par @staff ».
 export function renderRankAnnouncement(template, data, action) {
   return `${renderRankMessage(template, data).slice(0, 3900)}\n\n${action} par ${data.staff}`;

@@ -123,7 +123,7 @@ export default {
       });
     } catch (err) {
       console.error(err);
-      return interaction.editReply({ content: '⏱️ Configuration annulée (délai dépassé ou erreur). Relance `/configvocal`.', components: [], embeds: [] }).catch(() => {});
+      return interaction.editReply({ content: '⏱️ Configuration annulée (délai dépassé ou erreur). Relance `/config vocal`.', components: [], embeds: [] }).catch(() => {});
     }
   },
 };

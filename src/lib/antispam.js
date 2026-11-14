@@ -8,17 +8,19 @@ const buckets = new Map();
 // Anti-double-sanction rapprochée.
 const punished = new Map();
 
-// Spam multi-salons, en moins de MULTI_WINDOW_MS → mute MULTI_TIMEOUT_MS :
-// - le même message (copier-coller) dans au moins MULTI_SAME_CHANNELS salons différents ;
-// - ou des messages dans au moins MULTI_MIN_CHANNELS salons différents.
+// Spam multi-salons, en moins de MULTI_WINDOW_MS → mute MULTI_TIMEOUT_MS (ou ban, au choix) :
+// - le même message (copier-coller) dans au moins `channels` salons différents (2 par défaut) ;
+// - ou, quand la sanction est le mute, des messages dans au moins MULTI_MIN_CHANNELS salons différents.
+// Réglages (/config securite → Anti-Spam-Multi-Salons) : data.antispam.multi = { enabled, channels, sanction }.
+// Sans réglage, il suit l'anti-spam (actif quand l'anti-spam l'est).
 export const MULTI_WINDOW_MS = 10_000;
-export const MULTI_SAME_CHANNELS = 2;
 export const MULTI_MIN_CHANNELS = 3;
 export const MULTI_TIMEOUT_MS = 60 * 60_000;
+export const multiSettings = (config) => ({ enabled: Boolean(config?.enabled), channels: 2, sanction: 'mute', ...(config?.multi ?? {}) });
 const multiBuckets = new Map();
 const multiPunished = new Map();
 
-// Salon ignoré par /antispam ignorer : le salon lui-même, sa catégorie, ou pour
+// Salon ignoré par /config antispam ignorer : le salon lui-même, sa catégorie, ou pour
 // un fil, son salon parent (et la catégorie de celui-ci).
 export function isIgnoredChannel(channel, ignoredIds) {
   if (!ignoredIds?.length) return false;
@@ -38,14 +40,16 @@ function fingerprint(message) {
 export async function handleAntiSpam(message) {
   if (!message.guild || message.author.bot || !message.member) return false;
   const config = getAntiSpamConfig(message.guild.id);
-  if (!config?.enabled) return false;
+  const multi = multiSettings(config);
+  if (!config?.enabled && !multi.enabled) return false;
   if (isIgnoredChannel(message.channel, config.ignoredChannelIds)) return false;
 
   // Exemptions : le staff (Gérer les messages) et les rôles exemptés.
   if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return false;
   if (config.exemptRoleIds?.some((id) => message.member.roles.cache.has(id))) return false;
 
-  if (await handleMultiChannelSpam(message)) return true;
+  if (multi.enabled && (await handleMultiChannelSpam(message, multi))) return true;
+  if (!config.enabled) return false;
 
   const key = `${message.guild.id}:${message.author.id}`;
   const now = Date.now();
@@ -104,7 +108,7 @@ export async function handleAntiSpam(message) {
 
 // Spam multi-salons (appelé par handleAntiSpam, donc soumis aux mêmes
 // activation et exemptions). Renvoie true si le message a été géré.
-async function handleMultiChannelSpam(message) {
+async function handleMultiChannelSpam(message, multi) {
   const key = `${message.guild.id}:${message.author.id}`;
   const now = Date.now();
 
@@ -121,9 +125,10 @@ async function handleMultiChannelSpam(message) {
 
   const channelIds = [...new Set(arr.map((m) => m.channelId))];
   const sameChannels = print ? new Set(arr.filter((m) => m.print === print).map((m) => m.channelId)).size : 0;
-  if (sameChannels < MULTI_SAME_CHANNELS && channelIds.length < MULTI_MIN_CHANNELS) return false;
+  const ban = multi.sanction === 'ban';
+  if (sameChannels < multi.channels && (ban || channelIds.length < MULTI_MIN_CHANNELS)) return false;
   const detected =
-    sameChannels >= MULTI_SAME_CHANNELS
+    sameChannels >= multi.channels
       ? `le même message dans ${sameChannels} salons en < ${MULTI_WINDOW_MS / 1000}s`
       : `${arr.length} messages dans ${channelIds.length} salons en < ${MULTI_WINDOW_MS / 1000}s`;
 
@@ -136,17 +141,24 @@ async function handleMultiChannelSpam(message) {
     if (ch?.messages) await ch.messages.delete(m.id).catch(() => {});
   }
 
-  let muted = false;
-  if (message.member.moderatable) {
-    muted = await message.member
-      .timeout(MULTI_TIMEOUT_MS, 'Anti-spam : messages dans plusieurs salons')
-      .then(() => true)
-      .catch(() => false);
+  // Sanction : mute 1 h, ou ban (messages de la dernière heure supprimés) si choisi.
+  const reason = 'Anti-spam : même message dans plusieurs salons';
+  let sanction = 'messages supprimés (sanction impossible : rôle trop haut ou permission manquante)';
+  if (ban && message.member.bannable) {
+    if (await message.member.ban({ reason, deleteMessageSeconds: 3600 }).then(() => true).catch(() => false)) {
+      recordSanction(message.guild.id, message.author.id, 'ban', { reason });
+      sanction = '🔨 ban + messages supprimés';
+    }
+  } else if (!ban && message.member.moderatable) {
+    if (await message.member.timeout(MULTI_TIMEOUT_MS, reason).then(() => true).catch(() => false)) {
+      recordSanction(message.guild.id, message.author.id, 'mute', { reason, durationMs: MULTI_TIMEOUT_MS });
+      sanction = `🔇 mute ${MULTI_TIMEOUT_MS / 60000} min + messages supprimés`;
+    }
   }
-  if (muted) recordSanction(message.guild.id, message.author.id, 'mute', { reason: 'Anti-spam : messages dans plusieurs salons', durationMs: MULTI_TIMEOUT_MS });
+  const done = !sanction.startsWith('messages supprimés');
 
   const warn = await message.channel
-    .send(`⚠️ ${message.author}, pas de **spam dans plusieurs salons** !${muted ? ' Mute **1 h**.' : ''}`)
+    .send(`⚠️ ${message.author}, pas de **spam dans plusieurs salons** !${done ? (ban ? ' **Banni**.' : ' Mute **1 h**.') : ''}`)
     .catch(() => null);
   if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
 
@@ -158,13 +170,7 @@ async function handleMultiChannelSpam(message) {
       .setDescription(`${message.author} (${message.author.tag}) a posté dans plusieurs salons à la suite`)
       .addFields(
         { name: 'Détecté', value: detected, inline: true },
-        {
-          name: 'Sanction',
-          value: muted
-            ? `🔇 mute ${MULTI_TIMEOUT_MS / 60000} min + messages supprimés`
-            : 'messages supprimés (mute impossible : rôle trop haut ou permission manquante)',
-          inline: true,
-        },
+        { name: 'Sanction', value: sanction, inline: true },
         { name: 'Salons', value: channelIds.map((id) => `<#${id}>`).join(' ') },
       )
       .setTimestamp(),

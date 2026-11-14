@@ -4,7 +4,7 @@ import { formatMoney } from './shop.js';
 import { countQuestAction, checkQuests } from './quests.js';
 import { boostedMoney } from './levels.js';
 
-// Drops d'argent (/configeconomie drops) : de temps en temps, un message dans un des salons choisis
+// Drops d'argent (/config economie drops) : de temps en temps, un message dans un des salons choisis
 // fait apparaître « 💰 X à gagner » avec un bouton ; le premier qui clique gagne.
 // Le délai entre deux drops est tiré au hasard autour de la fréquence choisie (de 0,5× à 1,5×).
 const EXPIRE_MS = 5 * 60_000;

@@ -107,7 +107,7 @@ function scheduleKick(member, config) {
   const delay = Math.max(0, config.kickAfterMs - elapsed);
   const timer = setTimeout(async () => {
     kickTimers.delete(member.id);
-    // Vérification désactivée entre-temps (/configverif) : plus de kick.
+    // Vérification désactivée entre-temps (/config accueil verif) : plus de kick.
     if (!getVerifConfig(member.guild.id)) return;
     const fresh = await member.guild.members.fetch(member.id).catch(() => null);
     if (fresh && !fresh.roles.cache.has(config.roleId)) {
@@ -230,7 +230,7 @@ export async function countUnverified(guild) {
 }
 
 // À l'arrivée d'un membre : poste le captcha + programme le kick éventuel. Vérification désactivée
-// (/configverif) : le rôle de vérifié est donné tout de suite, sans captcha.
+// (/config accueil verif) : le rôle de vérifié est donné tout de suite, sans captcha.
 export async function onMemberJoin(member) {
   if (member.user.bot) return;
   const settings = getVerifSettings(member.guild.id);
@@ -290,7 +290,7 @@ export async function handleVerifyMessage(message) {
           ? 'il me manque la permission « Gérer les rôles »'
           : `le rôle ${role} est au-dessus de mon rôle le plus haut`;
       const warn = await message.channel.send(
-        `⚠️ ${member}, ta réponse est bonne mais je n’ai pas pu te donner le rôle : **${why}**. Un admin doit corriger ça (puis \`/configverif\`).`,
+        `⚠️ ${member}, ta réponse est bonne mais je n’ai pas pu te donner le rôle : **${why}**. Un admin doit corriger ça (puis \`/config accueil verif\`).`,
       );
       setTimeout(() => warn.delete().catch(() => {}), 15000);
       await sendLog(

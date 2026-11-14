@@ -11,11 +11,13 @@ import { applyNickLock } from '../lib/nicklock.js';
 import { kickIfRecentAccount } from '../lib/accountage.js';
 import { syncMemberLevelRoles } from '../lib/levels.js';
 import { restorePersonalRoles } from '../lib/leftroles.js';
+import { handleBotJoin } from '../lib/security.js';
 
 export default {
   name: Events.GuildMemberAdd,
   async execute(member) {
-    if (member.user.bot) return;
+    // Anti-bot (/config securite) : bot ajouté sans autorisation → expulsé, et celui qui l'a ajouté derank.
+    if (member.user.bot) return void (await handleBotJoin(member).catch((err) => console.error('[sécurité]', err)));
 
     // Détecte l'invitation utilisée AVANT tout traitement, tant que l'écart de
     // compteur avec le cache est encore frais.
@@ -47,7 +49,7 @@ export default {
     await onMemberJoin(member).catch((err) => console.error(err));
     // Message de bienvenue (si configuré)
     await sendGreeting(member.guild, 'welcome', member).catch((err) => console.error(err));
-    // Message privé d'arrivée (/dmjoin, si configuré)
+    // Message privé d'arrivée (/config accueil mp, si configuré)
     await sendJoinDm(member).catch((err) => console.error(err));
 
     // --- Log d'arrivée (salon de logs général) ---
@@ -68,7 +70,7 @@ export default {
         .setTimestamp(),
     );
 
-    // --- Suivi d'invitation (salon dédié via /inviteconfig) ---
+    // --- Suivi d'invitation (salon dédié via /config invitations) ---
     const inviteEmbed = new EmbedBuilder()
       .setColor(Colors.join)
       .setAuthor({ name: '📨 Suivi d’invitation', iconURL: member.user.displayAvatarURL() })

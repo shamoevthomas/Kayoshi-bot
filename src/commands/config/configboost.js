@@ -112,7 +112,7 @@ export default {
     } catch (err) {
       console.error('[configboost] échec :', err);
       return interaction
-        .editReply({ content: '⏱️ Configuration interrompue (délai ou erreur). Relance `/configboost`.', components: [] })
+        .editReply({ content: '⏱️ Configuration interrompue (délai ou erreur). Relance `/config boost`.', components: [] })
         .catch(() => {});
     }
   },

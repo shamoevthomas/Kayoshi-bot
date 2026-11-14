@@ -2,7 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder
 import { getGuildConfig, setGuildConfig } from './store.js';
 import { formatMoney } from './shop.js';
 
-// Salons de statistiques (/salon-stats) : des salons vocaux verrouillés (on les voit, on ne peut pas y
+// Salons de statistiques (/config salon-stats) : des salons vocaux verrouillés (on les voit, on ne peut pas y
 // entrer) dans une catégorie en haut du serveur, dont le nom affiche un chiffre à jour.
 // Discord limite les renommages (2 toutes les 10 min par salon) : mise à jour toutes les 10 min, et
 // seulement si le chiffre a changé. Réglages : data[guildId].statChannels = { categoryId, channels: { stat: id } }.
@@ -48,7 +48,7 @@ async function apply(guild, keys) {
   const cfg = getConfig(guild.id);
   for (const [key, id] of Object.entries(cfg.channels)) {
     if (keys.includes(key)) continue;
-    await (await fetchChannel(guild, id))?.delete('Salon de statistiques retiré (/salon-stats)').catch(() => {});
+    await (await fetchChannel(guild, id))?.delete('Salon de statistiques retiré (/config salon-stats)').catch(() => {});
     delete cfg.channels[key];
   }
   let category = await fetchChannel(guild, cfg.categoryId);

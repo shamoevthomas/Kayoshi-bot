@@ -55,12 +55,12 @@ function isAllowedLink(url) {
 }
 
 // Invitation Discord (discord.gg/code, discord.com/invite/code) : renvoie son code.
-const INVITE = /(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]+)/i;
+export const INVITE = /(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]+)/i;
 
 // Invitation vers un autre serveur ? Les invitations connues du serveur et son URL
 // personnalisée passent sans appel à Discord. Une invitation qu'on ne peut pas
 // rattacher à ce serveur (expirée, erreur) est considérée comme étrangère.
-async function isForeignInvite(url, guild) {
+export async function isForeignInvite(url, guild) {
   const code = url.match(INVITE)?.[1];
   if (!code) return false;
   if (code.toLowerCase() === guild.vanityURLCode?.toLowerCase() || guild.invites.cache.has(code)) return false;

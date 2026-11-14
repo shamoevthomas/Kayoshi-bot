@@ -1,7 +1,7 @@
 import { MessageType } from 'discord.js';
 import { getBoostConfig } from './store.js';
 
-// Message de boost (/configboost). Chaque boost est repéré par le message système de Discord
+// Message de boost (/config boost). Chaque boost est repéré par le message système de Discord
 // (« X vient de booster le serveur ») : un par boost, y compris quand un membre qui boostait déjà
 // re-boost. Le début d'un boost (premiumSince) sert de secours si ces messages système sont
 // désactivés. On attend 10 s après le premier boost : plusieurs boosts d'affilée du même membre

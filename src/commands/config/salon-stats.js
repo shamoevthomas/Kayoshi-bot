@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { statPanel } from '../../lib/statchannels.js';
 
-// Salons de statistiques : /salon-stats ouvre un panneau pour choisir les chiffres affichés (voir lib/statchannels.js).
+// Salons de statistiques : /config salon-stats ouvre un panneau pour choisir les chiffres affichés (voir lib/statchannels.js).
 export default {
   data: new SlashCommandBuilder()
     .setName('salon-stats')

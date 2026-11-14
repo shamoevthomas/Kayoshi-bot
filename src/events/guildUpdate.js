@@ -1,9 +1,12 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
+import { handleSecurityGuildUpdate } from '../lib/security.js';
 
 export default {
   name: Events.GuildUpdate,
   async execute(oldGuild, newGuild) {
+    // Anti-vanity-URL et anti-modification du serveur (/config securite).
+    handleSecurityGuildUpdate(oldGuild, newGuild).catch((err) => console.error('[sécurité]', err));
     const changes = [];
     if (oldGuild.name !== newGuild.name) changes.push(`**Nom** : ${oldGuild.name} → ${newGuild.name}`);
     if (oldGuild.iconURL() !== newGuild.iconURL()) changes.push('**Icône** modifiée');

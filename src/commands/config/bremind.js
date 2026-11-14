@@ -36,7 +36,7 @@ export default {
     try {
       choice = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 60_000, filter: (i) => i.user.id === interaction.user.id });
     } catch {
-      return interaction.editReply({ content: '⏳ Temps écoulé. Relance `/bremind`.', components: [] }).catch(() => {});
+      return interaction.editReply({ content: '⏳ Temps écoulé. Relance `/config bump rappel`.', components: [] }).catch(() => {});
     }
 
     if (choice.customId === 'brm_off') {
@@ -51,7 +51,7 @@ export default {
         '✅ Rappel de bump **activé** !\n' +
         'Dès qu’un membre fait `/bump` avec Disboard, je le remercie puis je mentionne le rôle **2 heures plus tard** dans le même salon.\n' +
         (cfg.roleId ? `• Rôle mentionné : ${roleMention(guildId, cfg.roleId).text.trim()}\n` : '• ⚠️ Aucun rôle à mentionner pour l’instant.\n') +
-        'Personnalise le rappel, le rôle et le message après bump avec `/bremind-edit`.',
+        'Personnalise le rappel, le rôle et le message après bump avec `/config bump message`.',
       components: [],
     });
   },

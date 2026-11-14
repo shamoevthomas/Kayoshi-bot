@@ -95,7 +95,7 @@ async function add(interaction) {
     const motifId = interaction.options.getString('motif');
     const config = getTicketConfig(interaction.guild.id, 'ticketConfig');
     if (!config?.motifs?.length) {
-      return interaction.reply({ content: '❌ Le système de tickets n’est pas configuré. Lance `/configticket` d’abord.', ephemeral: true });
+      return interaction.reply({ content: '❌ Le système de tickets n’est pas configuré. Lance `/config ticket` d’abord.', ephemeral: true });
     }
     const motif = motifId && config.motifs.find((m) => m.id === motifId);
     if (!motif) return interaction.reply({ content: '❌ Choisis un **motif** dans la liste (option `motif`).', ephemeral: true });

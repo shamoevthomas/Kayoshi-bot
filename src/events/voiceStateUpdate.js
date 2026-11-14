@@ -3,6 +3,7 @@ import { sendVoiceLog, Colors } from '../lib/logger.js';
 import { handleVoiceState } from '../lib/tempvoice.js';
 import { startVoiceSession, endVoiceSession } from '../lib/voiceactivity.js';
 import { onBotVoiceStateUpdate } from '../lib/voicestay.js';
+import { handleSecurityVoiceLeave } from '../lib/security.js';
 
 // Un salon compte pour l'activité vocale s'il existe et n'est pas le salon AFK.
 function counts(state) {
@@ -17,11 +18,13 @@ export default {
     // Le bot lui-même (/join) : déconnecté ou déplacé par quelqu'un → on s'aligne.
     if (newState.id === newState.client.user.id) return onBotVoiceStateUpdate(oldState, newState);
     if (member?.user?.bot) return;
+    // Anti-déco vocaux (/config securite) : membres déconnectés du vocal par le staff.
+    handleSecurityVoiceLeave(oldState, newState).catch((err) => console.error('[sécurité]', err));
 
     // Vocaux temporaires (création/suppression auto)
     await handleVoiceState(oldState, newState).catch((err) => console.error(err));
 
-    // Suivi du temps vocal pour le classement (/configstat) et les stats (s?…) — AFK exclu.
+    // Suivi du temps vocal pour le classement (/config classement) et les stats (s?…) — AFK exclu.
     // Un changement de salon clôt la session du salon quitté (stats par salon).
     const wasCounting = counts(oldState);
     const isCounting = counts(newState);

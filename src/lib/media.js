@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { loadMedia, saveMedia } from './store.js';
 
-// Images envoyées au bot en fichier (formulaire d'embed, /bienvenue, /modifierembedticket…) et images Discord
+// Images envoyées au bot en fichier (formulaire d'embed, /config accueil bienvenue, /modifierembedticket…) et images Discord
 // (cdn.discordapp.com/attachments/…) d'un embed enregistré : les liens Discord expirent, alors l'image est gardée
 // dans la base (ligne media:<serveur>:<empreinte>). L'embed enregistré la désigne par « kayo-media://<serveur>/<empreinte>.<ext> »,
 // et elle est jointe au message à chaque envoi (lib/rehost.js).

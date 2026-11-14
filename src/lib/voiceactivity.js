@@ -6,7 +6,7 @@ import { recordVoice } from './stats.js';
 const sessions = new Map();
 const key = (guildId, userId) => `${guildId}:${userId}`;
 
-// Compte le temps depuis le dernier comptage : classement de la semaine (/configstat) et stats (s?…).
+// Compte le temps depuis le dernier comptage : classement de la semaine (/config classement) et stats (s?…).
 function count(guildId, userId, session, now) {
   const seconds = (now - session.since) / 1000;
   bumpVoiceActivity(guildId, userId, seconds);

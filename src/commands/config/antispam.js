@@ -1,16 +1,21 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.js';
 import { getAntiSpamConfig, setAntiSpamConfig } from '../../lib/store.js';
-import { MULTI_WINDOW_MS, MULTI_SAME_CHANNELS, MULTI_MIN_CHANNELS, MULTI_TIMEOUT_MS } from '../../lib/antispam.js';
+import { MULTI_WINDOW_MS, MULTI_MIN_CHANNELS, MULTI_TIMEOUT_MS, multiSettings } from '../../lib/antispam.js';
 
-// Règle fixe, active avec l'anti-spam.
-const MULTI_LINE =
-  `• Multi-salons : le même message dans **${MULTI_SAME_CHANNELS}** salons, ou des messages dans **${MULTI_MIN_CHANNELS}** salons, ` +
-  `en **${MULTI_WINDOW_MS / 1000}s** → mute **${MULTI_TIMEOUT_MS / 3_600_000} h**\n`;
+// Règle multi-salons (réglée dans /config securite → Anti-Spam-Multi-Salons).
+function multiLine(config) {
+  const m = multiSettings(config);
+  if (!m.enabled) return '• Multi-salons : désactivé (`/config securite`)\n';
+  return m.sanction === 'ban'
+    ? `• Multi-salons : le même message dans **${m.channels}** salons en **${MULTI_WINDOW_MS / 1000}s** → **ban**\n`
+    : `• Multi-salons : le même message dans **${m.channels}** salons, ou des messages dans **${MULTI_MIN_CHANNELS}** salons, ` +
+        `en **${MULTI_WINDOW_MS / 1000}s** → mute **${MULTI_TIMEOUT_MS / 3_600_000} h**\n`;
+}
 
 const STAFF_NOTE =
   '_Le staff (« Gérer les messages ») est toujours exempté : pour tester, utilise un compte sans cette permission._';
 
-// Salons que /antispam activer peut faire ignorer (une catégorie = tous ses salons).
+// Salons que /config antispam activer peut faire ignorer (une catégorie = tous ses salons).
 const IGNORABLE_TYPES = [
   ChannelType.GuildText,
   ChannelType.GuildAnnouncement,
@@ -84,7 +89,7 @@ export default {
           `🛡️ **Anti-spam activé**\n` +
           `• Seuil : **${c.maxMessages}** messages en **${Math.round(c.intervalMs / 1000)}s**\n` +
           `• Mute : ${c.timeoutMs > 0 ? `**${Math.round(c.timeoutMs / 60000)} min**` : 'aucun (suppression seule)'}\n` +
-          MULTI_LINE +
+          multiLine(c) +
           `• Rôles exemptés : ${c.exemptRoleIds?.length ? c.exemptRoleIds.map((r) => `<@&${r}>`).join(' ') : '_aucun_'}\n` +
           ignoredLine(c.ignoredChannelIds) +
           missingPermissions(interaction.guild) +
@@ -138,7 +143,7 @@ export default {
         `✅ **Anti-spam activé.**\n` +
         `• Seuil : **${maxMessages}** messages en **${seconds}s**\n` +
         `• Mute : ${muteMin > 0 ? `**${muteMin} min**` : 'aucun (suppression seule)'}\n` +
-        MULTI_LINE +
+        multiLine(config) +
         `• Rôles exemptés : ${config.exemptRoleIds.length ? config.exemptRoleIds.map((r) => `<@&${r}>`).join(' ') : '_aucun_'}\n` +
         ignoredLine(config.ignoredChannelIds) +
         missingPermissions(interaction.guild) +

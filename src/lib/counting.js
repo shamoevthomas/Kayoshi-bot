@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { getCounting, setCounting } from './store.js';
 
-// Comptage (/compteur) : dans le salon choisi, les membres écrivent 1, 2, 3… à tour de rôle, sans fin
+// Comptage (/config compteur) : dans le salon choisi, les membres écrivent 1, 2, 3… à tour de rôle, sans fin
 // (BigInt : aucune limite de taille). Un message qui commence par un nombre compte ; le reste est de la
 // discussion et n'est pas touché. Mauvais nombre, ou deux fois de suite le même membre : le message est
 // refusé (❌ puis effacé avec un rappel du bon nombre), le compteur ne repart jamais à zéro.
@@ -44,7 +44,7 @@ export async function handleCountingMessage(message) {
   }, ERROR_VISIBLE_MS);
 }
 
-// --- Panneau de /compteur : boutons « cpt:activer », « cpt:desactiver », « cpt:voir » et menu « cpt:salon »
+// --- Panneau de /config compteur : boutons « cpt:activer », « cpt:desactiver », « cpt:voir » et menu « cpt:salon »
 // (routés par interactionCreate, marchent après un redémarrage). Réservé à « Gérer le serveur ». ---
 const ABOUT =
   'Dans le salon choisi, les membres écrivent **1, 2, 3…** sans fin, chacun leur tour (pas deux fois de suite). ' +

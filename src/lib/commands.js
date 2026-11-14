@@ -3,10 +3,12 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // Charge récursivement toutes les commandes (fichiers .js) d'un dossier et ses sous-dossiers.
+// Le dossier « config » est sauté : ses commandes sont les entrées de /config (commands/admin/config.js).
 export async function loadCommands(dir) {
   const commands = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
+    if (entry === 'config' && statSync(full).isDirectory()) continue;
     if (statSync(full).isDirectory()) {
       commands.push(...(await loadCommands(full)));
     } else if (entry.endsWith('.js')) {

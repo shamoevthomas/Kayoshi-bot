@@ -15,7 +15,7 @@ export default {
     const existing = sanctionChannelId && (await guild.channels.fetch(sanctionChannelId).catch(() => null));
     if (existing) {
       return interaction.reply({
-        content: `ℹ️ Le salon des sanctions existe déjà : ${existing}\n_(supprime-le puis relance \`/sanction\` pour en recréer un)_`,
+        content: `ℹ️ Le salon des sanctions existe déjà : ${existing}\n_(supprime-le puis relance \`/config sanctions\` pour en recréer un)_`,
         ephemeral: true,
       });
     }

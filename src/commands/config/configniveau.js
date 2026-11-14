@@ -45,7 +45,7 @@ export default {
     if (sub === 'desactiver') {
       setLevelsEnabled(guildId, false);
       return interaction.reply({
-        content: '🛑 Système de niveaux **désactivé**. (L’XP déjà gagnée est conservée ; réactive avec `/configniveau activer`.)',
+        content: '🛑 Système de niveaux **désactivé**. (L’XP déjà gagnée est conservée ; réactive avec `/config niveau activer`.)',
         ephemeral: true,
       });
     }
@@ -73,7 +73,7 @@ export default {
     await interaction.reply({
       content:
         `✅ **Message de niveau enregistré.**\n` +
-        (getLevelsEnabled(guildId) ? '' : '⚠️ Le système est **désactivé** — active-le avec `/configniveau activer`.\n') +
+        (getLevelsEnabled(guildId) ? '' : '⚠️ Le système est **désactivé** — active-le avec `/config niveau activer`.\n') +
         `• Salon : ${salon ? `${salon}` : '_là où le membre monte de niveau_'}\n` +
         `• Variables : \`{user}\` \`{username}\` \`{level}\` \`{server}\`\n\n` +
         `**Aperçu (niveau 5) :**\n${preview}`,

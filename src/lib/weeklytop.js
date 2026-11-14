@@ -3,7 +3,7 @@ import { getWeeklyTop, setWeeklyTop, getStatsData, addMoney } from './store.js';
 import { formatMoney } from './shop.js';
 import { TIME_ZONE } from './stats.js';
 
-// Membres de la semaine (/configeconomie semaine) : chaque lundi (heure de Paris), le top 3 des
+// Membres de la semaine (/config economie semaine) : chaque lundi (heure de Paris), le top 3 des
 // messages et le top 3 du vocal de la semaine écoulée (lundi → dimanche, stats de s?u) reçoivent
 // l'argent choisi ; les deux premiers reçoivent le rôle facultatif, retiré aux gagnants précédents.
 // L'annonce de la semaine précédente est supprimée quand la nouvelle est postée.
@@ -92,41 +92,6 @@ async function awardWeek(guild, cfg, monday) {
   setWeeklyTop(guild.id, { ...getWeeklyTop(guild.id), lastMessageId: sent.id });
 }
 
-// Message de présentation du leaderboard, reposté à chaque nouvelle semaine sous l'annonce des gagnants
-// (l'ancien est supprimé). Propre à Hanami ; la mention du rôle ne notifie personne.
-const WEEKLY_INFO = {
-  '1563159382361907350': [
-    '**__LEADERBOARD HANAMI__** 🏆',
-    '',
-    '*Bienvenue dans le classement des membres les plus actifs !*',
-    '',
-    '`-` 🌊 **Top 3 Élite** : un **rôle spécial en haut du serveur**.  ',
-    'Le **Top 1** de chaque catégorie gagne **3 rôles persos** !',
-    '',
-    '`-` 💰 **Messages** :  ',
-    '🥇 4 500 $ -  🥈 3 000 $ -  🥉 2 200 $',
-    '',
-    '`-` 🎙️ **Vocal** :  ',
-    '🥇 7 000 $ -  🥈 5 000 $ -  🥉 3 000 $',
-    '',
-    '`-` 💎 **Rôle <@&1565417313459507300> ** : reconnaissance, rôle personnalisé, multiplicateur d’argent et de niveaux.',
-    '',
-    '`-` **Reset chaque dimanche à 00h.**',
-    '',
-    '## Bonne chance à tous !',
-  ].join('\n'),
-};
-
-async function postWeeklyInfo(guild, cfg) {
-  const text = WEEKLY_INFO[guild.id];
-  const channel = text && cfg.channelId && (guild.channels.cache.get(cfg.channelId) ?? (await guild.channels.fetch(cfg.channelId).catch(() => null)));
-  if (!channel?.isTextBased?.()) return;
-  const previous = getWeeklyTop(guild.id).infoMessageId;
-  if (previous) await channel.messages.delete(previous).catch(() => {});
-  const sent = await channel.send({ content: text, allowedMentions: { parse: [] } }).catch(() => null);
-  if (sent) setWeeklyTop(guild.id, { ...getWeeklyTop(guild.id), infoMessageId: sent.id });
-}
-
 // Appelée toutes les heures : récompense la semaine écoulée une seule fois, dès le lundi.
 export async function processWeeklyTop(client) {
   const week = lastFinishedWeek();
@@ -135,6 +100,5 @@ export async function processWeeklyTop(client) {
     if (!cfg?.enabled || (cfg.lastWeek && cfg.lastWeek >= week)) continue;
     setWeeklyTop(guild.id, { ...cfg, lastWeek: week }); // noté d'abord : jamais deux fois la même semaine
     await awardWeek(guild, cfg, week).catch((err) => console.error('[semaine]', err));
-    await postWeeklyInfo(guild, cfg).catch((err) => console.error('[semaine]', err));
   }
 }

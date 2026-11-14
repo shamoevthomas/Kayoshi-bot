@@ -1,17 +1,23 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getRankConfig } from '../../lib/store.js';
 import { Colors } from '../../lib/logger.js';
-import { renderRankAnnouncement } from '../../lib/rank.js';
+import { renderRankAnnouncement, listRoles } from '../../lib/rank.js';
 
-// Donne un ou deux rôles à un membre, puis poste l'annonce (message de /configrank)
+// Donne jusqu'à MAX_ROLES rôles à un membre, puis poste l'annonce (message de /config rank)
 // en embed dans le salon configuré.
+const MAX_ROLES = 6;
+
 export default {
   data: new SlashCommandBuilder()
     .setName('rank')
-    .setDescription('Donner un rôle à un membre et l’annoncer dans le salon de /configrank.')
+    .setDescription('Donner jusqu’à 6 rôles à un membre et l’annoncer dans le salon de /config rank.')
     .addUserOption((o) => o.setName('membre').setDescription('Le membre à rank').setRequired(true))
     .addRoleOption((o) => o.setName('role').setDescription('Le rôle à donner').setRequired(true))
     .addRoleOption((o) => o.setName('role_2').setDescription('(Facultatif) Un 2ᵉ rôle à donner'))
+    .addRoleOption((o) => o.setName('role_3').setDescription('(Facultatif) Un 3ᵉ rôle à donner'))
+    .addRoleOption((o) => o.setName('role_4').setDescription('(Facultatif) Un 4ᵉ rôle à donner'))
+    .addRoleOption((o) => o.setName('role_5').setDescription('(Facultatif) Un 5ᵉ rôle à donner'))
+    .addRoleOption((o) => o.setName('role_6').setDescription('(Facultatif) Un 6ᵉ rôle à donner'))
     .addStringOption((o) => o.setName('motif').setDescription('(Facultatif) Le motif du rank').setMaxLength(500))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
     .setDMPermission(false),
@@ -19,7 +25,8 @@ export default {
   async execute(interaction) {
     const target = interaction.options.getUser('membre');
     const motif = interaction.options.getString('motif');
-    const roles = [interaction.options.getRole('role'), interaction.options.getRole('role_2')]
+    const roles = ['role', ...Array.from({ length: MAX_ROLES - 1 }, (_, i) => `role_${i + 2}`)]
+      .map((name) => interaction.options.getRole(name))
       .filter(Boolean)
       .filter((r, i, all) => all.findIndex((x) => x.id === r.id) === i);
 
@@ -46,7 +53,7 @@ export default {
 
     const toGive = roles.filter((r) => !member.roles.cache.has(r.id));
     if (!toGive.length) {
-      return interaction.reply({ content: `ℹ️ ${target} a déjà ${roles.join(' et ')}.`, ephemeral: true });
+      return interaction.reply({ content: `ℹ️ ${target} a déjà ${listRoles(roles)}.`, ephemeral: true });
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -62,9 +69,9 @@ export default {
     const channel = config?.channelId ? interaction.guild.channels.cache.get(config.channelId) : null;
     let note = '';
     if (!config) {
-      note = '\nℹ️ Aucune annonce postée : configure le salon et le message avec `/configrank`.';
+      note = '\nℹ️ Aucune annonce postée : configure le salon et le message avec `/config rank`.';
     } else if (!channel) {
-      note = '\n⚠️ Le salon des annonces de rank n’existe plus. Relance `/configrank`.';
+      note = '\n⚠️ Le salon des annonces de rank n’existe plus. Relance `/config rank`.';
     } else {
       const embed = new EmbedBuilder()
         .setColor(Colors.join)
@@ -78,6 +85,6 @@ export default {
       note = sent ? `\n📣 Annonce postée dans ${channel}.` : `\n⚠️ Je n’ai pas pu poster l’annonce dans ${channel} (permissions ?).`;
     }
 
-    return interaction.editReply({ content: `✅ ${target} a reçu ${toGive.join(' et ')}.${note}` });
+    return interaction.editReply({ content: `✅ ${target} a reçu ${listRoles(toGive)}.${note}` });
   },
 };
