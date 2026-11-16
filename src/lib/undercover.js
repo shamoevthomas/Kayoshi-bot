@@ -2,6 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionF
 import { getCounting } from './store.js';
 import { awardChatGameWin, chatGameReward, chatGameRunning } from './chatgames.js';
 import { formatMoney } from './shop.js';
+import { werewolfRunning } from './werewolf.js';
 
 // Undercover (« +undercover ») : les civils ont tous le même mot, le ou les undercovers un mot proche, et personne
 // ne connaît son rôle (« 🔍 Voir mon mot » le montre en privé). À chaque tour, chacun décrit son mot en un message
@@ -100,7 +101,7 @@ async function openLobby(message) {
   if (getCounting(guild.id)?.channelId === channel.id) return reply('❌ Pas de jeu dans le salon du compteur.');
   const running = games.get(channel.id);
   if (running) return reply(`❌ Une partie d’Undercover est déjà en cours ici${running.message ? ` : ${running.message.url}` : ''}.`);
-  if (chatGameRunning(channel.id)) return reply('❌ Un autre jeu est en cours dans ce salon : attends qu’il se termine.');
+  if (chatGameRunning(channel.id) || werewolfRunning(channel.id)) return reply('❌ Un autre jeu est en cours dans ce salon : attends qu’il se termine.');
 
   const game = { channelId: channel.id, guildId: guild.id, channel, hostId: author.id, phase: 'lobby', players: [{ id: author.id, alive: true }] };
   games.set(channel.id, game);

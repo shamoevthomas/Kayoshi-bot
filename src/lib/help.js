@@ -178,12 +178,13 @@ const CATEGORIES = [
       ['📖 · +citation', 'Livre des citations : réagis 📖 sous un message mémorable pour l’ajouter · `+citation` (au hasard, en image) · `+citation <n>` · `+citation @membre` · `+citation top` · `+citation supprimer <n>` (staff)'],
       ['+avent', 'Calendrier de l’Avent du 1er au 24 décembre : une case par jour (coins, argent, boosters d’XP), gros bonus le 24 pour ceux qui ont tout ouvert'],
       ['/pokemon', '`activer` (salon, génération) — salon « Quel est ce Pokémon ? » sans fin : le premier qui écrit le nom gagne un point, le Pokémon est dévoilé avec sa description du Pokédex · ❓ indice ⏭️ passer 👑 classement 📕 Pokédex ✨ brillants (1 chance sur 64) · `desactiver`'],
-      ['+pendu · +devine · +emoji · +pokemon · +flag', 'Jeux dans le salon, lancés par n’importe qui : pendu (écrire une lettre ou le mot, 6 vies) · nombre mystère entre 1 et 1 000 (⬆️ / ⬇️) · deviner un jeu vidéo ou un animé à partir d’emojis (2 min, indice au bout d’1 min) · la silhouette d’un des 1 025 Pokémon, nom en français ou en anglais (`+pokemon 1` à `9` pour une génération, 1 min, indice au bout de 25 s) · le pays d’un drapeau (1 min, indice au bout de 25 s ; un `+flag` toutes les 20 s par membre) — le gagnant reçoit 🪙 250 / 150 / 200 / 200 / 150 coins (5 victoires récompensées par jour)'],
+      ['+pendu · +devine · +emoji · +pokemon · +flag', 'Jeux dans le salon, lancés par n’importe qui : pendu (6 vies) · nombre mystère de 1 à 1 000 · jeu ou animé en emojis · silhouette d’un Pokémon (`+pokemon 1` à `9` : une génération) · pays d’un drapeau — indice en cours de partie, coins pour le gagnant (5 victoires récompensées par jour)'],
       ['+undercover', 'Jeu de l’imposteur (3 à 12 joueurs) : un mot secret chacun en MP, celui des undercovers est proche ; décrivez-le sans le dire, puis votez pour éliminer un suspect — coins pour l’équipe gagnante'],
-      ['+jeux top · +duel top', 'Classements : victoires aux jeux du chat (`+jeux top`, ou `+jeux top pendu` / `devine` / `emoji` / `pokemon` / `flag` / `undercover` pour un seul jeu) et duels gagnés entre membres (`+duel top`)'],
+      ['+lp', 'Loup-garou (5 à 16 joueurs, rôles en MP) : loups, voyante, sorcière, chasseur et villageois ; la nuit, tout le monde clique sur 🌙 Agir, le jour on débat puis on vote — coins pour l’équipe gagnante'],
+      ['+jeux top · +duel top', 'Classements : victoires aux jeux du chat (`+jeux top`, ou `+jeux top <jeu>` : pendu, devine, emoji, pokemon, flag, undercover, loupgarou) et duels gagnés entre membres (`+duel top`)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
-      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale sans actualité, politique, TV ni cinéma, jeux vidéo et animés, 30 min pour répondre) : chaque membre qui trouve gagne de l’argent et 🪙 500 coins (réponse dévoilée à la fin, classement dans `/top`) ; un rôle peut être mentionné à chaque question · `qui-a-dit` — un vieux message du serveur : qui l’a écrit ? · `question-du-jour` (`activer` `desactiver` `envoyer`) — une question ouverte chaque jour à l’heure choisie, avec un rôle mentionné et un fil pour les réponses'],
+      ['/quiz', '`activer` `desactiver` `question` — quiz dans un salon (culture générale, jeux vidéo et animés, 30 min pour répondre) : chaque bonne réponse gagne de l’argent et 🪙 500 coins (classement dans `/top`) · `qui-a-dit` — à qui est ce vieux message ? · `question-du-jour` — une question ouverte chaque jour, avec un fil pour les réponses'],
       ['/lovecalc · ^^lc ^^hc ^^fc', 'Pourcentage d’amour, de haine ou d’amitié : `/lovecalc type membre membre2 prenom` (vide = un membre au hasard), ou `^^lc` (amour), `^^hc` (haine), `^^fc` (amitié) suivi de `random`, `@membre` ou `@membre1 @membre2`'],
       ['@Kayoshi (en réponse)', 'Réponds à un message en mentionnant le bot : citation en image (boutons : thème clair, couleur, gras, serif, supprimer)'],
       ['kayo hug · pat · bonk…', '59 actions avec un GIF d’anime : `kayo <action> @membre` (câlin, caresse, bisou, gifle, bonk, danse…) — `kayo actions` pour la liste (`hana` marche aussi)'],
@@ -281,6 +282,7 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+lp', 'loup-garou à plusieurs'],
   ['/pay', 'donner de l’argent à un membre'],
   ['kayo pat · bonk…', '59 actions avec un GIF d’anime'],
   ['+undercover', 'jeu de l’imposteur à plusieurs'],
@@ -295,7 +297,6 @@ const RECENT = [
   ['+flag', 'devine le pays à son drapeau'],
   ['/pokemon', 'salon Pokémon sans fin, points et Pokédex'],
   ['+pokemon', 'devine le Pokémon à sa silhouette'],
-  ['+citation', 'livre des citations (réaction 📖)'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).

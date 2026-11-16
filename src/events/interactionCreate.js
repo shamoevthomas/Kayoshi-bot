@@ -29,6 +29,7 @@ import { handlePokemonGameInteraction } from '../lib/pokemongame.js';
 import { handleMassDmInteraction } from '../lib/massdm.js';
 import { handleSecurityInteraction } from '../lib/security.js';
 import { handleUndercoverInteraction } from '../lib/undercover.js';
+import { handleWerewolfInteraction } from '../lib/werewolf.js';
 import { handleConfigPanel } from '../lib/configpanel.js';
 import { handleSportInteraction } from '../lib/sport.js';
 
@@ -69,6 +70,7 @@ export default {
         if (cid.startsWith('dml_')) return void (await handleMassDmInteraction(interaction));
         if (cid.startsWith('sec:')) return void (await handleSecurityInteraction(interaction));
         if (cid.startsWith('uc:')) return void (await handleUndercoverInteraction(interaction));
+        if (cid.startsWith('lg:')) return void (await handleWerewolfInteraction(interaction));
         if (cid.startsWith('cfgp:')) return void (await handleConfigPanel(interaction));
         if (cid.startsWith('sport:')) return void (await handleSportInteraction(interaction));
         if (cid === 'shop_open') return void (await openShop(interaction));

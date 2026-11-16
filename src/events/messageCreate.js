@@ -14,6 +14,7 @@ import { handleHideCommand } from '../lib/hidechannel.js';
 import { handleLockCommand, handleLockdownCommand } from '../lib/lockchannel.js';
 import { handleChatGames } from '../lib/chatgames.js';
 import { handleUndercoverMessage } from '../lib/undercover.js';
+import { handleWerewolfMessage } from '../lib/werewolf.js';
 import { handleDuelTopCommand } from '../lib/duel.js';
 import { handlePokemonChannelMessage } from '../lib/pokemongame.js';
 import { handleQuoteBookCommand } from '../lib/quotebook.js';
@@ -78,6 +79,8 @@ export default {
     if (await handlePrefixCommand(message).catch((err) => (console.error('[casino .]', err), true))) return;
     // Undercover (+undercover) : lancement et description du joueur dont c'est le tour, sans XP ni argent.
     if (await handleUndercoverMessage(message).catch((err) => (console.error('[undercover]', err), false))) return;
+    // Loup-garou (+lp) : lancement de la salle d'attente.
+    if (await handleWerewolfMessage(message).catch((err) => (console.error('[loup-garou]', err), false))) return;
     // Jeux du chat (+pendu, +devine, +emoji) : lancement et essais, sans XP ni argent pour le message.
     if (await handleChatGames(message).catch((err) => (console.error('[jeux]', err), false))) return;
     // « +duel top » : classement des duels entre membres.
