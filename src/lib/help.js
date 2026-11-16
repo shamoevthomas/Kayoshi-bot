@@ -234,7 +234,7 @@ const CATEGORIES = [
       'Tous les réglages du bot sont dans **/config** : un panneau avec un bouton par système (vert = activé), puis ses actions (activer, désactiver, salon…).',
     lines: [
       ['/config', 'Panneau de configuration : un bouton par système (niveaux, accueil, boost, tickets, sécurité, sport…), vert quand il est activé ; un clic montre ses actions et demande ce qu’il faut (salon, rôle, texte) (Gérer le serveur)'],
-      ['/config → Sport', 'Deux salons : ⚽ résultats des matchs et matchs à venir (Ligue 1, Ligue des champions… au choix), 🥊 résultats et prochain événement UFC — mis à jour toutes les 30 min'],
+      ['/config → Sport', 'Deux salons, un message par match ⚽ (Ligue 1, Ligue des champions… au choix) ou par combat 🥊 UFC, avec une image club vs club / combattant vs combattant : annoncé la veille (2 jours avant pour l’UFC), score en direct, puis remplacé par le résultat — vérifié toutes les 10 min'],
       ['/config → Logs', 'Salon des logs du serveur (les logs vocaux vont dans #voc-logs, créé automatiquement à côté)'],
       ['/config → Sécurité', 'Panneau des protections, chacune à activer et régler : anti-mention, anti-spam, anti-spam multi-salons (mute ou ban), anti-invite (avertissement), anti-liens, anti-everyone, anti-nuke, anti-vanity-URL, anti-modification du serveur, anti-ban de masse, anti-déco vocaux, anti-bot (bot expulsé, celui qui l’a ajouté derank) — jamais contre le propriétaire et les membres de confiance (admin)'],
       ['/config → Anti-liens', 'Blocage des liens (par salon et par rôle) — 2 liens interdits en 1 min = mute 3 h'],
