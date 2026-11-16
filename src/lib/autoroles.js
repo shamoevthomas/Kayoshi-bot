@@ -1,5 +1,5 @@
 // Réconciliation UNIFIÉE des rôles automatiques (/statut role, anciennes règles de statut,
-// tag du serveur). On calcule l'ensemble des rôles « voulus » toutes sources
+// tag du serveur, boosters). On calcule l'ensemble des rôles « voulus » toutes sources
 // confondues, et on ne retire un rôle QUE si aucune source ne le réclame.
 // -> Fini les conflits où un système enlève le rôle qu'un autre vient de mettre.
 import { getStatutRules, getStatusRoleConfig, getTagRoleConfig, getStatusKeywords } from './store.js';
@@ -57,6 +57,12 @@ export async function reconcileAutoRoles(member) {
   if (tr?.roleId) {
     managed.add(tr.roleId);
     if (wearsServerTag(member)) desired.add(tr.roleId);
+  }
+
+  // 4) Boosters : les rôles du statut et du tag, sans avoir à mettre l'un ou l'autre (retirés à la fin du boost).
+  if (member.premiumSinceTimestamp) {
+    if (sk?.enabled && sk.roleId) desired.add(sk.roleId);
+    if (tr?.roleId) desired.add(tr.roleId);
   }
 
   for (const roleId of managed) {

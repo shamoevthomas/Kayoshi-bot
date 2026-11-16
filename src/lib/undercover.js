@@ -125,6 +125,15 @@ async function launch(game) {
     p.word = game.words[p.role];
   }
   game.round = 0;
+  // Chaque mot part en MP ; ceux qui ont fermé leurs MP le voient avec « 🔍 Voir mon mot ».
+  const closed = [];
+  for (const p of game.players) {
+    const sent = await game.channel.client.users
+      .send(p.id, `🕵️ **Undercover** dans ${game.channel} : ton mot secret est **${p.word}**.\n-# Décris-le sans le dire quand ce sera ton tour. Bonne chance !`)
+      .then(() => true)
+      .catch(() => false);
+    if (!sent) closed.push(p.id);
+  }
   await game.message
     .edit({
       embeds: [
@@ -133,8 +142,11 @@ async function launch(game) {
           .setTitle('🕵️ Undercover — la partie commence !')
           .setDescription(
             `**${plural(game.players.length, 'joueur')}**, dont **${plural(spies.size, 'undercover')}** caché${spies.size > 1 ? 's' : ''} parmi vous.\n` +
-              'Clique sur **🔍 Voir mon mot** pour découvrir ton mot secret (toi seul le vois).\n\n' +
-              game.players.map((p) => `<@${p.id}>`).join(' '),
+              '📩 Ton mot secret t’a été envoyé **en MP**.' +
+              (closed.length
+                ? `\n⚠️ MP fermés : ${closed.map((id) => `<@${id}>`).join(' ')} — cliquez sur **🔍 Voir mon mot** (vous seuls le voyez).`
+                : '\n-# MP perdu ? **🔍 Voir mon mot** le remontre (toi seul le vois).') +
+              `\n\n${game.players.map((p) => `<@${p.id}>`).join(' ')}`,
           ),
       ],
       components: [new ActionRowBuilder().addComponents(wordButton())],

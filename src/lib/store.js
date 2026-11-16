@@ -1563,6 +1563,17 @@ export function setStatusRewarded(guildId, userId, at) {
   return setEntry(guildId, 'statusRewarded', userId, at);
 }
 
+// Récompenses uniques (lib/statusreward.js) : statusRewarded, tagRewarded, boostRewarded = { userId: instant }.
+const REWARD_FIELDS = { status: 'statusRewarded', tag: 'tagRewarded', boost: 'boostRewarded' };
+
+export function getRewardMark(guildId, kind, userId) {
+  return getGuildConfig(guildId)[REWARD_FIELDS[kind]]?.[userId] ?? null;
+}
+
+export function setRewardMark(guildId, kind, userId, at) {
+  return setEntry(guildId, REWARD_FIELDS[kind], userId, at);
+}
+
 // Valeur des actions d'un membre au cours actuel.
 export function getStocksValue(guildId, userId) {
   const prices = getMarket(guildId)?.prices ?? {};

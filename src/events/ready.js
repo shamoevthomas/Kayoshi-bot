@@ -4,7 +4,7 @@ import { reconcileVerification, maybeRemindUnverified } from '../lib/verificatio
 import { reconcileTempVoice } from '../lib/tempvoice.js';
 import { cacheAllInvites } from '../lib/invites.js';
 import { sweepAutoRoles } from '../lib/autoroles.js';
-import { sweepStatusRewards } from '../lib/statusreward.js';
+import { sweepRewards } from '../lib/statusreward.js';
 import { sweepAntiRoles } from '../lib/antirole.js';
 import { sweepNickLocks } from '../lib/nicklock.js';
 import { rejoinVoiceChannels } from '../lib/voicestay.js';
@@ -116,8 +116,8 @@ export default {
     // source (statut/tag) ne le réclame → plus de conflit entre systèmes.
     setTimeout(() => sweepAutoRoles(client).catch(() => {}), 12_000);
     setInterval(() => sweepAutoRoles(client).catch(() => {}), 300_000);
-    // Récompense unique du statut (/hanamifr) : ceux qui l'avaient déjà au démarrage ; ensuite, presenceUpdate.
-    setTimeout(() => sweepStatusRewards(client).catch((err) => console.error('[statut récompense]', err)), 20_000);
+    // Récompenses uniques (statut /hanamifr, tag, boost) : ceux qui y ont déjà droit au démarrage ; ensuite, à chaque changement.
+    setTimeout(() => sweepRewards(client).catch((err) => console.error('[récompenses]', err)), 20_000);
     // Rôles incompatibles (/antirole) : rattrapage des changements faits hors ligne.
     setTimeout(() => sweepAntiRoles(client).catch(() => {}), 20_000);
     // Pseudos verrouillés (/lockpseudo) : rattrapage des changements faits hors ligne.

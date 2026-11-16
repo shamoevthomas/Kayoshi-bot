@@ -1,10 +1,10 @@
 import { Events } from 'discord.js';
 import { reconcileAutoRoles } from '../lib/autoroles.js';
-import { checkStatusReward } from '../lib/statusreward.js';
+import { checkRewards } from '../lib/statusreward.js';
 
 // À chaque changement de présence : réconcilie tous les rôles automatiques
 // (règles de statut encore enregistrées, tag) — un rôle n'est retiré que si AUCUNE
-// source ne le réclame — et donne la récompense unique du statut (lib/statusreward.js).
+// source ne le réclame — et donne les récompenses uniques du statut et du tag (lib/statusreward.js).
 export default {
   name: Events.PresenceUpdate,
   async execute(oldPresence, newPresence) {
@@ -12,6 +12,6 @@ export default {
     const member = newPresence?.member;
     if (!guild || !member || member.user?.bot) return;
     await reconcileAutoRoles(member).catch(() => {});
-    await checkStatusReward(member).catch((err) => console.error('[statut récompense]', err));
+    await checkRewards(member, ['status', 'tag']);
   },
 };

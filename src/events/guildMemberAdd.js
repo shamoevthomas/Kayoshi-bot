@@ -11,6 +11,7 @@ import { applyNickLock } from '../lib/nicklock.js';
 import { kickIfRecentAccount } from '../lib/accountage.js';
 import { syncMemberLevelRoles } from '../lib/levels.js';
 import { restorePersonalRoles } from '../lib/leftroles.js';
+import { checkRewards } from '../lib/statusreward.js';
 import { handleBotJoin } from '../lib/security.js';
 
 export default {
@@ -43,6 +44,8 @@ export default {
     await applyNickLock(member).catch((err) => console.error(err));
     // Rôles automatiques (tag / statut) si le membre y est déjà éligible.
     await reconcileAutoRoles(member).catch(() => {});
+    // Récompense du tag s'il le porte déjà en arrivant.
+    await checkRewards(member, ['tag']);
     // Rôles-récompenses de niveau (palier 0 pour un nouveau membre).
     await syncMemberLevelRoles(member).catch((err) => console.error(err));
     // Vérification anti-bot (si configurée)

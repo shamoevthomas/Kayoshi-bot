@@ -1,6 +1,8 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, sendSanctionLog, Colors, findExecutor, findAuditEntry } from '../lib/logger.js';
 import { handleBoost } from '../lib/boost.js';
+import { reconcileAutoRoles } from '../lib/autoroles.js';
+import { checkRewards } from '../lib/statusreward.js';
 import { syncQuarantineRole } from '../lib/blacklist.js';
 import { enforceAntiRoles } from '../lib/antirole.js';
 import { enforceNickLock } from '../lib/nicklock.js';
@@ -13,6 +15,11 @@ export default {
 
     // Message de boost (si le membre vient de booster le serveur).
     await handleBoost(oldMember, newMember).catch((err) => console.error(err));
+    // Début ou fin d'un boost : rôles du statut et du tag (donnés aux boosters), et récompense du boost.
+    if (Boolean(oldMember.premiumSinceTimestamp) !== Boolean(newMember.premiumSinceTimestamp)) {
+      await reconcileAutoRoles(newMember).catch(() => {});
+      await checkRewards(newMember, ['boost']);
+    }
     // Mémorise l'ajout/retrait manuel du rôle de quarantaine (persistance).
     syncQuarantineRole(oldMember, newMember);
     // Rôles incompatibles (/antirole) : retire le rôle bloqué s'il vient d'être cumulé.
