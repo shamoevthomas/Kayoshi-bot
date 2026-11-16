@@ -58,7 +58,7 @@ export default {
         `✅ ${current ? 'Message privé à l’arrivée modifié' : 'Message privé à l’arrivée activé'} : chaque nouveau membre le recevra en MP.\n` +
         `**Aperçu** (comme si tu venais d’arriver) :\n${quote(preview.slice(0, 1200))}\n\n` +
         `-# ${TEMPLATE_HELP}\n` +
-        '-# Les membres qui ont fermé leurs MP ne le reçoivent pas. Relance `/config accueil mp` et vide le message pour le désactiver.',
+        '-# Les membres qui ont fermé leurs MP ne le reçoivent pas. Relance `/config → Accueil → MP d’arrivée` et vide le message pour le désactiver.',
       ephemeral: true,
       allowedMentions: { parse: [] },
     });

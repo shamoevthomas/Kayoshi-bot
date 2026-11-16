@@ -291,7 +291,7 @@ export function snapshotInviteTotals(guildId) {
   return out;
 }
 
-// Salon dédié au suivi des invitations (configuré via /config invitations).
+// Salon dédié au suivi des invitations (configuré via /config → Invitations).
 export function getInviteLogChannel(guildId) {
   return getGuildConfig(guildId).inviteLogChannelId ?? null;
 }
@@ -403,7 +403,7 @@ export function addSanction(guildId, userId, record) {
   setGuildConfig(guildId, { sanctions: { ...all, [userId]: [...(all[userId] ?? []), record].slice(-50) } });
 }
 
-// --- Économie automatique (/config economie) ---
+// --- Économie automatique (/config → Économie) ---
 // moneyDrops = { enabled, channelIds, min, max, everyMin } : argent à ramasser dans les salons actifs.
 // weeklyTop = { enabled, channelId, roleId, rewards: { m1, m2, m3, v1, v2, v3 }, lastWeek, lastMessageId } :
 //   récompenses du lundi pour le top 3 messages et le top 3 vocal ; lastWeek = lundi de la
@@ -511,7 +511,7 @@ export function addQuizWin(guildId, userId) {
   setGuildConfig(guildId, { quizScores: { ...scores, [userId]: (scores[userId] ?? 0) + 1 } });
 }
 
-// --- Comptage (/config compteur) ---
+// --- Comptage (/config → Compteur) ---
 // counting = { channelId, current, record, lastUserId } ; nombres gardés en texte (sans limite de taille).
 export function getCounting(guildId) {
   return getGuildConfig(guildId).counting ?? null;
@@ -627,7 +627,7 @@ export function deleteTicketRecord(guildId, channelId, key = 'ticketConfig') {
   save(data, guildId);
 }
 
-// --- Avis sur les tickets (/config avis-ticket) ---
+// --- Avis sur les tickets (/config → Avis tickets) ---
 export function getAvisConfig(guildId) {
   return getGuildConfig(guildId).avisConfig ?? null;
 }
@@ -668,7 +668,7 @@ export function saveAvisReview(guildId, number, patch) {
 }
 
 // --- Vérification anti-bot (captcha) ---
-// Réglages, même quand la vérification est désactivée (enabled: false) : /config accueil verif, /passer-verif.
+// Réglages, même quand la vérification est désactivée (enabled: false) : /config → Accueil → Vérification, /passer-verif.
 export function getVerifSettings(guildId) {
   return getGuildConfig(guildId).verifConfig ?? null;
 }
@@ -796,7 +796,7 @@ export function removeNickLock(guildId, userId) {
   return true;
 }
 
-// --- Confessions anonymes (/config confessions) ---
+// --- Confessions anonymes (/config → Confessions) ---
 // confessions = { channelId, logChannelId, count, authors } : salon des confessions, salon des logs
 // (auteur visible du staff), dernier numéro attribué, et auteur de chaque confession
 // ({ messageId: userId }, jamais affiché aux membres) pour le prévenir en MP quand on lui répond.
@@ -830,7 +830,7 @@ export function nextConfessionNumber(guildId) {
   return number;
 }
 
-// --- Message GIF sans perm image (/config messimage) ---
+// --- Message GIF sans perm image (/config → Message GIF) ---
 // gifHint = { message, ignoredRoleIds: [roleId] }
 export function getGifHint(guildId) {
   return getGuildConfig(guildId).gifHint ?? null;
@@ -840,7 +840,7 @@ export function setGifHint(guildId, gifHint) {
   return setGuildConfig(guildId, { gifHint });
 }
 
-// --- Annonces de rank (/config rank, /rank) ---
+// --- Annonces de rank (/config → Rank / derank, /rank) ---
 // rankConfig = { channelId, message }
 export function getRankConfig(guildId) {
   return getGuildConfig(guildId).rankConfig ?? null;
@@ -1106,8 +1106,8 @@ export function patchGuessFlag(guildId, patch) {
   return setGuildConfig(guildId, { guessFlag: { ...(getGuessFlag(guildId) ?? {}), ...patch } }).guessFlag;
 }
 
-// --- Message privé envoyé à chaque arrivée (/config accueil mp) ---
-// dmJoin = { message } (templates de /config accueil bienvenue), null = désactivé.
+// --- Message privé envoyé à chaque arrivée (/config → Accueil → MP d’arrivée) ---
+// dmJoin = { message } (templates de /config → Accueil → Bienvenue), null = désactivé.
 export function getDmJoin(guildId) {
   return getGuildConfig(guildId).dmJoin ?? null;
 }
@@ -1116,7 +1116,7 @@ export function setDmJoin(guildId, dmJoin) {
   return setGuildConfig(guildId, { dmJoin });
 }
 
-// --- Classement d'activité hebdomadaire (/config classement) ---
+// --- Classement d'activité hebdomadaire (/config → Classement) ---
 // Salon + message à mettre à jour : { channelId, messageId }.
 export function getStatConfig(guildId) {
   return getGuildConfig(guildId).statConfig ?? null;
@@ -1605,7 +1605,7 @@ export function setCasinoHold(guildId, key, hold) {
   return setEntry(guildId, 'casinoHolds', key, hold);
 }
 
-// Apparence de la boutique (/config boutique) : { title, description, color }.
+// Apparence de la boutique (/config → Boutique) : { title, description, color }.
 export function getShopConfig(guildId) {
   return getGuildConfig(guildId).shop?.config ?? {};
 }
@@ -1908,7 +1908,7 @@ export function removeSentEmbed(guildId, messageId) {
   return true;
 }
 
-// --- Message de boost (/config boost) ---
+// --- Message de boost (/config → Boost) ---
 // boostConfig = { channelId, message, mentionType, roleId }
 export function getBoostConfig(guildId) {
   return getGuildConfig(guildId).boostConfig ?? null;
@@ -1918,7 +1918,7 @@ export function setBoostConfig(guildId, boostConfig) {
   return setGuildConfig(guildId, { boostConfig });
 }
 
-// --- Rappel de bump Disboard (/config bump rappel) ---
+// --- Rappel de bump Disboard (/config → Rappel de bump → Rappel) ---
 // bumpReminder = { enabled, roleId, reminderMessage, thanksMessage, channelId,
 //                  nextAt, lastBumperId, lastBumpMessageId }
 export function getBumpReminder(guildId) {

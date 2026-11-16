@@ -206,7 +206,7 @@ export default {
       });
     } catch (err) {
       console.error(err);
-      return interaction.editReply({ content: '⏱️ Configuration annulée (délai dépassé ou erreur). Relance `/config accueil verif`.', components: [], embeds: [] }).catch(() => {});
+      return interaction.editReply({ content: '⏱️ Configuration annulée (délai dépassé ou erreur). Relance `/config → Accueil → Vérification`.', components: [], embeds: [] }).catch(() => {});
     }
   },
 };
@@ -237,7 +237,7 @@ async function disable(interaction, button, msg, filter, current, enabled) {
   const waiting = await countUnverified(interaction.guild);
   const text =
     `⛔ **Vérification désactivée** : plus de captcha, de kick ni de rappel. Les nouveaux membres reçoivent directement ${current.roleId ? `<@&${current.roleId}>` : 'le rôle de vérifié'}.\n` +
-    '-# Tes réglages sont gardés : `/config accueil verif` → **Activer** pour la remettre.';
+    '-# Tes réglages sont gardés : `/config → Accueil → Vérification` → **Activer** pour la remettre.';
   if (!waiting) return interaction.editReply({ content: text, allowedMentions: { parse: [] } });
 
   await interaction.editReply({

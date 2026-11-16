@@ -41,9 +41,9 @@ const POURQUOI_RE = /(?:^|\s)pourquoi\s*[?!.…]*$/i;
 export default {
   name: Events.MessageCreate,
   async execute(message) {
-    // Message système « … a boosté le serveur » : message de boost (/config boost), rien d'autre.
+    // Message système « … a boosté le serveur » : message de boost (/config → Boost), rien d'autre.
     if (await handleBoostSystemMessage(message).catch((err) => console.error('[boost]', err))) return;
-    // /bump réussi avec Disboard → remerciement + rappel dans 2 h (/config bump rappel).
+    // /bump réussi avec Disboard → remerciement + rappel dans 2 h (/config → Rappel de bump → Rappel).
     await handleDisboardBump(message).catch((err) => console.error(err));
 
     // Salon "one-message" : le message est supprimé aussitôt (pour tous, ou
@@ -67,7 +67,7 @@ export default {
       return false;
     });
     if (spam) return;
-    // Anti-everyone, anti-mention et anti-invite (/config securite) : le message est supprimé.
+    // Anti-everyone, anti-mention et anti-invite (/config → Sécurité) : le message est supprimé.
     if (await handleSecurityMessage(message).catch((err) => (console.error('[sécurité]', err), false))) return;
 
     // « @Kayoshi dml » (propriétaire du serveur) : panneau du DM de masse.
@@ -87,7 +87,7 @@ export default {
 
     // Serveur actif : le quiz ne pose ses questions que dans ce cas.
     noteQuizActivity(message);
-    // Salon de comptage (/config compteur) : 1, 2, 3… à tour de rôle.
+    // Salon de comptage (/config → Compteur) : 1, 2, 3… à tour de rôle.
     await handleCountingMessage(message).catch((err) => console.error('[compteur]', err));
 
     // « +vc » : statistiques des salons vocaux.
@@ -126,7 +126,7 @@ export default {
     } catch (err) {
       console.error('[money]', err);
     }
-    // Drop d'argent à ramasser, de temps en temps, dans les salons choisis (/config economie).
+    // Drop d'argent à ramasser, de temps en temps, dans les salons choisis (/config → Économie).
     await maybeDropMoney(message).catch((err) => console.error('[drops]', err));
     // Quêtes de la semaine : paie celles que ce message (ou le vocal d'avant) vient de terminer.
     if (message.guild && !message.author.bot) await checkQuests(message).catch((err) => console.error('[quetes]', err));
@@ -142,7 +142,7 @@ export default {
     // Comptage des messages pour les giveaways avec condition de participation.
     if (message.guild && !message.author?.bot) {
       bumpGiveawayMessages(message.guild.id, message.author.id);
-      // Comptage d'activité hebdomadaire (classement /config classement).
+      // Comptage d'activité hebdomadaire (classement /config → Classement).
       bumpActivity(message.guild.id, message.author.id);
       // Mode coiffeur : "quoi ?" → "feur", "pourquoi ?" → "pour feur".
       if (getCoiffeurEnabled(message.guild.id)) {

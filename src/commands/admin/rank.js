@@ -3,14 +3,14 @@ import { getRankConfig } from '../../lib/store.js';
 import { Colors } from '../../lib/logger.js';
 import { renderRankAnnouncement, listRoles } from '../../lib/rank.js';
 
-// Donne jusqu'à MAX_ROLES rôles à un membre, puis poste l'annonce (message de /config rank)
+// Donne jusqu'à MAX_ROLES rôles à un membre, puis poste l'annonce (message de /config → Rank / derank)
 // en embed dans le salon configuré.
 const MAX_ROLES = 6;
 
 export default {
   data: new SlashCommandBuilder()
     .setName('rank')
-    .setDescription('Donner jusqu’à 6 rôles à un membre et l’annoncer dans le salon de /config rank.')
+    .setDescription('Donner jusqu’à 6 rôles à un membre et l’annoncer dans le salon de /config → Rank / derank.')
     .addUserOption((o) => o.setName('membre').setDescription('Le membre à rank').setRequired(true))
     .addRoleOption((o) => o.setName('role').setDescription('Le rôle à donner').setRequired(true))
     .addRoleOption((o) => o.setName('role_2').setDescription('(Facultatif) Un 2ᵉ rôle à donner'))
@@ -69,9 +69,9 @@ export default {
     const channel = config?.channelId ? interaction.guild.channels.cache.get(config.channelId) : null;
     let note = '';
     if (!config) {
-      note = '\nℹ️ Aucune annonce postée : configure le salon et le message avec `/config rank`.';
+      note = '\nℹ️ Aucune annonce postée : configure le salon et le message avec `/config → Rank / derank`.';
     } else if (!channel) {
-      note = '\n⚠️ Le salon des annonces de rank n’existe plus. Relance `/config rank`.';
+      note = '\n⚠️ Le salon des annonces de rank n’existe plus. Relance `/config → Rank / derank`.';
     } else {
       const embed = new EmbedBuilder()
         .setColor(Colors.join)

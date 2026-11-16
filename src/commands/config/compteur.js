@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { counterPanel } from '../../lib/counting.js';
 
-// Salon de comptage : /config compteur ouvre un panneau avec les boutons Activer (choix du salon), Désactiver
+// Salon de comptage : /config → Compteur ouvre un panneau avec les boutons Activer (choix du salon), Désactiver
 // et Voir (voir lib/counting.js).
 export default {
   data: new SlashCommandBuilder()

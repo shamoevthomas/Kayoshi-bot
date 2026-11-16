@@ -44,7 +44,7 @@ export const MONEY_PER_LEVEL = 200;
 // Couleur des embeds du système de niveaux (annonce, /niveau, récompenses).
 export const LEVEL_COLOR = 0xffffff;
 
-// Message texte par défaut au-dessus de la carte (modifiable via /config niveau).
+// Message texte par défaut au-dessus de la carte (modifiable via /config → Niveaux).
 const DEFAULT_LEVELUP = 'bien joué {user} tu viens de passer au niveau {level} !';
 
 export function formatLevelUp(template, { user, level, guild }) {
@@ -228,7 +228,7 @@ function renderSalaryCard(user, member, amount) {
 // À chaque message : crédite l'XP et annonce un éventuel passage de niveau.
 export async function grantMessageXp(message) {
   if (!message.guild || message.author?.bot) return;
-  if (!getLevelsEnabled(message.guild.id)) return; // système désactivé via /config niveau
+  if (!getLevelsEnabled(message.guild.id)) return; // système désactivé via /config → Niveaux
   const gain = Math.round(xpForMessage((message.content ?? '').trim().length) * xpMultiplier(message.guild.id, message.author.id, message.member));
   if (!gain) return;
 
@@ -344,7 +344,7 @@ export async function syncLevelRoles(member, level = 0) {
   return added;
 }
 
-// Salon des annonces de niveau : celui de /config niveau, sinon celui du message.
+// Salon des annonces de niveau : celui de /config → Niveaux, sinon celui du message.
 async function levelChannel(message) {
   const dedicatedId = levelUpChannelId(message.guild.id);
   if (!dedicatedId) return message.channel;

@@ -15,7 +15,7 @@ import { openTicketFor } from './tickets.js';
 import { formatDuration } from './time.js';
 import { ensureExtraLogChannel } from './logger.js';
 
-// Couleur par défaut de la boutique, et parseur de couleur hex pour /config boutique.
+// Couleur par défaut de la boutique, et parseur de couleur hex pour /config → Boutique.
 const DEFAULT_COLOR = 0x2ecc71;
 export function parseColor(input) {
   const h = (input ?? '').trim().replace(/^#/, '');

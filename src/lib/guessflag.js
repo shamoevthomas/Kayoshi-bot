@@ -186,7 +186,7 @@ function withLock(guildId, fn) {
 }
 
 // Salon des logs du jeu (les réponses de chacun) : réutilisé s'il existe, sinon créé à côté du salon
-// de logs du serveur (/config logs) avec ses permissions (le staff qui voit les logs le voit), ou à côté du
+// de logs du serveur (/config → Logs) avec ses permissions (le staff qui voit les logs le voit), ou à côté du
 // salon du jeu, caché à @everyone, s'il n'y a pas de salon de logs. Renvoie le salon, ou null.
 async function ensureLogChannel(guild, gameChannel) {
   const state = getGuessFlag(guild.id) ?? {};

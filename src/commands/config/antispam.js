@@ -2,10 +2,10 @@ import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.j
 import { getAntiSpamConfig, setAntiSpamConfig } from '../../lib/store.js';
 import { MULTI_WINDOW_MS, MULTI_MIN_CHANNELS, MULTI_TIMEOUT_MS, multiSettings } from '../../lib/antispam.js';
 
-// Règle multi-salons (réglée dans /config securite → Anti-Spam-Multi-Salons).
+// Règle multi-salons (réglée dans /config → Sécurité → Anti-Spam-Multi-Salons).
 function multiLine(config) {
   const m = multiSettings(config);
-  if (!m.enabled) return '• Multi-salons : désactivé (`/config securite`)\n';
+  if (!m.enabled) return '• Multi-salons : désactivé (`/config → Sécurité`)\n';
   return m.sanction === 'ban'
     ? `• Multi-salons : le même message dans **${m.channels}** salons en **${MULTI_WINDOW_MS / 1000}s** → **ban**\n`
     : `• Multi-salons : le même message dans **${m.channels}** salons, ou des messages dans **${MULTI_MIN_CHANNELS}** salons, ` +
@@ -15,7 +15,7 @@ function multiLine(config) {
 const STAFF_NOTE =
   '_Le staff (« Gérer les messages ») est toujours exempté : pour tester, utilise un compte sans cette permission._';
 
-// Salons que /config antispam activer peut faire ignorer (une catégorie = tous ses salons).
+// Salons que /config → Anti-spam → Activer peut faire ignorer (une catégorie = tous ses salons).
 const IGNORABLE_TYPES = [
   ChannelType.GuildText,
   ChannelType.GuildAnnouncement,

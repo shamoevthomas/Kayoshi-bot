@@ -59,7 +59,7 @@ export default {
       const res = await forceVerify(member, interaction.user);
 
       const messages = {
-        'no-config': "❌ La vérification n'est pas configurée sur ce serveur (`/config accueil verif`).",
+        'no-config': "❌ La vérification n'est pas configurée sur ce serveur (`/config → Accueil → Vérification`).",
         bot: '❌ Impossible : ce membre est un bot.',
         already: `ℹ️ ${member} est déjà vérifié.`,
       };
@@ -112,7 +112,7 @@ async function verifyAll(interaction) {
   });
   if (!res.ok) {
     const messages = {
-      'no-config': "❌ La vérification n'est pas configurée sur ce serveur (`/config accueil verif`).",
+      'no-config': "❌ La vérification n'est pas configurée sur ce serveur (`/config → Accueil → Vérification`).",
       'fetch-failed': '❌ Impossible de récupérer la liste des membres.',
     };
     return interaction

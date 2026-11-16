@@ -3,7 +3,7 @@ import { getWeeklyTop, setWeeklyTop, getStatsData, addMoney } from './store.js';
 import { formatMoney } from './shop.js';
 import { TIME_ZONE } from './stats.js';
 
-// Membres de la semaine (/config economie semaine) : chaque lundi (heure de Paris), le top 3 des
+// Membres de la semaine (/config → Économie → Membres de la semaine) : chaque lundi (heure de Paris), le top 3 des
 // messages et le top 3 du vocal de la semaine écoulée (lundi → dimanche, stats de s?u) reçoivent
 // l'argent choisi ; les deux premiers reçoivent le rôle facultatif, retiré aux gagnants précédents.
 // L'annonce de la semaine précédente est supprimée quand la nouvelle est postée.

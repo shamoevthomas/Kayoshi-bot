@@ -18,13 +18,13 @@ export default {
     // Le bot lui-même (/join) : déconnecté ou déplacé par quelqu'un → on s'aligne.
     if (newState.id === newState.client.user.id) return onBotVoiceStateUpdate(oldState, newState);
     if (member?.user?.bot) return;
-    // Anti-déco vocaux (/config securite) : membres déconnectés du vocal par le staff.
+    // Anti-déco vocaux (/config → Sécurité) : membres déconnectés du vocal par le staff.
     handleSecurityVoiceLeave(oldState, newState).catch((err) => console.error('[sécurité]', err));
 
     // Vocaux temporaires (création/suppression auto)
     await handleVoiceState(oldState, newState).catch((err) => console.error(err));
 
-    // Suivi du temps vocal pour le classement (/config classement) et les stats (s?…) — AFK exclu.
+    // Suivi du temps vocal pour le classement (/config → Classement) et les stats (s?…) — AFK exclu.
     // Un changement de salon clôt la session du salon quitté (stats par salon).
     const wasCounting = counts(oldState);
     const isCounting = counts(newState);

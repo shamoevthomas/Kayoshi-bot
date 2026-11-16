@@ -113,7 +113,7 @@ function overview(guildId) {
         value: drops
           ? `Salons : ${drops.channelIds.map((id) => `<#${id}>`).join(' ') || 'aucun'}\n` +
             `Montant : ${formatMoney(drops.min)} à ${formatMoney(drops.max)} 💰 · environ toutes les ${drops.everyMin} min`
-          : '_Pas encore configuré._ `/config economie drops`',
+          : '_Pas encore configuré._ `/config → Économie → Drops d’argent`',
       },
       {
         name: `Membres de la semaine — ${week?.enabled ? '✅ activés' : '❌ désactivés'}`,
@@ -121,7 +121,7 @@ function overview(guildId) {
           ? `Annonce le lundi dans ${week.channelId ? `<#${week.channelId}>` : '—'}${week.roleId ? ` · rôle <@&${week.roleId}>` : ''}\n` +
             `💬 Messages : 🥇 ${money(week.rewards.m1)} · 🥈 ${money(week.rewards.m2)} · 🥉 ${money(week.rewards.m3)}\n` +
             `🔊 Vocal : 🥇 ${money(week.rewards.v1)} · 🥈 ${money(week.rewards.v2)} · 🥉 ${money(week.rewards.v3)}`
-          : '_Pas encore configuré._ `/config economie semaine`',
+          : '_Pas encore configuré._ `/config → Économie → Membres de la semaine`',
       },
     );
 }

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { securityHome } from '../../lib/security.js';
 
-// /config securite : panneau des protections du serveur (lib/security.js).
+// /config → Sécurité : panneau des protections du serveur (lib/security.js).
 export default {
   data: new SlashCommandBuilder()
     .setName('securite')

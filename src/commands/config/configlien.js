@@ -139,7 +139,7 @@ export default {
     } catch (err) {
       console.error('[configlien] échec :', err);
       return interaction
-        .editReply({ content: '⏱️ Configuration interrompue (10 min d’inactivité ou erreur). Relance `/config lien`.', components: [] })
+        .editReply({ content: '⏱️ Configuration interrompue (10 min d’inactivité ou erreur). Relance `/config → Anti-liens`.', components: [] })
         .catch(() => {});
     }
   },

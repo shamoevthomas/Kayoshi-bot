@@ -11,7 +11,7 @@ const punished = new Map();
 // Spam multi-salons, en moins de MULTI_WINDOW_MS → mute MULTI_TIMEOUT_MS (ou ban, au choix) :
 // - le même message (copier-coller) dans au moins `channels` salons différents (2 par défaut) ;
 // - ou, quand la sanction est le mute, des messages dans au moins MULTI_MIN_CHANNELS salons différents.
-// Réglages (/config securite → Anti-Spam-Multi-Salons) : data.antispam.multi = { enabled, channels, sanction }.
+// Réglages (/config → Sécurité → Anti-Spam-Multi-Salons) : data.antispam.multi = { enabled, channels, sanction }.
 // Sans réglage, il suit l'anti-spam (actif quand l'anti-spam l'est).
 export const MULTI_WINDOW_MS = 10_000;
 export const MULTI_MIN_CHANNELS = 3;
@@ -20,7 +20,7 @@ export const multiSettings = (config) => ({ enabled: Boolean(config?.enabled), c
 const multiBuckets = new Map();
 const multiPunished = new Map();
 
-// Salon ignoré par /config antispam ignorer : le salon lui-même, sa catégorie, ou pour
+// Salon ignoré par /config → Anti-spam ignorer : le salon lui-même, sa catégorie, ou pour
 // un fil, son salon parent (et la catégorie de celui-ci).
 export function isIgnoredChannel(channel, ignoredIds) {
   if (!ignoredIds?.length) return false;

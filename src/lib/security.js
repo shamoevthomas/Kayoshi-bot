@@ -21,11 +21,11 @@ import { sendLog, sendSanctionLog, Colors } from './logger.js';
 import { recordSanction } from './sanctions.js';
 import { persistUrl, readMedia } from './media.js';
 
-// Sécurité du serveur (/config securite) : un panneau liste les protections ; chacune s'active, se désactive et se
+// Sécurité du serveur (/config → Sécurité) : un panneau liste les protections ; chacune s'active, se désactive et se
 // règle. Nouvelles ici : anti-mention, anti-invite, anti-everyone, anti-vanity, anti-modification du serveur,
 // anti-déco vocaux et anti-bot. Le panneau règle aussi l'anti-spam (lib/antispam.js), l'anti-ban de masse
-// (lib/antinuke.js) et l'anti-nuke ; l'anti-liens se règle avec /config lien. Personne n'est sanctionné parmi les
-// membres de confiance (isTrusted : propriétaire, /config antinuke ajouter…).
+// (lib/antinuke.js) et l'anti-nuke ; l'anti-liens se règle avec /config → Anti-liens. Personne n'est sanctionné parmi les
+// membres de confiance (isTrusted : propriétaire, /config → Anti-nuke → Ajouter un membre de confiance…).
 
 const MENTION_USER = /<@!?(\d{17,20})>/g;
 const MENTION_ROLE = /<@&(\d{17,20})>/g;
@@ -257,7 +257,7 @@ export async function handleBotJoin(member) {
   if (!sanctioned) await alert(guild, '🤖 Anti-bot', `${executor} a ajouté le bot **${member.user.tag}** : ${kicked ? 'bot expulsé' : '⚠️ bot pas expulsé'}.`);
 }
 
-// --- Panneau /config securite ---
+// --- Panneau /config → Sécurité ---
 
 // Chaque protection : où sont ses réglages (get, toggle, save) et ce qu'on peut régler (fields : [clé, libellé, min, max]).
 const own = (key, fields = []) => ({
@@ -313,8 +313,8 @@ const PROTECTIONS = [
     key: 'link', emoji: '🌐', name: 'Anti-Link',
     about: 'Supprime les liens hors whitelist (réglé salon par salon et rôle par rôle)',
     get: (guild) => ({ enabled: Boolean(getLinkConfig(guild.id)?.roleIds?.length) }),
-    note: 'Se règle avec `/config lien` : rôles filtrés, salons et rôles autorisés.',
-    summary: () => 'réglé avec /config lien',
+    note: 'Se règle avec `/config → Anti-liens` : rôles filtrés, salons et rôles autorisés.',
+    summary: () => 'réglé avec /config → Anti-liens',
   },
   {
     key: 'everyone', emoji: '🚫', name: 'Anti-Everyone',
@@ -327,7 +327,7 @@ const PROTECTIONS = [
     about: 'Derank si des salons / rôles sont créés ou supprimés en masse par la même personne',
     get: (guild) => ({ enabled: getAntiNuke(guild.id).enabled }),
     toggle: (guild, on) => setAntiNuke(guild.id, { enabled: on }),
-    note: 'En 1 min : 3 salons ou 3 rôles supprimés, 8 créés, ou 5 expulsions. Membres de confiance : `/config antinuke ajouter`.',
+    note: 'En 1 min : 3 salons ou 3 rôles supprimés, 8 créés, ou 5 expulsions. Membres de confiance : `/config → Anti-nuke → Ajouter un membre de confiance`.',
     summary: () => 'suppressions / créations / expulsions en masse → derank',
   },
   {
@@ -365,7 +365,7 @@ const PROTECTIONS = [
 ];
 const byKey = new Map(PROTECTIONS.map((p) => [p.key, p]));
 const COLOR = 0x5865f2;
-const TRUST_NOTE = 'Jamais sanctionnés : le propriétaire et les membres de confiance (/config antinuke ajouter).';
+const TRUST_NOTE = 'Jamais sanctionnés : le propriétaire et les membres de confiance (/config → Anti-nuke → Ajouter un membre de confiance).';
 
 export function securityHome(guild) {
   const lines = PROTECTIONS.map((p) => {

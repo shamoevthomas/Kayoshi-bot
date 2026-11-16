@@ -58,7 +58,7 @@ const INTRO =
   `-# ${TEMPLATE_HELP} — affichés tels quels dans l’aperçu, remplacés à l’envoi.`;
 
 const GREET_LABEL = { welcome: 'bienvenue', leave: 'départ' };
-const GREET_CMD = { welcome: '/config accueil bienvenue', leave: '/config accueil depart' };
+const GREET_CMD = { welcome: '/config → Accueil → Bienvenue', leave: '/config → Accueil → Départ' };
 
 export function defaultEmbed() {
   return new EmbedBuilder().setTitle('titre').setDescription('description').setColor(0x5865f2);
@@ -860,7 +860,7 @@ async function outgoing(interaction, embed, roleId, rr, shop = false, frame = fa
   return { embeds: [rendered], components };
 }
 
-// L'embed est stocké à part : le message texte de /config accueil bienvenue ou /config accueil depart n'est pas touché.
+// L'embed est stocké à part : le message texte de /config → Accueil → Bienvenue ou /config → Accueil → Départ n'est pas touché.
 async function saveGreeting(guildId, type, channelId, embed) {
   // Renvoyé à chaque arrivée / départ : ses images Discord deviennent des images gardées par le bot.
   setGreetEmbed(guildId, type, { channelId, embed: await persistImages(guildId, embed) });
@@ -996,7 +996,7 @@ async function loadTarget(interaction, value) {
   if (type === 'ticket' && TICKET_KEY[a]) {
     requireAdmin(interaction);
     const config = getTicketConfig(guild.id, TICKET_KEY[a]);
-    if (!config?.motifs?.length) throw new Error(`Aucun panneau de tickets pour le système ${a} : lance d’abord \`/config ticket\`.`);
+    if (!config?.motifs?.length) throw new Error(`Aucun panneau de tickets pour le système ${a} : lance d’abord \`/config → Tickets\`.`);
     const embed = cleanEmbed(buildTicketPanel(config, Number(a)).embeds[0].toJSON());
     const motifs = config.motifs.map((m) =>
       cleanOption({ label: m.label, value: m.id, description: m.description, emoji: m.emoji ? parseEmoji(m.emoji) : null }),
@@ -1115,7 +1115,7 @@ async function applyTicketPanel(guild, slot, embed, motifs) {
   for (const motif of renamed) await syncMotifCategoryName(guild, motif);
   if (renamed.length) summary.push('catégories renommées');
   if (added.length) {
-    // Une catégorie par nouveau motif (comme /config ticket).
+    // Une catégorie par nouveau motif (comme /config → Tickets).
     const created = await createCategories(guild, config).then(() => true).catch(() => false);
     setTicketConfig(guild.id, config, TICKET_KEY[slot]);
     summary.push(
@@ -1212,7 +1212,7 @@ function applyMotifModal(interaction, motifId, motifs) {
     return { motifs: motifs.filter((_, i) => i !== index), note: `🗑️ Motif **${motifs[index].label}** retiré de l’aperçu` };
   }
   if (index < 0 && motifs.length >= MAX_OPTIONS) throw new Error(`${MAX_OPTIONS} motifs maximum dans le panneau.`);
-  // Nouveau motif : id unique (les motifs de /config ticket sont m0, m1…).
+  // Nouveau motif : id unique (les motifs de /config → Tickets sont m0, m1…).
   const option = { label: get('label'), value: index < 0 ? `m${Date.now().toString(36)}` : motifId };
   if (get('description')) option.description = get('description');
   if (get('emoji')) option.emoji = emojiFromInput(interaction, get('emoji'));

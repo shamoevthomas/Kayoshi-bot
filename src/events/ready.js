@@ -18,6 +18,7 @@ import { closeInactiveTickets } from '../lib/tickets.js';
 import { reconcileWouldYouRather } from '../lib/wouldyourather.js';
 import { processTempRoles } from '../lib/roles.js';
 import { processWeeklyTop } from '../lib/weeklytop.js';
+import { pollSport, SPORT_POLL_MS } from '../lib/sport.js';
 import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
 import { quizTick, resumeQuizzes } from '../lib/quiz.js';
 import { qotdTick } from '../lib/qotd.js';
@@ -58,7 +59,7 @@ export default {
     client.user.setActivity('.gg/hanamifr', { type: ActivityType.Custom });
     // Casino et duels : les parties en cours sont perdues au redémarrage, les mises en jeu sont rendues.
     refundHolds(client);
-    // Salons de statistiques (/config salon-stats) : noms mis à jour toutes les 10 min (limite de Discord).
+    // Salons de statistiques (/config → Salons de stats) : noms mis à jour toutes les 10 min (limite de Discord).
     setTimeout(() => refreshAllStatChannels(client).catch(() => {}), 40_000);
     setInterval(() => refreshAllStatChannels(client).catch(() => {}), REFRESH_MS);
     // Sauvegarde automatique de chaque serveur (/backup), une fois par jour (vérifié toutes les heures).
@@ -83,6 +84,9 @@ export default {
     // Membres de la semaine : récompensés le lundi (vérifié toutes les heures).
     setTimeout(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 90_000);
     setInterval(() => processWeeklyTop(client).catch((err) => console.error('[semaine]', err)), 3_600_000);
+    // Sport (/config → Sport) : résultats et matchs à venir (football, UFC), toutes les 30 min.
+    setTimeout(() => pollSport(client).catch((err) => console.error('[sport]', err)), 120_000);
+    setInterval(() => pollSport(client).catch((err) => console.error('[sport]', err)), SPORT_POLL_MS);
     // Chaque minute : XP en vocal, fin des événements XP (/xp evenement), questions du quiz, question du jour, intérêts du livret A, revenus des bâtiments (.shop), loterie, happy hour, cours de la bourse.
     setInterval(() => {
       grantVoiceXp(client).catch((err) => console.error('[xp vocal]', err));
@@ -122,7 +126,7 @@ export default {
     // avec nouvelle session (l'état vocal est alors perdu ; pas sur une simple reprise).
     rejoinVoiceChannels(client);
     client.on(Events.ShardReady, () => rejoinVoiceChannels(client));
-    // Rappels de bump Disboard (/config bump rappel) arrivés à échéance, toutes les 30 s.
+    // Rappels de bump Disboard (/config → Rappel de bump → Rappel) arrivés à échéance, toutes les 30 s.
     processBumpReminders(client).catch(() => {});
     setInterval(() => processBumpReminders(client).catch(() => {}), 30_000);
     // Tickets sans message depuis 3 jours : le staff est mentionné et on lui demande s'il faut les fermer (vérifié toutes les heures).

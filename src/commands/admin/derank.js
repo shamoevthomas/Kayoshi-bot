@@ -93,14 +93,14 @@ export default {
         .setTimestamp(),
     );
 
-    // Annonce dans le salon de /config rank (message /derank de /config rank), comme /rank.
+    // Annonce dans le salon de /config → Rank / derank (message /derank de /config → Rank / derank), comme /rank.
     const config = getRankConfig(interaction.guild.id);
     const channel = config?.channelId ? interaction.guild.channels.cache.get(config.channelId) : null;
     let note = '';
     if (!config) {
-      note = '\nℹ️ Aucune annonce postée : configure le salon avec `/config rank`.';
+      note = '\nℹ️ Aucune annonce postée : configure le salon avec `/config → Rank / derank`.';
     } else if (!channel) {
-      note = '\n⚠️ Le salon des annonces de rank n’existe plus. Relance `/config rank`.';
+      note = '\n⚠️ Le salon des annonces de rank n’existe plus. Relance `/config → Rank / derank`.';
     } else {
       const embed = new EmbedBuilder()
         .setColor(Colors.leave)

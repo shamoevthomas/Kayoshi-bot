@@ -52,7 +52,7 @@ function optionalInput(id, label, placeholder, style, max) {
     .setMaxLength(max);
 }
 
-// Assistant partagé par /config ticket (slot 1) et /configticket2 (slot 2).
+// Assistant partagé par /config → Tickets (slot 1) et /configticket2 (slot 2).
 export async function runTicketWizard(interaction, slot = 1) {
   const key = slot === 2 ? 'ticketConfig2' : 'ticketConfig';
   const cmdName = slot === 2 ? 'configticket2' : 'configticket';

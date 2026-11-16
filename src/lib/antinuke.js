@@ -3,11 +3,11 @@ import { getGuildConfig, setGuildConfig } from './store.js';
 import { sendLog } from './logger.js';
 import { getSecurity } from './securityconfig.js';
 
-// Anti-nuke (/config antinuke) : si quelqu'un supprime ou crée en masse (salons, rôles), ou bannit / expulse en
+// Anti-nuke (/config → Anti-nuke) : si quelqu'un supprime ou crée en masse (salons, rôles), ou bannit / expulse en
 // masse, en moins d'une minute, le bot lui retire tous ses rôles (un bot est expulsé), puis prévient le
 // propriétaire en MP et dans les logs. Ne sont jamais visés : le propriétaire du serveur, le bot lui-même
 // et les membres de confiance. Actif par défaut ; réglages : data[guildId].antinuke = { enabled, trusted: [ids] }.
-// Les bans en masse suivent leur propre seuil (/config securite → Anti-Ban-Masse).
+// Les bans en masse suivent leur propre seuil (/config → Sécurité → Anti-Ban-Masse).
 // Les actions sont lues dans le journal d'audit (événements channelDelete, roleDelete, guildBanAdd…).
 const WINDOW_MS = 60_000;
 // Toujours de confiance sur les serveurs de laysox_off : crown2ito et l0un4tik.
@@ -35,7 +35,7 @@ export function setAntiNuke(guildId, patch) {
   setGuildConfig(guildId, { antinuke: { ...getAntiNuke(guildId), ...patch } });
 }
 
-// Jamais sanctionnés par les protections : le propriétaire, le bot, les membres de confiance (/config antinuke
+// Jamais sanctionnés par les protections : le propriétaire, le bot, les membres de confiance (/config → Anti-nuke
 // ajouter), et crown2ito et l0un4tik sur les serveurs de laysox_off.
 export const isTrusted = (guild, userId) =>
   userId === guild.ownerId ||
@@ -93,7 +93,7 @@ export async function sanctionStaff(guild, executor, { title, what, reason }) {
     .setDescription(
       `${executor} (\`${executor.tag ?? executor.username}\`) : ${what}.\n\n` +
         `➡️ Sanction : ${outcome}.\n\n` +
-        '-# Pour recréer ce qui a été supprimé : `/backup restaurer`. Pour qu’un membre de confiance ne soit jamais visé : `/config antinuke ajouter`.',
+        '-# Pour recréer ce qui a été supprimé : `/backup restaurer`. Pour qu’un membre de confiance ne soit jamais visé : `/config → Anti-nuke → Ajouter un membre de confiance`.',
     )
     .setTimestamp();
   await sendLog(guild, embed);
@@ -102,5 +102,5 @@ export async function sanctionStaff(guild, executor, { title, what, reason }) {
   return true;
 }
 
-// Membres qui ont la permission d'agir en masse (pour le message de /config antinuke voir).
+// Membres qui ont la permission d'agir en masse (pour le message de /config → Anti-nuke → Voir).
 export const DANGEROUS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers];

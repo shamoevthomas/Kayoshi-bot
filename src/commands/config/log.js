@@ -53,7 +53,7 @@ export default {
         filter: (i) => i.user.id === interaction.user.id,
       });
     } catch {
-      return interaction.editReply({ content: '⏱️ Temps écoulé, réessaie avec `/config logs`.', components: [] });
+      return interaction.editReply({ content: '⏱️ Temps écoulé, réessaie avec `/config → Logs`.', components: [] });
     }
 
     // --- Créer un nouveau salon dédié ---
@@ -99,7 +99,7 @@ export default {
         filter: (i) => i.user.id === interaction.user.id,
       });
     } catch {
-      return interaction.editReply({ content: '⏱️ Temps écoulé, réessaie avec `/config logs`.', components: [] });
+      return interaction.editReply({ content: '⏱️ Temps écoulé, réessaie avec `/config → Logs`.', components: [] });
     }
 
     const channelId = selection.values[0];

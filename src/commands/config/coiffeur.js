@@ -35,7 +35,7 @@ export default {
     try {
       choice = await msg.awaitMessageComponent({ componentType: ComponentType.Button, time: 60_000, filter: (i) => i.user.id === interaction.user.id });
     } catch {
-      return interaction.editReply({ content: '⏳ Temps écoulé. Relance `/config coiffeur`.', components: [] }).catch(() => {});
+      return interaction.editReply({ content: '⏳ Temps écoulé. Relance `/config → Coiffeur`.', components: [] }).catch(() => {});
     }
 
     const enabled = choice.customId === 'coiffeur_on';

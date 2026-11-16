@@ -1,8 +1,8 @@
 import { getGuildConfig, setGuildConfig } from './store.js';
 
-// Réglages des protections de /config securite : data[guildId].security = { mention, invite, everyone, vanity,
+// Réglages des protections de /config → Sécurité : data[guildId].security = { mention, invite, everyone, vanity,
 // update, ban, deco, bot }. Les protections plus anciennes gardent leurs propres réglages : anti-spam
-// (data.antispam), anti-liens (/config lien) et anti-nuke (data.antinuke).
+// (data.antispam), anti-liens (/config → Anti-liens) et anti-nuke (data.antinuke).
 export const SECURITY_DEFAULTS = {
   mention: { enabled: false, users: 5, roles: 3, muteMin: 10 },
   invite: { enabled: false },

@@ -26,7 +26,7 @@ export async function sendLog(guild, embed, files = []) {
   await channel.send({ embeds: [embed], files }).catch(() => {});
 }
 
-// Envoie un embed dans le salon dédié au suivi des invitations (/config invitations).
+// Envoie un embed dans le salon dédié au suivi des invitations (/config → Invitations).
 // Si aucun salon dédié n'est configuré, on retombe sur le salon de logs général.
 export async function sendInviteLog(guild, embed, files = []) {
   if (!guild) return;
@@ -40,7 +40,7 @@ export async function sendInviteLog(guild, embed, files = []) {
   await channel.send({ embeds: [embed], files }).catch(() => {});
 }
 
-// Envoie un embed dans le salon des sanctions (/config sanctions) : warn, mute, kick,
+// Envoie un embed dans le salon des sanctions (/config → Sanctions) : warn, mute, kick,
 // ban, derank, anti-spam… Si aucun salon dédié n'est configuré (ou qu'il a été
 // supprimé), on retombe sur le salon de logs général.
 export async function sendSanctionLog(guild, embed, files = []) {
@@ -109,7 +109,7 @@ async function resolveVoiceLogChannel(guild) {
 }
 
 // Salons de logs à part (ex. « logs-boutique ») : réutilisé s'il existe (id gardé dans config[configKey],
-// ou un salon du même nom), sinon créé à côté du salon de logs du serveur (/config logs) avec ses permissions
+// ou un salon du même nom), sinon créé à côté du salon de logs du serveur (/config → Logs) avec ses permissions
 // (le staff qui voit les logs le voit), ou caché à @everyone s'il n'y a pas de salon de logs.
 // Une seule création à la fois par salon. Renvoie le salon, ou null si impossible.
 const extraLogPending = new Map(); // `${guildId}:${name}` → Promise
