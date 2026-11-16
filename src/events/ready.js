@@ -19,6 +19,7 @@ import { reconcileWouldYouRather } from '../lib/wouldyourather.js';
 import { processTempRoles } from '../lib/roles.js';
 import { processWeeklyTop } from '../lib/weeklytop.js';
 import { pollSport, SPORT_POLL_MS } from '../lib/sport.js';
+import { applyOneShots } from '../lib/oneshot.js';
 import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
 import { quizTick, resumeQuizzes } from '../lib/quiz.js';
 import { qotdTick } from '../lib/qotd.js';
@@ -111,6 +112,12 @@ export default {
     setInterval(() => maybeRemindUnverified(client).catch(() => {}), 30 * 60_000);
     // Nettoie les vocaux temporaires vides.
     reconcileTempVoice(client);
+    // Réglages uniques demandés hors du bot (ex : boost du rôle VIP), appliqués une seule fois.
+    try {
+      applyOneShots(client);
+    } catch (err) {
+      console.error('[réglage unique]', err);
+    }
     // Rôles automatiques unifiés (statut mots-clés + statut-role + tag) :
     // balayage initial + toutes les 5 min. Un rôle n'est retiré que si AUCUNE
     // source (statut/tag) ne le réclame → plus de conflit entre systèmes.

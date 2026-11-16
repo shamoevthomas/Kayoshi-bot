@@ -122,11 +122,11 @@ const CATEGORIES = [
     about:
       'L’**argent** 💰 se gagne en étant actif : en écrivant (💰 5 par message, 25 au-delà de 125 caractères), en passant des niveaux (💰 200), ' +
       'avec les drops d’argent à ramasser dans les salons, les quêtes, le quiz, les giveaways et les récompenses des membres de la ' +
-      'semaine (top 3 messages et top 3 vocal, chaque lundi). Un rôle boosté (ex : VIP ×1,5) fait gagner plus en étant actif, et booster le serveur donne ×1,8. ' +
+      'semaine (top 3 messages et top 3 vocal, chaque lundi). Un rôle boosté (ex : VIP ×1,3) fait gagner plus en étant actif, et booster le serveur donne ×1,8. ' +
       'Il se dépense dans la boutique `/shop` : rôles, rôles temporaires, boosters d’XP, objets personnalisés qui ouvrent un ticket. ' +
       'Les **coins** 🪙 du casino sont une monnaie à part, qui ne sert pas dans `/shop` : catégorie 🎰 Casino.',
     lines: [
-      ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,5) ; les boosters du serveur ont d’office ×1,8 d’XP et d’argent (le plus fort bonus compte) (admin)'],
+      ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,3) ; les boosters du serveur ont d’office ×1,8 d’XP et d’argent (le plus fort bonus compte) (admin)'],
       ['/pay', 'Donner de l’argent 💰 à un membre (`montant` : 500, 2k, moitié, tout), ou des coins 🪙 avec l’option `monnaie` — noté dans les logs'],
       ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire — chaque jour, un objet en promo à -10 % ; chaque achat est noté dans #logs-boutique'],
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
