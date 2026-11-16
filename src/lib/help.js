@@ -127,6 +127,7 @@ const CATEGORIES = [
       'Les **coins** 🪙 du casino sont une monnaie à part, qui ne sert pas dans `/shop` : catégorie 🎰 Casino.',
     lines: [
       ['/boostrole', '`ajouter` `retirer` `liste` — rôle qui fait gagner plus d’XP et/ou d’argent (ex : VIP ×1,5) ; les boosters du serveur ont d’office ×1,8 d’XP et d’argent (le plus fort bonus compte) (admin)'],
+      ['/pay', 'Donner de l’argent 💰 à un membre (`montant` : 500, 2k, moitié, tout), ou des coins 🪙 avec l’option `monnaie` — noté dans les logs'],
       ['/shop', 'Boutique : acheter des objets avec ton argent et voir ton inventaire — chaque jour, un objet en promo à -10 % ; chaque achat est noté dans #logs-boutique'],
       ['/quetes', '`voir` — quêtes de la semaine et ta progression ; `ajouter` `retirer` (staff) : objectif en messages, minutes de vocal, drops ou dailies, récompense en argent et/ou niveaux'],
       ['/config → Économie', '`drops` (salons, montants, fréquence) · `semaine` (argent du top 1/2/3 messages et vocal, rôle) · `voir` (admin)'],
@@ -280,6 +281,7 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['/pay', 'donner de l’argent à un membre'],
   ['kayo pat · bonk…', '59 actions avec un GIF d’anime'],
   ['+undercover', 'jeu de l’imposteur à plusieurs'],
   ['/gw salon-gagnants', 'tous les gagnants des giveaways'],
@@ -294,7 +296,6 @@ const RECENT = [
   ['/pokemon', 'salon Pokémon sans fin, points et Pokédex'],
   ['+pokemon', 'devine le Pokémon à sa silhouette'],
   ['+citation', 'livre des citations (réaction 📖)'],
-  ['+avent', 'calendrier de l’Avent (décembre)'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
