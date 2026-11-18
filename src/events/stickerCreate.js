@@ -1,5 +1,6 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
+import { fixSticker } from '../lib/stickers.js';
 
 export default {
   name: Events.GuildStickerCreate,
@@ -15,5 +16,7 @@ export default {
     if (sticker.url) embed.setThumbnail(sticker.url);
     if (executor) embed.addFields({ name: 'Par', value: `${executor}`, inline: true });
     await sendLog(sticker.guild, embed);
+    // Hanami : « ␣␣/hanamifr » ajouté à la fin du nom s'il n'y est pas.
+    await fixSticker(sticker);
   },
 };

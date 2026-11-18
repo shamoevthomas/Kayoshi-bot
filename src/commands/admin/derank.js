@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { isHierarchyExempt } from '../../lib/roles.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { getRankConfig } from '../../lib/store.js';
 import { recordSanction } from '../../lib/sanctions.js';
@@ -33,7 +34,7 @@ export default {
 
     // Validité des rôles et hiérarchie (bot, et staff qui fait le /derank), comme /rank.
     const me = interaction.guild.members.me;
-    const isOwner = interaction.user.id === interaction.guild.ownerId;
+    const isOwner = isHierarchyExempt(interaction.guild, interaction.user.id); // propriétaire ou exempté
     for (const role of roles) {
       if (role.id === interaction.guild.id) {
         return interaction.reply({ content: '❌ Impossible de retirer le rôle @everyone.', ephemeral: true });

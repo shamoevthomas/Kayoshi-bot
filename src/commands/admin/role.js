@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, Constants } from 'discord.js';
 import { parseColor } from '../../lib/shop.js';
 import { sendLog, Colors } from '../../lib/logger.js';
-import { roleCommandProblem } from '../../lib/roles.js';
+import { roleCommandProblem, isHierarchyExempt } from '../../lib/roles.js';
 import { getTempRole, removeTempRole } from '../../lib/store.js';
 
 // /role membre : ajouter ou retirer (bascule) un rôle à un membre · /role create : créer un rôle ·
@@ -131,7 +131,7 @@ async function change(interaction) {
     if (ref.id === role.id) return interaction.reply({ content: '❌ Choisis un autre rôle que celui que tu modifies.', ephemeral: true });
     if (below && ref.id === guild.id) return interaction.reply({ content: '❌ Aucun rôle ne peut être sous @everyone.', ephemeral: true });
     const top = guild.members.me.roles.highest.position;
-    const mine = user.id === guild.ownerId ? Infinity : member.roles.highest.position;
+    const mine = isHierarchyExempt(guild, user.id) ? Infinity : member.roles.highest.position;
     // Le rôle doit finir sous mon rôle le plus haut et sous celui de l'auteur : au-dessus d'un rôle qui
     // est lui-même en dessous, ou en dessous d'un rôle qui va jusqu'à leur niveau.
     if (above ? ref.position >= top : ref.position > top) {

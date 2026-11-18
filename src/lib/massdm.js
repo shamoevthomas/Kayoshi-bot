@@ -19,7 +19,7 @@ import {
 import { botMentionRe } from './quote.js';
 import { getGuildConfig, setGuildConfig } from './store.js';
 
-// « @Kayoshi dml » (propriétaire du serveur, et membres qu'il autorise) : DM de masse aux membres du serveur. Un panneau
+// « @Kayoshi cmd » (propriétaire du serveur, et membres qu'il autorise) : DM de masse aux membres du serveur. Un panneau
 // (Components V2) règle le token du bot qui envoie (obligatoire : Kayoshi n'envoie jamais de DM de masse lui-même,
 // pour ne pas risquer d'être banni), le message et/ou un embed, la cible
 // (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger) et des IDs à ignorer. « DMall »
@@ -36,7 +36,7 @@ const COLOR = 0x5865f2;
 const STATUSES = { online: '🟢 En ligne', idle: '🌙 Absent', dnd: '⛔ Ne pas déranger' };
 const ID_RE = /\d{17,20}/g;
 // Qui peut utiliser le DMall sur un serveur : son propriétaire, les membres qu'il y a autorisés lui-même
-// (« @Kayoshi dml autoriser @membre », data[guildId].dmlAllowed), et sur les serveurs de laysox_off (Hanami,
+// (« @Kayoshi cmd @membre », data[guildId].dmlAllowed), et sur les serveurs de laysox_off (Hanami,
 // Ichima…) crown2ito, l0un4tik et le rôle Crown de Hanami.
 const DELEGATING_OWNER_ID = '1079335251551191061'; // laysox_off
 const DELEGATES = ['1543615549974515763', '1260266494839754866']; // crown2ito, l0un4tik
@@ -60,20 +60,47 @@ const preview = (text, max = 300) => {
 const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
 const button = (id, label, style) => new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
 
-// --- Commande « @Kayoshi dml » ---
+// --- Commande « @Kayoshi cmd » ---
+
+const normalize = (word) => (word ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+const TEXT_NAME = /^@?kayo(?:shi)?\b/i;
+
+// Mots qui suivent « @Kayoshi » : la vraie mention du bot (utilisateur ou rôle), ou « kayoshi » / « @kayoshi » /
+// « kayo » écrit en texte au début du message (une mention tapée sans la choisir dans la liste de Discord reste du
+// texte). null si le message ne s'adresse pas au bot.
+function commandWords(message) {
+  const content = message.content.trim();
+  let text;
+  if (botMentionRe(message).test(content)) text = content.replace(botMentionRe(message), ' ');
+  else if (TEXT_NAME.test(content)) text = content.replace(TEXT_NAME, ' ');
+  else return null;
+  return text.trim().split(/\s+/).filter(Boolean);
+}
 
 export async function handleMassDmCommand(message) {
   if (!message.guild || message.author.bot) return false;
-  if (!botMentionRe(message).test(message.content)) return false;
-  const words = message.content.replace(botMentionRe(message), '').trim().split(/\s+/);
-  if (words[0].toLowerCase() !== 'dml') return false;
-  const sub = (words[1] ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
-  if (['autoriser', 'retirer', 'autorises'].includes(sub)) {
-    await handleAccessCommand(message, sub, words.slice(2).join(' '));
+  const words = commandWords(message);
+  if (!words) return false;
+  // « cmd » est facultatif devant autoriser / retirer / autorisés : « @Kayoshi autorisés » marche aussi.
+  const hasCmd = normalize(words[0]) === 'cmd';
+  const rest = hasCmd ? words.slice(1) : words;
+  const sub = normalize(rest[0]);
+  if (/^(autoris|retir|liste$)/.test(sub)) {
+    await handleAccessCommand(message, sub, rest.slice(1).join(' '));
     return true;
   }
-  if (sub) return false;
-  if (!canUse(message.guild, message.author.id, message.member)) return true; // pas autorisé : ignoré
+  // « @Kayoshi cmd @membre » (ou son ID) : donner l'accès à ce membre.
+  if (hasCmd && /^(<@!?\d{17,20}>|\d{17,20})$/.test(rest[0] ?? '')) {
+    await handleAccessCommand(message, 'autoriser', rest.join(' '));
+    return true;
+  }
+  if (!hasCmd || sub) return false;
+  if (!canUse(message.guild, message.author.id, message.member)) {
+    await message
+      .reply({ content: '❌ `@Kayoshi cmd` est réservé au propriétaire du serveur et aux membres qu’il autorise (`@Kayoshi cmd @membre`).', allowedMentions: { parse: [], repliedUser: false } })
+      .catch(() => {});
+    return true;
+  }
 
   if (runs.has(message.guild.id)) {
     await message.reply({ content: '⏳ Un DMall est déjà en cours sur ce serveur.', allowedMentions: { repliedUser: false } }).catch(() => {});
@@ -85,25 +112,31 @@ export async function handleMassDmCommand(message) {
   return true;
 }
 
-// « @Kayoshi dml autoriser @membre… » / « retirer @membre… » / « autorisés » : le propriétaire du serveur donne ou
+// « @Kayoshi cmd @membre… » / « retirer @membre… » / « autorisés » : le propriétaire du serveur donne ou
 // reprend lui-même le droit d'utiliser le DMall sur son serveur (le membre autorisé envoie avec le token de son bot).
 async function handleAccessCommand(message, sub, text) {
   const { guild } = message;
   const reply = (content) => message.reply({ content, allowedMentions: { parse: [], repliedUser: false } }).catch(() => {});
-  if (message.author.id !== guild.ownerId) return reply('❌ Seul le propriétaire du serveur peut donner ou retirer le droit d’utiliser `@Kayoshi dml`.');
+  if (message.author.id !== guild.ownerId) return reply('❌ Seul le propriétaire du serveur peut donner ou retirer le droit d’utiliser `@Kayoshi cmd`.');
   const current = allowedIds(guild.id);
-  if (sub === 'autorises') {
-    return reply(current.length ? `👥 Autorisés à utiliser \`@Kayoshi dml\` ici : ${current.map((id) => `<@${id}>`).join(', ')}` : 'ℹ️ Personne d’autre que toi n’est autorisé ici.');
-  }
   const targets = ids(text).filter((id) => id !== guild.ownerId && id !== message.client.user.id);
-  if (!targets.length) return reply(`❌ Mentionne le ou les membres (ou leurs IDs) : \`@Kayoshi dml ${sub} @membre\`.`);
-  const allowed = sub === 'autoriser' ? [...new Set([...current, ...targets])] : current.filter((id) => !targets.includes(id));
+  const revoke = sub.startsWith('retir');
+  // « autorisés », « liste », ou « autoriser » sans membre : la liste.
+  if (!revoke && !targets.length) {
+    return reply(
+      current.length
+        ? `👥 Autorisés à utiliser \`@Kayoshi cmd\` ici : ${current.map((id) => `<@${id}>`).join(', ')}\n-# Ajouter : \`@Kayoshi cmd @membre\` · retirer : \`@Kayoshi cmd retirer @membre\``
+        : 'ℹ️ Personne d’autre que toi n’est autorisé ici. Pour autoriser un membre : `@Kayoshi cmd @membre`.',
+    );
+  }
+  if (!targets.length) return reply('❌ Mentionne le ou les membres (ou leurs IDs) : `@Kayoshi cmd retirer @membre`.');
+  const allowed = revoke ? current.filter((id) => !targets.includes(id)) : [...new Set([...current, ...targets])];
   setGuildConfig(guild.id, { dmlAllowed: allowed });
   const who = targets.map((id) => `<@${id}>`).join(', ');
   return reply(
-    sub === 'autoriser'
-      ? `✅ ${who} peut maintenant utiliser \`@Kayoshi dml\` sur ce serveur, avec le token de son propre bot.\n-# Pour reprendre ce droit : \`@Kayoshi dml retirer @membre\`.`
-      : `✅ ${who} ne peut plus utiliser \`@Kayoshi dml\` sur ce serveur.`,
+    !revoke
+      ? `✅ ${who} peut maintenant utiliser \`@Kayoshi cmd\` sur ce serveur, avec le token de son propre bot.\n-# Pour reprendre ce droit : \`@Kayoshi cmd retirer @membre\`.`
+      : `✅ ${who} ne peut plus utiliser \`@Kayoshi cmd\` sur ce serveur.`,
   );
 }
 
@@ -258,7 +291,7 @@ export async function handleMassDmInteraction(interaction) {
   const onPanel = interaction.message && !interaction.message.flags.has(MessageFlags.Ephemeral);
   if (expired || (onPanel && interaction.message.id !== session.panel.id)) {
     if (expired) sessions.delete(guild.id);
-    return interaction.reply({ content: '⌛ Ce panneau a expiré : relance `@Kayoshi dml`.', ephemeral: true });
+    return interaction.reply({ content: '⌛ Ce panneau a expiré : relance `@Kayoshi cmd`.', ephemeral: true });
   }
   if (runs.has(guild.id)) return interaction.reply({ content: '⏳ Un DMall est déjà en cours.', ephemeral: true });
   session.at = Date.now();

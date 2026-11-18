@@ -1855,7 +1855,7 @@ export function disableOneMessage(guildId, channelId, memberId = null) {
   return { status };
 }
 
-// Recopie la config one-message d'un salon vers un autre (utilisé par /reset).
+// Recopie la config one-message d'un salon vers un autre.
 export function setOneMessageTargets(guildId, channelId, targets) {
   const data = load();
   const g = data[guildId] ?? {};
@@ -1867,7 +1867,7 @@ export function setOneMessageTargets(guildId, channelId, targets) {
   save(data, guildId);
 }
 
-// Retire complètement un salon (compat /reset).
+// Retire complètement un salon.
 export function removeOneMessageChannel(guildId, channelId) {
   return disableOneMessage(guildId, channelId).status === 'channel-removed';
 }

@@ -3,8 +3,8 @@ import { getQotd, setQotd } from './store.js';
 
 // Question du jour (/quiz question-du-jour) : chaque jour à l'heure choisie (heure de Paris), une question
 // ouverte dans le salon choisi, avec un rôle mentionné, puis un fil pour les réponses. Les questions ne
-// reviennent qu'une fois toutes posées. Réglages : data[guildId].qotd = { enabled, channelId, roleId,
-// hour, lastDay, used: [indices] }.
+// reviennent qu'une fois toutes posées. Chaque question a son numéro (titre « Question du jour n°X », fil « QOTD n°X »).
+// Réglages : data[guildId].qotd = { enabled, channelId, roleId, hour, lastDay, used: [indices], number }.
 export const QUESTIONS = [
   'Quel est ton anime préféré de tous les temps, et pourquoi ?',
   'Si tu pouvais vivre dans l’univers d’un jeu vidéo, lequel choisirais-tu ?',
@@ -149,11 +149,13 @@ export async function postQotd(guild) {
   const channel = cfg?.channelId && (guild.channels.cache.get(cfg.channelId) ?? (await guild.channels.fetch(cfg.channelId).catch(() => null)));
   if (!channel?.isTextBased?.()) return null;
   const { index, used } = pickQuestion(cfg);
-  setQotd(guild.id, { ...cfg, lastDay: parisDay(), used });
+  // Numéro de la question : à la suite des précédentes (au début, celles déjà posées sont comptées).
+  const number = (cfg.number ?? cfg.used?.length ?? 0) + 1;
+  setQotd(guild.id, { ...cfg, lastDay: parisDay(), used, number });
   const date = new Date().toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' });
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
-    .setTitle('❓ Question du jour')
+    .setTitle(`❓ Question du jour n°${number}`)
     .setDescription(`**${QUESTIONS[index]}**`)
     .setFooter({ text: `${date} · réponds dans le fil juste en dessous 👇` });
   let ping = { allowedMentions: { parse: [] } };
@@ -162,7 +164,7 @@ export async function postQotd(guild) {
   const message = await channel.send({ ...ping, embeds: [embed] }).catch(() => null);
   if (!message) return null;
   // Fil des réponses, fermé automatiquement au bout de 24 h sans message.
-  await message.startThread({ name: `💬 Réponses du ${date}`, autoArchiveDuration: 1440 }).catch(() => {});
+  await message.startThread({ name: `QOTD n°${number}`, autoArchiveDuration: 1440 }).catch(() => {});
   return message;
 }
 

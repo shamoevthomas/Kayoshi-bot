@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { isHierarchyExempt } from '../../lib/roles.js';
 import { getRankConfig } from '../../lib/store.js';
 import { Colors } from '../../lib/logger.js';
 import { renderRankAnnouncement, listRoles } from '../../lib/rank.js';
@@ -35,7 +36,7 @@ export default {
 
     // Validité des rôles et hiérarchie (bot, et staff qui fait le /rank).
     const me = interaction.guild.members.me;
-    const isOwner = interaction.user.id === interaction.guild.ownerId;
+    const isOwner = isHierarchyExempt(interaction.guild, interaction.user.id); // propriétaire ou exempté
     for (const role of roles) {
       if (role.id === interaction.guild.id) {
         return interaction.reply({ content: '❌ Impossible de donner le rôle @everyone.', ephemeral: true });

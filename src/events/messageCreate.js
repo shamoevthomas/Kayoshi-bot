@@ -10,6 +10,9 @@ import { handleMassDmCommand } from '../lib/massdm.js';
 import { handleSecurityMessage } from '../lib/security.js';
 import { handleVoiceStatsCommand } from '../lib/voicestats.js';
 import { handleSnipeCommand } from '../lib/snipe.js';
+import { handleTicketCommand } from '../lib/tickets.js';
+import { handleGuildCommandsCommand } from '../lib/guildcommands.js';
+import { handleRecreateCommand } from '../lib/recreate.js';
 import { handleHideCommand } from '../lib/hidechannel.js';
 import { handleLockCommand, handleLockdownCommand } from '../lib/lockchannel.js';
 import { handleChatGames } from '../lib/chatgames.js';
@@ -71,7 +74,7 @@ export default {
     // Anti-everyone, anti-mention et anti-invite (/config → Sécurité) : le message est supprimé.
     if (await handleSecurityMessage(message).catch((err) => (console.error('[sécurité]', err), false))) return;
 
-    // « @Kayoshi dml » (propriétaire du serveur) : panneau du DM de masse.
+    // « @Kayoshi cmd » (propriétaire du serveur) : panneau du DM de masse.
     if (await handleMassDmCommand(message).catch((err) => (console.error('[dmall]', err), true))) return;
     // « @Kayoshi part » en réponse à une pub : recopiée dans le salon partenariat, puis l'embed partenariat.
     if (await handlePartnerCopyCommand(message).catch((err) => (console.error('[partenariat]', err), true))) return;
@@ -95,6 +98,12 @@ export default {
 
     // « +vc » : statistiques des salons vocaux.
     await handleVoiceStatsCommand(message).catch((err) => console.error(err));
+    // « +cmd on » / « +cmd off » (laysox_off, 50.nn, l0un4tik) : toutes les commandes slash sur ce serveur seulement.
+    if (await handleGuildCommandsCommand(message).catch((err) => (console.error('[+cmd]', err), true))) return;
+    // « +close [raison] » / « +reopen [numéro | #salon] » : fermer ou rouvrir un ticket.
+    if (await handleTicketCommand(message).catch((err) => (console.error('[tickets +close]', err), false))) return;
+    // « +recreate [#salon] » (staff) : recréer un salon à l'identique, après confirmation.
+    if (await handleRecreateCommand(message).catch((err) => (console.error('[recreate]', err), false))) return;
     // « +snipe » (staff) : dernier message supprimé du salon.
     await handleSnipeCommand(message).catch((err) => console.error('[snipe]', err));
     // « +hide » / « +unhide » (staff) : masquer ou réafficher un salon pour le rôle Membre.

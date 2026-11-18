@@ -52,8 +52,40 @@ const WEIGHTS = {
   catchweight: 'poids intermédiaire',
 };
 
+// Équipes nationales : leurs matchs dans ces compétitions sont postés (seulement ceux des équipes choisies).
+const NATIONAL_COMPETITIONS = {
+  'fifa.world': 'Coupe du monde',
+  'fifa.worldq.uefa': 'Qualifications Coupe du monde (Europe)',
+  'fifa.worldq.caf': 'Qualifications Coupe du monde (Afrique)',
+  'fifa.worldq.conmebol': 'Qualifications Coupe du monde (Amérique du Sud)',
+  'fifa.worldq.concacaf': 'Qualifications Coupe du monde (Concacaf)',
+  'fifa.worldq.afc': 'Qualifications Coupe du monde (Asie)',
+  'uefa.euro': 'Euro',
+  'uefa.euroq': 'Qualifications Euro',
+  'uefa.nations': 'Ligue des nations',
+  'caf.nations': 'Coupe d’Afrique des nations',
+  'caf.nations_qual': 'Qualifications CAN',
+  'conmebol.america': 'Copa América',
+  'fifa.friendly': 'Match amical',
+};
+// [nom chez ESPN, nom affiché, drapeau] : les 25 au plus proposées dans le formulaire.
+const NATIONAL_TEAMS = [
+  ['Morocco', 'Maroc', '🇲🇦'], ['France', 'France', '🇫🇷'], ['Algeria', 'Algérie', '🇩🇿'], ['Tunisia', 'Tunisie', '🇹🇳'],
+  ['Senegal', 'Sénégal', '🇸🇳'], ['Ivory Coast', 'Côte d’Ivoire', '🇨🇮'], ['Cameroon', 'Cameroun', '🇨🇲'], ['Mali', 'Mali', '🇲🇱'],
+  ['DR Congo', 'RD Congo', '🇨🇩'], ['Egypt', 'Égypte', '🇪🇬'], ['Nigeria', 'Nigeria', '🇳🇬'], ['Belgium', 'Belgique', '🇧🇪'],
+  ['Switzerland', 'Suisse', '🇨🇭'], ['Portugal', 'Portugal', '🇵🇹'], ['Spain', 'Espagne', '🇪🇸'], ['Italy', 'Italie', '🇮🇹'],
+  ['Germany', 'Allemagne', '🇩🇪'], ['England', 'Angleterre', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'], ['Netherlands', 'Pays-Bas', '🇳🇱'], ['Turkey', 'Turquie', '🇹🇷'],
+  ['Brazil', 'Brésil', '🇧🇷'], ['Argentina', 'Argentine', '🇦🇷'], ['United States', 'États-Unis', '🇺🇸'], ['Japan', 'Japon', '🇯🇵'],
+  ['Comoros', 'Comores', '🇰🇲'],
+];
+const DEFAULT_NATIONAL = ['Morocco', 'France'];
+// Noms des pays en français dans les messages (les clubs gardent le nom donné par ESPN).
+const FR_NAMES = Object.fromEntries(NATIONAL_TEAMS.map(([en, fr]) => [en, fr]));
+Object.assign(FR_NAMES, { Niger: 'Niger', Gabon: 'Gabon', Ghana: 'Ghana', Libya: 'Libye', Mauritania: 'Mauritanie', Zambia: 'Zambie', 'South Africa': 'Afrique du Sud', Sweden: 'Suède', Denmark: 'Danemark', Croatia: 'Croatie', Poland: 'Pologne', Austria: 'Autriche', Mexico: 'Mexique', Uruguay: 'Uruguay', Colombia: 'Colombie' });
+const competitionName = (league) => LEAGUES[league] ?? NATIONAL_COMPETITIONS[league] ?? league;
+
 export function getSportConfig(guildId) {
-  return { leagues: DEFAULT_LEAGUES, posted: [], announced: {}, ...(getGuildConfig(guildId).sport ?? {}) };
+  return { leagues: DEFAULT_LEAGUES, nationalTeams: DEFAULT_NATIONAL, posted: [], announced: {}, ...(getGuildConfig(guildId).sport ?? {}) };
 }
 
 function patchSport(guildId, patch) {
@@ -167,7 +199,7 @@ function footballSides(e) {
   const teams = e.competitions?.[0]?.competitors ?? [];
   const home = teams.find((t) => t.homeAway === 'home') ?? teams[0];
   const away = teams.find((t) => t.homeAway === 'away') ?? teams[1];
-  return [home, away].map((t) => ({ team: t, name: t?.team?.displayName ?? '?', images: [t?.team?.logo] }));
+  return [home, away].map((t) => ({ team: t, name: FR_NAMES[t?.team?.displayName] ?? t?.team?.displayName ?? '?', images: [t?.team?.logo] }));
 }
 
 async function footballMessage(league, e, phase) {
@@ -182,7 +214,7 @@ async function footballMessage(league, e, phase) {
     winner = home.team?.winner ? 0 : away.team?.winner ? 1 : null;
     center = score;
     embed
-      .setAuthor({ name: `⚽ ${LEAGUES[league] ?? league} — résultat` })
+      .setAuthor({ name: `⚽ ${competitionName(league)} — résultat` })
       .setTitle(`${home.name} ${score} ${away.name}`.slice(0, 256))
       .setDescription(
         [winner === null ? '🤝 Match nul' : `🏆 Victoire de **${sides[winner].name}**`, `📅 <t:${unix(e.date)}:F>`, venue ? `🏟️ ${venue}` : null]
@@ -191,7 +223,7 @@ async function footballMessage(league, e, phase) {
       );
   } else {
     embed
-      .setAuthor({ name: `⚽ ${LEAGUES[league] ?? league}` })
+      .setAuthor({ name: `⚽ ${competitionName(league)}` })
       .setTitle(`${home.name} vs ${away.name}`.slice(0, 256))
       .setDescription(
         [
@@ -313,15 +345,21 @@ function phaseOf(status, soon) {
   return status?.state === 'pre' && soon ? 'soon' : null;
 }
 
-async function updateFootball(ctx, leagues, cache) {
+async function updateFootball(ctx, cfg, cache) {
   const now = Date.now();
-  for (const league of leagues) {
+  const follow = async (league, keep = () => true) => {
     for (const e of await footballEvents(league, cache)) {
-      const state = e.status?.type;
-      const phase = phaseOf(state, Date.parse(e.date) - now <= FOOTBALL_AHEAD);
+      if (!keep(e)) continue;
+      const phase = phaseOf(e.status?.type, Date.parse(e.date) - now <= FOOTBALL_AHEAD);
       if (phase) await track(ctx, `fb:${e.id}`, phase, (p) => footballMessage(league, e, p));
     }
-  }
+  };
+  for (const league of cfg.leagues) await follow(league);
+  // Équipes nationales : seulement les matchs où joue une équipe choisie.
+  const teams = new Set(cfg.nationalTeams ?? []);
+  if (!teams.size) return;
+  const plays = (e) => (e.competitions?.[0]?.competitors ?? []).some((c) => teams.has(c.team?.displayName));
+  for (const league of Object.keys(NATIONAL_COMPETITIONS)) await follow(league, plays);
 }
 
 async function updateUfc(ctx, cache) {
@@ -353,7 +391,7 @@ export async function refreshSport(guild, cache = new Map()) {
   const announced = Object.fromEntries(Object.entries(cfg.announced ?? {}).filter(([, a]) => Date.now() - (a.at ?? 0) < 3 * DAY));
   const state = { posted: new Set(cfg.posted), announced };
   const football = await textChannel(guild, cfg.footballChannelId);
-  if (football) await updateFootball({ guild, channel: football, state, seeding }, cfg.leagues, cache);
+  if (football) await updateFootball({ guild, channel: football, state, seeding }, cfg, cache);
   const ufc = await textChannel(guild, cfg.ufcChannelId);
   if (ufc) await updateUfc({ guild, channel: ufc, state, seeding }, cache);
   patchSport(guild.id, {
@@ -393,12 +431,22 @@ export function sportModal(guildId) {
     .setMinValues(0)
     .setMaxValues(Object.keys(LEAGUES).length)
     .addOptions(Object.entries(LEAGUES).map(([value, label]) => ({ label, value, default: cfg.leagues.includes(value) })));
+  const nations = new StringSelectMenuBuilder()
+    .setCustomId('nations')
+    .setRequired(false)
+    .setMinValues(0)
+    .setMaxValues(NATIONAL_TEAMS.length)
+    .addOptions(NATIONAL_TEAMS.map(([value, label, emoji]) => ({ label, value, emoji, default: (cfg.nationalTeams ?? []).includes(value) })));
   return new ModalBuilder()
     .setCustomId('sport:modal')
     .setTitle('Sport')
     .addLabelComponents(
       new LabelBuilder().setLabel('Salon football').setDescription('Un message par match (vide = désactivé)').setChannelSelectMenuComponent(channel('football', cfg.footballChannelId)),
-      new LabelBuilder().setLabel('Compétitions de football').setDescription('Celles dont les matchs sont postés').setStringSelectMenuComponent(leagues),
+      new LabelBuilder().setLabel('Compétitions de clubs').setDescription('Celles dont les matchs sont postés').setStringSelectMenuComponent(leagues),
+      new LabelBuilder()
+        .setLabel('Équipes nationales')
+        .setDescription('Leurs matchs : Coupe du monde, Euro, CAN, qualifications, amicaux…')
+        .setStringSelectMenuComponent(nations),
       new LabelBuilder().setLabel('Salon UFC').setDescription('Un message par combat (vide = désactivé)').setChannelSelectMenuComponent(channel('ufc', cfg.ufcChannelId)),
     );
 }
@@ -412,10 +460,16 @@ export async function handleSportInteraction(interaction) {
   const football = interaction.fields.getSelectedChannels('football')?.first() ?? null;
   const ufc = interaction.fields.getSelectedChannels('ufc')?.first() ?? null;
   const picked = interaction.fields.getStringSelectValues('leagues') ?? [];
-  const leagues = picked.length ? picked : DEFAULT_LEAGUES;
-  patchSport(guild.id, { footballChannelId: football?.id ?? null, ufcChannelId: ufc?.id ?? null, leagues });
+  const nationalTeams = interaction.fields.getStringSelectValues('nations') ?? [];
+  // Rien de coché du tout : les compétitions par défaut (sinon le salon football ne recevrait rien).
+  const leagues = picked.length || nationalTeams.length ? picked : DEFAULT_LEAGUES;
+  patchSport(guild.id, { footballChannelId: football?.id ?? null, ufcChannelId: ufc?.id ?? null, leagues, nationalTeams });
+  const followed = [
+    ...leagues.map((l) => LEAGUES[l]),
+    ...(nationalTeams.length ? [`équipes nationales : ${nationalTeams.map((t) => FR_NAMES[t] ?? t).join(', ')}`] : []),
+  ];
   const lines = [
-    football ? `⚽ **Football** dans ${football} : ${leagues.map((l) => LEAGUES[l]).join(', ')}` : '⚽ Football : désactivé',
+    football ? `⚽ **Football** dans ${football} : ${followed.join(', ')}` : '⚽ Football : désactivé',
     ufc ? `🥊 **UFC** dans ${ufc}` : '🥊 UFC : désactivé',
   ];
   await interaction.reply({

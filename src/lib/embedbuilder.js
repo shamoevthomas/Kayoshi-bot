@@ -48,6 +48,7 @@ import {
 } from './tickets.js';
 import { withHostedImages, persistImages, previewPayload } from './rehost.js';
 import { storeUpload, isMediaUrl } from './media.js';
+import { isHierarchyExempt } from './roles.js';
 
 // Créateur d'embed (/embed, et /modifierembed pour un embed existant) : aperçu éphémère + boutons d'édition.
 // Sans état : l'embed en cours est relu à chaque clic depuis le message d'aperçu,
@@ -297,7 +298,7 @@ function applyRoleReactModal(interaction, kind, rr) {
   const role = guild.roles.cache.get(interaction.fields.getSelectedRoles('role', true).first().id);
   const problem = roleProblem(role);
   if (problem) throw new Error(problem);
-  if (guild.ownerId !== member.id && role.comparePositionTo(member.roles.highest) >= 0) {
+  if (!isHierarchyExempt(guild, member.id) && role.comparePositionTo(member.roles.highest) >= 0) {
     throw new Error(`**@${role.name}** est au niveau ou au-dessus de ton rôle le plus haut.`);
   }
 

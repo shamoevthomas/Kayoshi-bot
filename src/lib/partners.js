@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import { MessageReferenceType, PermissionFlagsBits } from 'discord.js';
-import { getPartner, recordPartnership, addPartnerMention, takePartnerMentions } from './store.js';
+import { getPartner, patchPartner, recordPartnership, addPartnerMention, takePartnerMentions } from './store.js';
 import { renderEmbedFor } from './greetings.js';
 import { withHostedImages } from './rehost.js';
 import { botMentionRe } from './quote.js';
@@ -8,6 +9,15 @@ import { botMentionRe } from './quote.js';
 const MENTIONED_ROLE_IDS = ['1563160600211759114', '1410934072603185255'];
 // Une pub recopiée ne mentionne que des membres : ni @everyone, ni @here, ni rôle.
 const COPY_MENTIONS = { parse: ['users'] };
+// Pubs déjà publiées avec « @Kayoshi part », par salon d'origine (partner.copied = { `${salon}:${empreinte}`:
+// { url, at } }, les plus récentes gardées) : la même pub n'est pas publiée deux fois depuis le même salon.
+const MAX_COPIED = 300;
+const pubPrint = (message) =>
+  createHash('sha1')
+    .update(message.content.trim().toLowerCase().replace(/\s+/g, ' '))
+    .update([...message.attachments.values()].map((a) => `${a.name}:${a.size}`).join(','))
+    .digest('hex')
+    .slice(0, 16);
 
 // Salon partenariat (/embed → Partenariat) : chaque message posté compte un
 // partenariat pour son auteur, puis l'embed enregistré est envoyé avec la
@@ -77,6 +87,12 @@ export async function handlePartnerCopyCommand(message) {
     await answer('❌ Ce message n’a ni texte ni fichier à recopier.');
     return true;
   }
+  const copyKey = `${message.channelId}:${pubPrint(original)}`;
+  const already = cfg.copied?.[copyKey];
+  if (already) {
+    await answer(`❌ Cette pub a déjà été publiée depuis ce salon : ${already.url}`);
+    return true;
+  }
 
   try {
     // Texte en messages de 2 000 caractères au plus ; la mention de l'auteur et les fichiers avec le dernier.
@@ -90,6 +106,10 @@ export async function handlePartnerCopyCommand(message) {
     }
     await handlePartnerMentions(copies);
     await sendPartnerEmbed(channel, who, cfg);
+    const copied = Object.entries({ ...(getPartner(message.guild.id).copied ?? {}), [copyKey]: { url: copies[0].url, at: Date.now() } })
+      .sort(([, a], [, b]) => b.at - a.at)
+      .slice(0, MAX_COPIED);
+    patchPartner(message.guild.id, { copied: Object.fromEntries(copied) });
     await answer(`✅ Partenariat publié : ${copies[0].url}`);
   } catch (err) {
     console.error('[partenariat] copie impossible :', err.message);

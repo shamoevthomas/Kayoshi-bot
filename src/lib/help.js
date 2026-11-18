@@ -25,7 +25,7 @@ const CATEGORIES = [
       ['/casier', 'Sanctions d’un membre, ou de tout le serveur sans membre (avertissements avec leur numéro, mutes, kicks, bans, deranks), avec dates et modérateurs ; option `sanction` pour un seul type'],
       ['/config → Sanctions', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
       ['/purge', 'Supprimer des messages dans ce salon, ou ceux d’un membre dans tous les salons'],
-      ['+snipe', 'Réaffiche le dernier message supprimé du salon, avec ses images, pendant 1 h (staff : permission « Gérer les messages »)'],
+      ['+snipe · +snipe 2', 'Réaffiche le dernier message supprimé du salon (`+snipe 2` l’avant-dernier, jusqu’à `+snipe 5`), avec ses images, pendant 1 h (staff avec « Gérer les messages », et membres qui ont le rôle du statut ou du tag, Loyal) ; si le staff supprime la réponse du bot, ce message ne peut plus être réaffiché'],
       ['+lock · +unlock', 'Verrouiller (`+lock [raison]`) / déverrouiller l’écriture dans ce salon pour le rôle Membre (staff : permission « Gérer les salons »)'],
       ['+lockdown · +unlockdown', 'Verrouiller l’écriture dans **tous** les salons d’un coup pour le rôle Membre (raid…), puis tout rouvrir exactement comme avant (staff)'],
       ['+hide · +unhide', 'Masquer / réafficher ce salon (ou `+hide #salon`) pour le rôle Membre (staff : permission « Gérer les salons »)'],
@@ -85,10 +85,11 @@ const CATEGORIES = [
     name: 'Tickets',
     summary: 'Panneau, motifs, staff, avis et fermeture',
     about:
-      'Les membres ouvrent un ticket depuis le panneau (menu des motifs). Le staff le prend en charge, peut ajouter un membre, ' +
+      'Les membres ouvrent un ticket depuis le panneau (menu des motifs). Le staff le prend en charge (le reste du staff ne peut alors plus y écrire, jusqu’à ce qu’il le rende), peut ajouter un membre, ' +
       'puis le ferme avec une raison : transcription archivée et MP au membre (avec un avis ⭐ si activé). ' +
       'Sans message pendant 3 jours, le bot mentionne le staff et demande s’il faut le fermer.',
     lines: [
+      ['+close · +reopen · +delete', '`+close [raison]` dans un ticket : le fermer comme le bouton 🔒 (staff du ticket ou son auteur) · `+reopen` : le rouvrir · `+delete` : le supprimer après 5 s (fermé d’abord s’il était ouvert, pour garder la transcription) — `+reopen` et `+delete` marchent aussi depuis un autre salon avec le numéro du ticket (staff du ticket ou propriétaire)'],
       ['/config → Tickets', 'Configurer le système de tickets (assistant guidé)'],
       ['/roleticket', '`ajouter` `retirer` — rôle du staff des tickets (accès + mention à l’ouverture)'],
       ['/messageticket', 'Premier message envoyé dans un ticket, pour un motif (`[@]` = mention de l’auteur)'],
@@ -219,8 +220,8 @@ const CATEGORIES = [
       ['/embed', 'Créer un embed (aperçu modifiable, images en lien ou en fichier) : envoi, 🔗 boutons lien, boutons sous l’embed ou dedans (format cadre 🖼️), role-react (boutons ou sélecteur de rôle), partenariat (un membre mentionné dans le salon partenariat reçoit le rôle Partenaire, et le message est supprimé s’il quitte le serveur), ou bienvenue / départ'],
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs, qu’on peut réorganiser)'],
       ['/gw', '`start` `end` `reroll` `retirer-participant` · `salon-gagnants` (salon où tous les gagnants sont notés, créé si besoin) — giveaways : argent (crédité automatiquement aux gagnants), prix personnalisé (ex : Nitro) et/ou rôle à gagner (`role_gagne`, donné automatiquement)'],
-      ['@Kayoshi part (en réponse)', 'Réponds à une pub de partenariat (dans un ticket…) avec `@Kayoshi part` : son texte et ses images sont recopiés dans le salon partenariat en mentionnant son auteur, puis l’embed partenariat est envoyé à ton nom (`[@]` = toi, +1 partenariat pour toi) — réservé à ceux qui peuvent écrire dans ce salon'],
-      ['@Kayoshi dml', 'DM de masse, réservé au **propriétaire du serveur** et aux membres qu’il autorise lui-même (`@Kayoshi dml autoriser @membre` · `retirer @membre` · `autorisés`) — sur Hanami, aussi le rôle Crown. Panneau : token du bot qui envoie (**obligatoire**, Kayoshi n’envoie pas les DM lui-même), message et/ou embed, cible (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger), IDs à ignorer — un DM toutes les 1,5 à 2 s, MP fermés ignorés, bouton ⏹️ et récapitulatif'],
+      ['@Kayoshi part (en réponse)', 'Réponds à une pub de partenariat (dans un ticket…) avec `@Kayoshi part` : son texte et ses images sont recopiés dans le salon partenariat en mentionnant son auteur, puis l’embed partenariat est envoyé à ton nom (`[@]` = toi, +1 partenariat pour toi) ; la même pub n’est publiée qu’une fois par salon — réservé à ceux qui peuvent écrire dans ce salon'],
+      ['@Kayoshi cmd', 'DM de masse (aussi `kayoshi cmd`), réservé au **propriétaire du serveur** et aux membres qu’il autorise lui-même (`@Kayoshi cmd @membre` · `retirer @membre` · `autorisés`) — sur Hanami, aussi le rôle Crown. Panneau : token du bot qui envoie (**obligatoire**, Kayoshi n’envoie pas les DM lui-même), message et/ou embed, cible (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger), IDs à ignorer — un DM toutes les 1,5 à 2 s, MP fermés ignorés, bouton ⏹️ et récapitulatif'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
       ['/save', '`emplacement` (save1 à save5, avec aperçu) · `action` : enregistrer un message ou envoyer celui enregistré'],
       ['/profilbot', '`modifier` `reinitialiser` — photo, bannière et bio du bot sur ce serveur uniquement ; chaque changement est noté dans #logs-profil (qui et quoi)'],
@@ -235,7 +236,8 @@ const CATEGORIES = [
       'Tous les réglages du bot sont dans **/config** : un panneau avec un bouton par système (vert = activé), puis ses actions (activer, désactiver, salon…).',
     lines: [
       ['/config', 'Panneau de configuration : un bouton par système (niveaux, accueil, boost, tickets, sécurité, sport…), vert quand il est activé ; un clic montre ses actions et demande ce qu’il faut (salon, rôle, texte) (Gérer le serveur)'],
-      ['/config → Sport', 'Deux salons, un message par match ⚽ (Ligue 1, Ligue des champions… au choix) ou par combat 🥊 UFC, avec une image club vs club / combattant vs combattant : annoncé la veille (2 jours avant pour l’UFC), score en direct, puis remplacé par le résultat — vérifié toutes les 10 min'],
+      ['+cmd on · +cmd off', 'Installe toutes les commandes slash du bot sur **ce serveur seulement** (ou les retire) ; `+cmd` dit si elles sont actives (réservé à laysox_off, 50.nn et l0un4tik)'],
+      ['/config → Sport', 'Deux salons, un message par match ⚽ (compétitions de clubs au choix, et matchs des équipes nationales choisies : Maroc, France…) ou par combat 🥊 UFC, avec une image club vs club / combattant vs combattant : annoncé la veille (2 jours avant pour l’UFC), score en direct, puis remplacé par le résultat'],
       ['/config → Logs', 'Salon des logs du serveur (les logs vocaux vont dans #voc-logs, créé automatiquement à côté)'],
       ['/config → Sécurité', 'Panneau des protections, chacune à activer et régler : anti-mention, anti-spam, anti-spam multi-salons (mute ou ban), anti-invite (avertissement), anti-liens, anti-everyone, anti-nuke, anti-vanity-URL, anti-modification du serveur, anti-ban de masse, anti-déco vocaux, anti-bot (bot expulsé, celui qui l’a ajouté derank) — jamais contre le propriétaire et les membres de confiance (admin)'],
       ['/config → Anti-liens', 'Blocage des liens (par salon et par rôle) — 2 liens interdits en 1 min = mute 3 h'],
@@ -249,7 +251,7 @@ const CATEGORIES = [
       ['/config → Confessions', 'Confessions anonymes (texte et/ou image, réponses dans un fil, MP à l’auteur) + salon de logs pour le staff'],
       ['/config → Rappel de bump → Rappel', 'Activer / désactiver le rappel de bump Disboard (2 h après chaque /bump)'],
       ['/config → Rappel de bump → Messages', 'Message de rappel, rôle à mentionner, message après avoir bump'],
-      ['/reset', 'Supprimer un salon et le recréer à l’identique'],
+      ['/recreate · +recreate', 'Supprimer un salon et le recréer à l’identique, après confirmation (`+recreate` ou `+recreate #salon`) ; les réglages du bot qui visaient le salon suivent le nouveau'],
       ['/config → Salons de stats', 'Panneau : salons vocaux verrouillés en haut du serveur dont le nom affiche un chiffre à jour (membres, en ligne, en vocal, boosts), toutes les 10 min'],
       ['/backup', '`creer` `liste` `telecharger` `restaurer` — sauvegarde des rôles, salons et permissions (automatique chaque jour) ; la restauration recrée seulement ce qui manque, rien n’est supprimé (admin)'],
       ['/config → Anti-nuke', '`voir` `activer` `desactiver` `ajouter` `retirer` — suppressions de salons / rôles, bans ou expulsions en masse (en moins d’une minute) : rôles retirés, propriétaire prévenu ; membres de confiance jamais visés (réglages : propriétaire du serveur)'],
@@ -282,6 +284,9 @@ const CATEGORIES = [
 // Les 15 dernières commandes ajoutées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque nouvelle commande : l'ajouter en tête et retirer la dernière.
 const RECENT = [
+  ['+cmd on', 'toutes les commandes slash sur ce serveur seulement'],
+  ['/recreate · +recreate', 'recréer un salon (ancien /reset)'],
+  ['+close · +reopen · +delete', 'fermer, rouvrir ou supprimer un ticket'],
   ['+lp', 'loup-garou à plusieurs'],
   ['/pay', 'donner de l’argent à un membre'],
   ['kayo pat · bonk…', '59 actions avec un GIF d’anime'],
@@ -289,29 +294,26 @@ const RECENT = [
   ['/gw salon-gagnants', 'tous les gagnants des giveaways'],
   ['/config → Sport', 'résultats foot et UFC dans deux salons'],
   ['/config → Sécurité', 'protections du serveur et anti-bot'],
-  ['@Kayoshi dml', 'DM de masse (propriétaire et membres autorisés)'],
+  ['@Kayoshi cmd', 'DM de masse (propriétaire et membres autorisés)'],
   ['@Kayoshi part', 'recopier une pub dans le salon partenariat'],
   ['+jeux top', 'classement des jeux du chat'],
   ['+duel top', 'classement des duels entre membres'],
   ['/lovecalc', 'amour, haine ou amitié entre deux personnes'],
-  ['+flag', 'devine le pays à son drapeau'],
-  ['/pokemon', 'salon Pokémon sans fin, points et Pokédex'],
-  ['+pokemon', 'devine le Pokémon à sa silhouette'],
 ];
 
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['+snipe', '`+snipe 2` : l’avant-dernier message supprimé (jusqu’à 5)'],
+  ['/config → Sport', 'matchs des équipes nationales (Maroc, France…)'],
+  ['+snipe', 'aussi pour les membres qui ont le rôle Loyal'],
+  ['Tickets', 'pris en charge : seuls celui qui le prend et l’auteur peuvent écrire'],
+  ['@Kayoshi part', 'la même pub n’est publiée qu’une fois par salon'],
   ['Statut, tag et boost', 'le tag et le boost rapportent aussi une récompense, doublée pour les boosters'],
   ['+vc', 'affiche aussi les boosts et les bots'],
   ['/config', 'devient un panneau : un bouton par système, vert quand il est activé'],
   ['/embed', '🔗 boutons lien, et boutons dans l’embed (format cadre) ou dessous'],
   ['/rank', 'jusqu’à 6 rôles d’un coup'],
-  ['/marry', 'plus de limite de conjoints'],
-  ['Boosters du serveur', 'XP et argent ×1,8 en étant actif (visible dans `/niveau` et `/boostrole liste`)'],
-  ['/duel', 'nouveau jeu 🪙 pile ou face · bouton 🔁 Revanche à la fin · classement avec `+duel top`'],
-  ['/userinfo', 'qui l’a invité, s’il était déjà venu, ses rôles d’avant son départ et son dernier message'],
-  ['/purge', '`tous_les_salons` : supprime les derniers messages d’un membre dans tous les salons'],
 ];
 
 const HOME = 'home';
