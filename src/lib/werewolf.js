@@ -3,7 +3,7 @@ import { getCounting } from './store.js';
 import { awardChatGameWin, chatGameReward, chatGameRunning } from './chatgames.js';
 import { undercoverRunning } from './undercover.js';
 import { formatMoney } from './shop.js';
-import { mutePlayers, unmuteAll } from './gamemute.js';
+import { mutePlayers, unmutePlayers, unmuteAll } from './gamemute.js';
 
 // Loup-garou (« +lp ») : de 5 à 16 joueurs, rôles envoyés en MP (et « 🔍 Mon rôle » pour les MP fermés).
 // Nuit : tout le monde clique sur « 🌙 Agir » (personne ne se trahit) ; les loups choisissent une victime, la voyante
@@ -16,7 +16,7 @@ import { mutePlayers, unmuteAll } from './gamemute.js';
 // Le village gagne quand tous les loups sont morts, les loups
 // quand ils sont aussi nombreux que les autres. Les gagnants reçoivent des coins (+jeux top). Une partie par salon.
 // La nuit (loups, voyante, sorcière), les joueurs ne peuvent plus écrire dans le salon (lib/gamemute.js) ; les autres
-// membres, si. La parole revient au lever du jour.
+// membres, si. La parole revient au lever du jour, sauf aux morts : ils se taisent jusqu'à la fin de la partie.
 
 const MIN_PLAYERS = 5;
 const MAX_PLAYERS = 16;
@@ -312,7 +312,8 @@ function kill(game, ids) {
       dead.push(partner);
     }
   }
-  // Les loups morts quittent le fil de la meute.
+  // Les morts se taisent jusqu'à la fin de la partie ; les loups morts quittent le fil de la meute.
+  if (dead.length) mutePlayers(game.channel, dead.map((p) => p.id), 'Loup-garou : les morts se taisent').catch(() => {});
   for (const p of dead.filter((d) => d.role === 'loup')) game.pack?.members.remove(p.id).catch(() => {});
   return dead;
 }
@@ -346,9 +347,10 @@ async function dawn(game) {
   if (game.phase !== 'night' && game.phase !== 'witch') return;
   clearTimeout(game.timer);
   game.phase = 'dawn';
-  unmuteAll(game.channel, 'Loup-garou : le jour se lève').catch(() => {});
   game.pack?.send('☀️ Le jour se lève : le fil est verrouillé jusqu’à la prochaine nuit.').catch(() => {}).then(() => game.pack?.setLocked(true)).catch(() => {});
   const dead = kill(game, [game.saved ? null : game.victim, game.poisoned].filter(Boolean));
+  // Le jour se lève : les vivants reparlent, les morts restent muets.
+  unmutePlayers(game.channel, alive(game).map((p) => p.id), 'Loup-garou : le jour se lève').catch(() => {});
   const lines = dead.filter((p) => !p.grief).map((p) => `💀 <@${p.id}> a été retrouvé(e) mort(e). C’était ${roleText(p)}.`);
   lines.push(...griefLines(dead));
   if (!lines.length) lines.push('✨ Personne n’est mort cette nuit !');
