@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits, StringSelectMenuBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, PermissionFlagsBits, StringSelectMenuBuilder } from 'discord.js';
 import { getCounting } from './store.js';
 import { awardChatGameWin, chatGameReward, chatGameRunning } from './chatgames.js';
 import { undercoverRunning } from './undercover.js';
@@ -11,6 +11,8 @@ import { mutePlayers, unmuteAll } from './gamemute.js';
 // une fois chacune). Jour : les morts sont annoncés avec leur rôle, débat, vote pour éliminer un suspect (égalité :
 // personne). Le chasseur qui meurt emporte quelqu'un. Cupidon (dès 6 joueurs) lie deux amoureux la première nuit :
 // si l'un meurt, l'autre meurt de chagrin ; un couple loup + village gagne seulement s'il reste seul en vie.
+// Dès 2 loups, la meute a un fil privé (que le village ne voit pas) : ouvert la nuit, verrouillé le jour, les loups
+// morts en sont retirés ; archivé à la fin de la partie.
 // Le village gagne quand tous les loups sont morts, les loups
 // quand ils sont aussi nombreux que les autres. Les gagnants reçoivent des coins (+jeux top). Une partie par salon.
 // La nuit (loups, voyante, sorcière), les joueurs ne peuvent plus écrire dans le salon (lib/gamemute.js) ; les autres
@@ -91,6 +93,13 @@ function stop(game) {
   game.phase = 'done';
   games.delete(game.channelId);
   if (game.channel) unmuteAll(game.channel, 'Loup-garou terminé').catch(() => {});
+  const pack = game.pack;
+  game.pack = null;
+  pack
+    ?.send('🏁 La partie est terminée : le fil de la meute est fermé.')
+    .catch(() => {})
+    .then(() => pack.edit({ locked: true, archived: true }))
+    .catch(() => {});
 }
 
 // --- Salle d'attente ---
@@ -143,10 +152,15 @@ async function launch(game) {
   game.night = 0;
   game.witch = { heal: true, poison: true };
   const wolves = game.players.filter((p) => p.role === 'loup');
+  if (wolves.length > 1) await openPack(game, wolves);
   const closed = [];
   for (const p of game.players) {
     const role = ROLES[p.role];
-    const pack = p.role === 'loup' && wolves.length > 1 ? `\nTa meute : ${wolves.filter((w) => w.id !== p.id).map((w) => `**${name(game, w.id)}**`).join(', ')}.` : '';
+    const pack =
+      p.role === 'loup' && wolves.length > 1
+        ? `\nTa meute : ${wolves.filter((w) => w.id !== p.id).map((w) => `**${name(game, w.id)}**`).join(', ')}.` +
+          (game.pack ? `\nParlez-vous la nuit dans votre fil privé : ${game.pack}` : '')
+        : '';
     const sent = await game.channel.client.users
       .send(p.id, `🐺 **Loup-garou** dans ${game.channel} : tu es ${role.emoji} **${role.name}** !\n${role.about}${pack}`)
       .then(() => true)
@@ -183,6 +197,18 @@ async function startNight(game) {
   Object.assign(game, { phase: 'night', wolfVotes: new Map(), victim: null, poisoned: null, saved: false });
   game.night += 1;
   game.cupidDone = game.night > 1 || !alive(game).some((p) => p.role === 'cupidon');
+  if (game.pack) {
+    const wolves = alive(game).filter((p) => p.role === 'loup');
+    game.pack
+      .edit({ locked: false, archived: false })
+      .then(() =>
+        game.pack?.send({
+          content: `🌙 **Nuit ${game.night}** — la meute se réveille : ${wolves.map((w) => `<@${w.id}>`).join(' ')}. Mettez-vous d’accord ici, puis votez avec **🌙 Agir** dans le salon.`,
+          allowedMentions: { users: wolves.map((w) => w.id) },
+        }),
+      )
+      .catch(() => {});
+  }
   // Le village dort : les joueurs ne peuvent plus écrire jusqu'au jour.
   mutePlayers(game.channel, game.players.map((p) => p.id), 'Loup-garou : le village dort').catch(() => {});
   game.seerDone = !alive(game).some((p) => p.role === 'voyante');
@@ -286,7 +312,25 @@ function kill(game, ids) {
       dead.push(partner);
     }
   }
+  // Les loups morts quittent le fil de la meute.
+  for (const p of dead.filter((d) => d.role === 'loup')) game.pack?.members.remove(p.id).catch(() => {});
   return dead;
+}
+
+// Fil privé de la meute (salon textuel seulement) : seuls les loups y sont ajoutés, personne ne peut en inviter d'autres.
+async function openPack(game, wolves) {
+  if (game.channel.type !== ChannelType.GuildText) return;
+  game.pack = await game.channel.threads
+    .create({ name: '🐺 La meute', type: ChannelType.PrivateThread, invitable: false, autoArchiveDuration: 1440, reason: 'Loup-garou : fil privé des loups' })
+    .catch(() => null);
+  if (!game.pack) return;
+  for (const w of wolves) await game.pack.members.add(w.id).catch(() => {});
+  await game.pack
+    .send({
+      content: `🐺 **Fil privé de la meute** : ${wolves.map((w) => `<@${w.id}>`).join(' ')}. Le village ne le voit pas. Il est ouvert la nuit et verrouillé le jour.`,
+      allowedMentions: { users: wolves.map((w) => w.id) },
+    })
+    .catch(() => {});
 }
 
 function winner(game) {
@@ -303,6 +347,7 @@ async function dawn(game) {
   clearTimeout(game.timer);
   game.phase = 'dawn';
   unmuteAll(game.channel, 'Loup-garou : le jour se lève').catch(() => {});
+  game.pack?.send('☀️ Le jour se lève : le fil est verrouillé jusqu’à la prochaine nuit.').catch(() => {}).then(() => game.pack?.setLocked(true)).catch(() => {});
   const dead = kill(game, [game.saved ? null : game.victim, game.poisoned].filter(Boolean));
   const lines = dead.filter((p) => !p.grief).map((p) => `💀 <@${p.id}> a été retrouvé(e) mort(e). C’était ${roleText(p)}.`);
   lines.push(...griefLines(dead));
@@ -477,6 +522,7 @@ export async function handleWerewolfInteraction(interaction) {
     return ephemeral(
       `${roleText(me)}${me.alive ? '' : ' (mort 💀)'}\n${ROLES[me.role].about}` +
         (wolves.length ? `\nTa meute : ${wolves.map((w) => `**${name(game, w.id)}**`).join(', ')}` : '') +
+        (me.role === 'loup' && game.pack ? `\nFil de la meute : ${game.pack}` : '') +
         (partnerOf(game, me.id) ? `\n💘 Tu es amoureux(se) de **${name(game, partnerOf(game, me.id).id)}** (${roleText(partnerOf(game, me.id))}).` : ''),
     );
   }
