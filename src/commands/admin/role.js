@@ -3,6 +3,7 @@ import { parseColor } from '../../lib/shop.js';
 import { sendLog, Colors } from '../../lib/logger.js';
 import { roleCommandProblem, isHierarchyExempt } from '../../lib/roles.js';
 import { getTempRole, removeTempRole } from '../../lib/store.js';
+import { vraiFaux, getVraiFaux } from '../../lib/vraifaux.js';
 
 // /role membre : ajouter ou retirer (bascule) un rôle à un membre · /role create : créer un rôle ·
 // /role change : modifier son nom, sa couleur et/ou son emplacement.
@@ -24,7 +25,7 @@ export default {
         .addStringOption((o) => o.setName('nom').setDescription('Le nom du rôle').setRequired(true).setMaxLength(100))
         .addStringOption((o) => o.setName('couleur').setDescription('Couleur en hex, ex : #ff66cc (gris par défaut)'))
         .addStringOption((o) => o.setName('degrade').setDescription('Deuxième couleur en hex : le rôle sera en dégradé (vide = couleur unie)'))
-        .addBooleanOption((o) => o.setName('holographique').setDescription('Style holographique de Discord (remplace les couleurs)')),
+        .addStringOption((o) => vraiFaux(o.setName('holographique').setDescription('Style holographique de Discord (remplace les couleurs)'))),
     )
     .addSubcommand((s) =>
       s
@@ -34,7 +35,7 @@ export default {
         .addStringOption((o) => o.setName('nom').setDescription('Nouveau nom').setMaxLength(100))
         .addStringOption((o) => o.setName('couleur').setDescription('Nouvelle couleur en hex, ex : #ff66cc'))
         .addStringOption((o) => o.setName('degrade').setDescription('Deuxième couleur en hex pour un dégradé (« aucun » pour revenir à une couleur unie)'))
-        .addBooleanOption((o) => o.setName('holographique').setDescription('Style holographique de Discord (remplace les couleurs)'))
+        .addStringOption((o) => vraiFaux(o.setName('holographique').setDescription('Style holographique de Discord (remplace les couleurs)')))
         .addRoleOption((o) => o.setName('au_dessus_de').setDescription('Placer le rôle juste au-dessus de ce rôle'))
         .addRoleOption((o) => o.setName('en_dessous_de').setDescription('Placer le rôle juste en dessous de ce rôle')),
     )
@@ -89,7 +90,7 @@ async function change(interaction) {
   const name = interaction.options.getString('nom')?.trim() || null;
   const rawColor = interaction.options.getString('couleur');
   const rawGradient = interaction.options.getString('degrade');
-  const holographic = interaction.options.getBoolean('holographique');
+  const holographic = getVraiFaux(interaction.options, 'holographique');
   const above = interaction.options.getRole('au_dessus_de');
   const below = interaction.options.getRole('en_dessous_de');
 
@@ -188,7 +189,7 @@ async function create(interaction) {
   const name = interaction.options.getString('nom').trim();
   const rawColor = interaction.options.getString('couleur');
   const rawGradient = interaction.options.getString('degrade');
-  const holographic = interaction.options.getBoolean('holographique') ?? false;
+  const holographic = getVraiFaux(interaction.options, 'holographique') ?? false;
   const color = rawColor ? parseColor(rawColor) : 0x99aab5;
   const gradient = rawGradient ? parseColor(rawGradient) : null;
   if (!name) return interaction.reply({ content: '❌ Donne un nom au rôle.', ephemeral: true });

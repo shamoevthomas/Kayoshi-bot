@@ -2,18 +2,19 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilde
 import { removeTempBan } from '../../lib/store.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { recordSanction } from '../../lib/sanctions.js';
+import { vraiFaux, getVraiFaux } from '../../lib/vraifaux.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('unban')
     .setDescription('Débannir un utilisateur via son ID, ou tout le monde (option tout).')
     .addStringOption((o) => o.setName('id').setDescription('ID de l’utilisateur banni'))
-    .addBooleanOption((o) => o.setName('tout').setDescription('Débannir TOUS les bannis du serveur (administrateurs, avec confirmation)'))
+    .addStringOption((o) => vraiFaux(o.setName('tout').setDescription('Débannir TOUS les bannis du serveur (administrateurs, avec confirmation)')))
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
     .setDMPermission(false),
 
   async execute(interaction) {
-    if (interaction.options.getBoolean('tout')) return unbanAll(interaction);
+    if (getVraiFaux(interaction.options, 'tout')) return unbanAll(interaction);
 
     const userId = interaction.options.getString('id')?.trim();
     if (!userId) {

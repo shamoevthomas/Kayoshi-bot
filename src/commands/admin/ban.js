@@ -3,6 +3,7 @@ import { addTempBan } from '../../lib/store.js';
 import { sendSanctionLog, Colors } from '../../lib/logger.js';
 import { parseDuration, formatDuration } from '../../lib/time.js';
 import { dmSanction, dmNote, recordSanction } from '../../lib/sanctions.js';
+import { vraiFaux, getVraiFaux } from '../../lib/vraifaux.js';
 
 // ID seul ou mention (<@id>) dans l'option « id ».
 const MENTION_OR_ID = /^(?:<@!?)?(\d{17,20})>?$/;
@@ -23,8 +24,8 @@ export default {
     .addUserOption((o) => o.setName('membre').setDescription('Le membre à bannir (ou utilise l’option id)'))
     .addStringOption((o) => o.setName('id').setDescription('Ou l’ID d’un utilisateur, même s’il n’est pas sur le serveur'))
     .addStringOption((o) => o.setName('duree').setDescription('Durée (ex: 7d, 12h) — vide = permanent'))
-    .addBooleanOption((o) =>
-      o.setName('definitif').setDescription('Supprimer ses messages des 7 derniers jours (ex-"ban IP")'),
+    .addStringOption((o) =>
+      vraiFaux(o.setName('definitif').setDescription('Supprimer ses messages des 7 derniers jours (ex-"ban IP")')),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
     .setDMPermission(false),
@@ -44,7 +45,7 @@ export default {
     }
     const reason = interaction.options.getString('raison');
     const durInput = interaction.options.getString('duree');
-    const definitif = interaction.options.getBoolean('definitif') ?? false;
+    const definitif = getVraiFaux(interaction.options, 'definitif') ?? false;
     const showMod = interaction.options.getString('afficher_moderateur') === 'montrer';
 
     const dur = durInput ? parseDuration(durInput) : { permanent: true, ms: null };

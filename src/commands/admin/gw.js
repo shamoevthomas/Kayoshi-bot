@@ -20,6 +20,7 @@ import {
   setWinnersChannelId,
   postWinnersHistory,
 } from '../../lib/giveaways.js';
+import { vraiFaux, getVraiFaux } from '../../lib/vraifaux.js';
 
 // Renvoie l'ID du dernier giveaway correspondant au filtre (par ordre de création).
 function latestGiveaway(guildId, filter) {
@@ -94,7 +95,7 @@ export default {
         .setName('salon-gagnants')
         .setDescription('Salon où sont notés tous les gagnants des giveaways (créé si tu n’en choisis pas).')
         .addChannelOption((o) => o.setName('salon').setDescription('Un salon existant (sinon j’en crée un)').addChannelTypes(ChannelType.GuildText))
-        .addBooleanOption((o) => o.setName('desactiver').setDescription('Ne plus noter les gagnants')),
+        .addStringOption((o) => vraiFaux(o.setName('desactiver').setDescription('Ne plus noter les gagnants'))),
     ),
 
   async execute(interaction) {
@@ -111,7 +112,7 @@ export default {
   // Salon des gagnants : choisi, ou créé en lecture seule à côté du salon des giveaways. Les giveaways déjà
   // terminés y sont recopiés la première fois.
   async winnersChannel(interaction, guildId) {
-    if (interaction.options.getBoolean('desactiver')) {
+    if (getVraiFaux(interaction.options, 'desactiver')) {
       setWinnersChannelId(guildId, null);
       return interaction.reply({ content: '✅ Les gagnants des giveaways ne sont plus notés.', ephemeral: true });
     }

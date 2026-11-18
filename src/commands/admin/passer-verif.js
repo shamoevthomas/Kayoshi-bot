@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { forceVerify, forceVerifyAll } from '../../lib/verification.js';
+import { vraiFaux, getVraiFaux } from '../../lib/vraifaux.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -16,12 +17,12 @@ export default {
         .setDescription("ID du membre (à utiliser s'il est bloqué à l'écran d'accueil → « Utilisateur invalide »)")
         .setRequired(false),
     )
-    .addBooleanOption((opt) =>
-      opt.setName('tout').setDescription('Vérifier TOUS les membres non vérifiés (administrateurs, avec confirmation)'),
+    .addStringOption((opt) =>
+      vraiFaux(opt.setName('tout').setDescription('Vérifier TOUS les membres non vérifiés (administrateurs, avec confirmation)')),
     ),
 
   async execute(interaction) {
-    if (interaction.options.getBoolean('tout')) return verifyAll(interaction);
+    if (getVraiFaux(interaction.options, 'tout')) return verifyAll(interaction);
 
     // On diffère tout de suite : fetch du membre + ajout de rôle + log peuvent
     // dépasser les 3 s de la fenêtre de réponse d'une interaction.

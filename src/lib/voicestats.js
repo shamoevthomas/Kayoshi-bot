@@ -2,7 +2,8 @@ import { EmbedBuilder } from 'discord.js';
 import { Colors } from './logger.js';
 
 // « +vc » : statistiques du serveur — membres (bots exclus), bots, boosts (et niveau), puis en ligne, en vocal,
-// actifs (en vocal, ni mute ni en sourdine), en stream et mute (micro coupé ou en sourdine), bots exclus.
+// actifs (en vocal, ni mute ni en sourdine), en stream et mute (micro coupé ou en sourdine). Les chiffres du vocal
+// comptent les membres et les bots ensemble (bots de musique…) ; « en ligne » ne compte que les membres.
 // Renvoie true si le message était la commande.
 export async function handleVoiceStatsCommand(message) {
   if (!message.guild || message.author.bot) return false;
@@ -16,7 +17,7 @@ export async function handleVoiceStatsCommand(message) {
   const bots = guild.members.cache.filter((m) => m.user.bot).size;
   const boosters = guild.members.cache.filter((m) => m.premiumSinceTimestamp).size;
   const online = guild.presences.cache.filter((p) => p.status !== 'offline' && !isBot(p.userId)).size;
-  const states = guild.voiceStates.cache.filter((s) => s.channelId && !isBot(s.id));
+  const states = guild.voiceStates.cache.filter((s) => s.channelId);
   const count = (test) => states.filter(test).size;
 
   const embed = new EmbedBuilder()

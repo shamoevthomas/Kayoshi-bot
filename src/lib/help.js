@@ -204,7 +204,7 @@ const CATEGORIES = [
       'Mariages (autant qu’on veut) et adoptions virtuels, avec l’accord de l’autre membre. L’arbre de /family montre conjoints, ' +
       'parent et enfants, y compris ceux des conjoints. La famille est commune à Hanami et à l’ancien serveur.',
     lines: [
-      ['/marry · /divorce', 'Demander un membre en mariage (il doit accepter, sans limite de conjoints) / annuler un de ses mariages'],
+      ['/marry · /divorce', 'Demander un membre en mariage (il doit accepter, sans limite de conjoints) / annuler un de ses mariages (`/divorce tous` : divorcer de tous ses conjoints d’un coup, après confirmation)'],
       ['/adopt · /family', 'Adopter un membre (il doit accepter) / voir son arbre généalogique en image'],
       ['/renier · /fuguer', 'Renier un de ses enfants adoptés / fuguer : quitter son parent adoptif'],
     ],
@@ -252,7 +252,7 @@ const CATEGORIES = [
       ['/config → Rappel de bump → Rappel', 'Activer / désactiver le rappel de bump Disboard (2 h après chaque /bump)'],
       ['/config → Rappel de bump → Messages', 'Message de rappel, rôle à mentionner, message après avoir bump'],
       ['/recreate · +recreate', 'Supprimer un salon et le recréer à l’identique, après confirmation (`+recreate` ou `+recreate #salon`) ; les réglages du bot qui visaient le salon suivent le nouveau'],
-      ['/config → Salons de stats', 'Panneau : salons vocaux verrouillés en haut du serveur dont le nom affiche un chiffre à jour (membres, en ligne, en vocal, boosts), toutes les 10 min'],
+      ['/config → Salons de stats', 'Panneau : salons vocaux verrouillés en haut du serveur dont le nom affiche un chiffre à jour (membres, en ligne, en vocal, boosts), toutes les 10 min ; bouton « Choisir les emojis » pour changer l’emoji de chaque salon'],
       ['/backup', '`creer` `liste` `telecharger` `restaurer` — sauvegarde des rôles, salons et permissions (automatique chaque jour) ; la restauration recrée seulement ce qui manque, rien n’est supprimé (admin)'],
       ['/config → Anti-nuke', '`voir` `activer` `desactiver` `ajouter` `retirer` — suppressions de salons / rôles, bans ou expulsions en masse (en moins d’une minute) : rôles retirés, propriétaire prévenu ; membres de confiance jamais visés (réglages : propriétaire du serveur)'],
     ],
@@ -269,7 +269,7 @@ const CATEGORIES = [
       ['+meilleurami', 'Top 5 des membres avec qui tu échanges le plus (ou un membre) : réponses et mentions dans les deux sens, 30 derniers jours'],
       ['+graph', 'Courbe d’activité du serveur en image : messages et heures de vocal jour par jour, total, moyenne et record (`+graph 7`, `14` ou `30` jours, 30 par défaut)'],
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre, `s?t` le top, `s?m` les messages, `s?v` le vocal'],
-      ['+vc', 'Statistiques du serveur : membres, bots, boosts (et niveau), en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute'],
+      ['+vc', 'Statistiques du serveur : membres, bots, boosts (et niveau), en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute (bots compris dans les chiffres du vocal)'],
       ['/serverinfo', 'Statistiques du serveur'],
       ['/userinfo', 'Fiche d’un membre : niveau, argent, coins (poche, banque, livret), réputation, team, famille, activité et dernier message, invitations, quiz, avertissements, rôles, venues d’avant et anciens rôles'],
       ['/pseudo', 'Envoyer le pseudo d’un membre'],
@@ -304,16 +304,16 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/divorce', 'option `tous` : divorcer de tous ses conjoints'],
+  ['/config → Salons de stats', 'emoji de chaque salon au choix'],
   ['+snipe', '`+snipe 2` : l’avant-dernier message supprimé (jusqu’à 5)'],
   ['/config → Sport', 'matchs des équipes nationales (Maroc, France…)'],
   ['+snipe', 'aussi pour les membres qui ont le rôle Loyal'],
   ['Tickets', 'pris en charge : seuls celui qui le prend et l’auteur peuvent écrire'],
   ['@Kayoshi part', 'la même pub n’est publiée qu’une fois par salon'],
   ['Statut, tag et boost', 'le tag et le boost rapportent aussi une récompense, doublée pour les boosters'],
-  ['+vc', 'affiche aussi les boosts et les bots'],
+  ['+vc', 'boosts, bots, et les bots comptés en vocal'],
   ['/config', 'devient un panneau : un bouton par système, vert quand il est activé'],
-  ['/embed', '🔗 boutons lien, et boutons dans l’embed (format cadre) ou dessous'],
-  ['/rank', 'jusqu’à 6 rôles d’un coup'],
 ];
 
 const HOME = 'home';

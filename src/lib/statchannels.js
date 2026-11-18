@@ -1,12 +1,26 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, PermissionFlagsBits, StringSelectMenuBuilder } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  EmbedBuilder,
+  LabelBuilder,
+  ModalBuilder,
+  PermissionFlagsBits,
+  StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js';
 import { getGuildConfig, setGuildConfig } from './store.js';
 import { formatMoney } from './shop.js';
 
 // Salons de statistiques (/config → Salons de stats) : des salons vocaux verrouillés (on les voit, on ne peut pas y
 // entrer) dans une catégorie en haut du serveur, dont le nom affiche un chiffre à jour.
 // Discord limite les renommages (2 toutes les 10 min par salon) : mise à jour toutes les 10 min, et
-// seulement si le chiffre a changé. Réglages : data[guildId].statChannels = { categoryId, channels: { stat: id } }.
-// Panneau : menu « sst:choix », boutons « sst:maj » et « sst:suppr » (routés par interactionCreate).
+// seulement si le chiffre a changé. Réglages : data[guildId].statChannels = { categoryId, channels: { stat: id },
+// emojis: { stat: '🔥' } } (emoji choisi ; '' = sans emoji ; absent = celui par défaut de STATS).
+// Panneau : menu « sst:choix », boutons « sst:maj », « sst:emoji » (formulaire « sst:emojis ») et « sst:suppr »
+// (routés par interactionCreate).
 export const REFRESH_MS = 10 * 60_000;
 const CATEGORY_NAME = '📊 Statistiques';
 
@@ -25,7 +39,11 @@ export const STATS = {
 
 const getConfig = (guildId) => getGuildConfig(guildId).statChannels ?? { categoryId: null, channels: {} };
 const setConfig = (guildId, cfg) => setGuildConfig(guildId, { statChannels: cfg });
-const channelName = (guild, key) => `${STATS[key].emoji} ${STATS[key].label} : ${formatMoney(STATS[key].value(guild))}`;
+const emojiOf = (guildId, key) => getConfig(guildId).emojis?.[key] ?? STATS[key].emoji;
+const channelName = (guild, key) => {
+  const emoji = emojiOf(guild.id, key);
+  return `${emoji ? `${emoji} ` : ''}${STATS[key].label} : ${formatMoney(STATS[key].value(guild))}`;
+};
 
 async function fetchChannel(guild, id) {
   if (!id) return null;
@@ -54,7 +72,7 @@ async function apply(guild, keys) {
   let category = await fetchChannel(guild, cfg.categoryId);
   if (!keys.length) {
     if (category && !category.children?.cache.size) await category.delete('Plus de salons de statistiques').catch(() => {});
-    setConfig(guild.id, { categoryId: null, channels: {} });
+    setConfig(guild.id, { ...cfg, categoryId: null, channels: {} }); // les emojis choisis restent
     return null;
   }
   if (!category) {
@@ -129,10 +147,47 @@ export function statPanel(guild, notice = null) {
       ),
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('sst:maj').setLabel('Mettre à jour maintenant').setEmoji('🔄').setStyle(ButtonStyle.Primary).setDisabled(!active.length),
+        new ButtonBuilder().setCustomId('sst:emoji').setLabel('Choisir les emojis').setEmoji('😀').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('sst:suppr').setLabel('Tout supprimer').setEmoji('🗑️').setStyle(ButtonStyle.Danger).setDisabled(!active.length),
       ),
     ],
   };
+}
+
+// Formulaire : un emoji par statistique (rempli avec l'emoji actuel).
+function emojiModal(guild) {
+  return new ModalBuilder()
+    .setCustomId('sst:emojis')
+    .setTitle('Emojis des salons de stats')
+    .addLabelComponents(
+      Object.entries(STATS).map(([key, s]) => {
+        const input = new TextInputBuilder().setCustomId(key).setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(12);
+        const current = emojiOf(guild.id, key);
+        if (current) input.setValue(current);
+        return new LabelBuilder().setLabel(s.label).setDescription(`Par défaut : ${s.emoji} · vide = sans emoji`).setTextInputComponent(input);
+      }),
+    );
+}
+
+async function saveEmojis(interaction) {
+  const { guild } = interaction;
+  const emojis = {};
+  for (const key of Object.keys(STATS)) {
+    const value = interaction.fields.getTextInputValue(key).replace(/\s+/g, ' ').trim();
+    // Un nom de salon n'affiche pas les emojis du serveur (<:nom:id>) : seulement les emojis classiques et les symboles.
+    if (/<a?:\w+:\d+>|:\w+:/.test(value)) {
+      return interaction.update(
+        statPanel(guild, `❌ **${STATS[key].label}** : les emojis du serveur (\`:nom:\`) ne s’affichent pas dans un nom de salon. Mets un emoji classique (👥, 🔥, ✨…) ou un symbole (✦, ・, ➜…).`),
+      );
+    }
+    if (value !== STATS[key].emoji) emojis[key] = value;
+  }
+  setConfig(guild.id, { ...getConfig(guild.id), emojis });
+  refreshGuildStats(guild).catch(() => {});
+  const preview = Object.keys(STATS).map((key) => `${emojiOf(guild.id, key) || '∅'} ${STATS[key].label}`).join(' · ');
+  return interaction.update(
+    statPanel(guild, `✅ Emojis enregistrés : ${preview}\n-# Les salons sont renommés tout de suite (Discord autorise 2 changements de nom par salon toutes les 10 min).`),
+  );
 }
 
 export async function handleStatChannelsInteraction(interaction) {
@@ -141,6 +196,8 @@ export async function handleStatChannelsInteraction(interaction) {
   }
   const { guild } = interaction;
   const action = interaction.customId.split(':')[1];
+  if (action === 'emoji') return interaction.showModal(emojiModal(guild));
+  if (action === 'emojis') return saveEmojis(interaction);
   if (action === 'maj') {
     refreshGuildStats(guild).catch(() => {});
     return interaction.update(statPanel(guild, '🔄 Mise à jour lancée (Discord autorise 2 changements de nom par salon toutes les 10 min).'));

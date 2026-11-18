@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { sendLog, Colors } from '../../lib/logger.js';
+import { vraiFaux, getVraiFaux } from '../../lib/vraifaux.js';
 
 const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
 const NEEDED = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages];
@@ -41,8 +42,8 @@ export default {
       o.setName('nombre').setDescription('Combien de messages supprimer').setRequired(true).setMinValue(1),
     )
     .addUserOption((o) => o.setName('membre').setDescription('Ne supprimer que les messages de ce membre'))
-    .addBooleanOption((o) =>
-      o.setName('tous_les_salons').setDescription('Supprimer dans tous les salons (le membre est alors obligatoire)'),
+    .addStringOption((o) =>
+      vraiFaux(o.setName('tous_les_salons').setDescription('Supprimer dans tous les salons (le membre est alors obligatoire)')),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .setDMPermission(false),
@@ -50,7 +51,7 @@ export default {
   async execute(interaction) {
     const target = interaction.options.getInteger('nombre');
     const member = interaction.options.getUser('membre');
-    const everywhere = interaction.options.getBoolean('tous_les_salons') ?? false;
+    const everywhere = getVraiFaux(interaction.options, 'tous_les_salons') ?? false;
     if (everywhere && !member) {
       return interaction.reply({ content: '❌ Pour purger dans tous les salons, choisis un **membre**.', ephemeral: true });
     }

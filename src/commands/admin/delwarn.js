@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { removeWarn, clearWarns } from '../../lib/store.js';
+import { vraiFaux, getVraiFaux } from '../../lib/vraifaux.js';
 
 // Retire un avertissement précis (numéro visible dans /casier), ou tous avec l'option « tout ».
 export default {
@@ -8,13 +9,13 @@ export default {
     .setDescription('Retirer un avertissement d’un membre, ou tous ses avertissements.')
     .addUserOption((o) => o.setName('membre').setDescription('Le membre').setRequired(true))
     .addIntegerOption((o) => o.setName('id').setDescription('Numéro de l’avertissement (visible dans /casier)').setMinValue(1))
-    .addBooleanOption((o) => o.setName('tout').setDescription('Retirer TOUS ses avertissements'))
+    .addStringOption((o) => vraiFaux(o.setName('tout').setDescription('Retirer TOUS ses avertissements')))
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
     .setDMPermission(false),
 
   async execute(interaction) {
     const target = interaction.options.getUser('membre');
-    if (interaction.options.getBoolean('tout')) {
+    if (getVraiFaux(interaction.options, 'tout')) {
       const count = clearWarns(interaction.guild.id, target.id);
       return interaction.reply({
         content: count ? `✅ ${count} avertissement(s) de ${target} retiré(s).` : `ℹ️ ${target} n’avait aucun avertissement.`,
