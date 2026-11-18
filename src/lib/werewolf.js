@@ -3,13 +3,18 @@ import { getCounting } from './store.js';
 import { awardChatGameWin, chatGameReward, chatGameRunning } from './chatgames.js';
 import { undercoverRunning } from './undercover.js';
 import { formatMoney } from './shop.js';
+import { mutePlayers, unmuteAll } from './gamemute.js';
 
 // Loup-garou (« +lp ») : de 5 à 16 joueurs, rôles envoyés en MP (et « 🔍 Mon rôle » pour les MP fermés).
 // Nuit : tout le monde clique sur « 🌙 Agir » (personne ne se trahit) ; les loups choisissent une victime, la voyante
 // découvre un rôle, les autres dorment. Puis la sorcière se réveille (potion de vie pour la victime, potion de mort,
 // une fois chacune). Jour : les morts sont annoncés avec leur rôle, débat, vote pour éliminer un suspect (égalité :
-// personne). Le chasseur qui meurt emporte quelqu'un. Le village gagne quand tous les loups sont morts, les loups
+// personne). Le chasseur qui meurt emporte quelqu'un. Cupidon (dès 6 joueurs) lie deux amoureux la première nuit :
+// si l'un meurt, l'autre meurt de chagrin ; un couple loup + village gagne seulement s'il reste seul en vie.
+// Le village gagne quand tous les loups sont morts, les loups
 // quand ils sont aussi nombreux que les autres. Les gagnants reçoivent des coins (+jeux top). Une partie par salon.
+// La nuit (loups, voyante, sorcière), les joueurs ne peuvent plus écrire dans le salon (lib/gamemute.js) ; les autres
+// membres, si. La parole revient au lever du jour.
 
 const MIN_PLAYERS = 5;
 const MAX_PLAYERS = 16;
@@ -27,6 +32,13 @@ const ROLES = {
   voyante: { name: 'Voyante', plural: 'voyantes', emoji: '🔮', team: 'village', about: 'Chaque nuit, découvre le rôle d’un joueur.' },
   sorciere: { name: 'Sorcière', plural: 'sorcières', emoji: '🧪', team: 'village', about: 'Une potion de vie (sauver la victime des loups) et une potion de mort (éliminer un joueur), une fois chacune.' },
   chasseur: { name: 'Chasseur', plural: 'chasseurs', emoji: '🔫', team: 'village', about: 'Quand tu meurs, tu emportes un joueur avec toi.' },
+  cupidon: {
+    name: 'Cupidon',
+    plural: 'cupidons',
+    emoji: '💘',
+    team: 'village',
+    about: 'La première nuit, désigne deux amoureux (toi compris si tu veux) : si l’un meurt, l’autre meurt de chagrin.',
+  },
   villageois: { name: 'Villageois', plural: 'villageois', emoji: '🧑‍🌾', team: 'village', about: 'Trouve les loups-garous et vote contre eux le jour.' },
 };
 
@@ -52,6 +64,15 @@ const button = (id, label, style, emoji) => {
   return emoji ? b.setEmoji(emoji) : b;
 };
 const roleButton = () => button('lg:role', 'Mon rôle', ButtonStyle.Secondary, '🔍');
+// Les amoureux de Cupidon : [joueur, joueur] ou [] ; « mixte » quand ils ne sont pas du même camp.
+const lovers = (game) => (game.lovers ?? []).map((id) => player(game, id));
+const mixedLovers = (game) => {
+  const [a, b] = lovers(game);
+  return Boolean(a && b && ROLES[a.role].team !== ROLES[b.role].team);
+};
+const partnerOf = (game, id) => (game.lovers?.includes(id) ? player(game, game.lovers.find((l) => l !== id)) : null);
+// Morts de chagrin (amoureux) parmi les morts, en lignes à ajouter à l'annonce.
+const griefLines = (dead) => dead.filter((p) => p.grief).map((p) => `💔 <@${p.id}> meurt de chagrin… C’était ${roleText(p)}.`);
 
 // Composition selon le nombre de joueurs.
 function composition(n) {
@@ -60,6 +81,7 @@ function composition(n) {
   roles.push('voyante');
   if (n >= 6) roles.push('sorciere');
   if (n >= 7) roles.push('chasseur');
+  if (n >= 6) roles.push('cupidon');
   while (roles.length < n) roles.push('villageois');
   return roles;
 }
@@ -68,6 +90,7 @@ function stop(game) {
   clearTimeout(game.timer);
   game.phase = 'done';
   games.delete(game.channelId);
+  if (game.channel) unmuteAll(game.channel, 'Loup-garou terminé').catch(() => {});
 }
 
 // --- Salle d'attente ---
@@ -159,6 +182,9 @@ async function startNight(game) {
   clearTimeout(game.timer);
   Object.assign(game, { phase: 'night', wolfVotes: new Map(), victim: null, poisoned: null, saved: false });
   game.night += 1;
+  game.cupidDone = game.night > 1 || !alive(game).some((p) => p.role === 'cupidon');
+  // Le village dort : les joueurs ne peuvent plus écrire jusqu'au jour.
+  mutePlayers(game.channel, game.players.map((p) => p.id), 'Loup-garou : le village dort').catch(() => {});
   game.seerDone = !alive(game).some((p) => p.role === 'voyante');
   await game.channel
     .send({
@@ -168,7 +194,7 @@ async function startNight(game) {
           .setTitle(`🌙 Nuit ${game.night}`)
           .setDescription(
             'Le village s’endort… **Tout le monde clique sur 🌙 Agir** (pour ne pas se trahir) : les loups choisissent leur victime, ' +
-              `la voyante découvre un rôle, les autres dorment. (${NIGHT_MS / 1000} s)`,
+              `la voyante découvre un rôle${game.cupidDone ? '' : ', Cupidon désigne deux amoureux'}, les autres dorment. (${NIGHT_MS / 1000} s)`,
           ),
       ],
       components: [new ActionRowBuilder().addComponents(button('lg:act', 'Agir', ButtonStyle.Primary, '🌙'), roleButton())],
@@ -196,7 +222,7 @@ function wolfPanel(game, wolf, note = '') {
 
 function checkNightDone(game) {
   const wolves = alive(game).filter((p) => p.role === 'loup');
-  if (game.phase === 'night' && game.seerDone && wolves.every((w) => game.wolfVotes.has(w.id))) endWolves(game);
+  if (game.phase === 'night' && game.seerDone && game.cupidDone && wolves.every((w) => game.wolfVotes.has(w.id))) endWolves(game);
 }
 
 async function endWolves(game) {
@@ -251,10 +277,21 @@ function kill(game, ids) {
       dead.push(p);
     }
   }
+  // Un amoureux qui meurt emporte l'autre (mort de chagrin).
+  for (const p of dead) {
+    const partner = partnerOf(game, p.id);
+    if (partner?.alive) {
+      partner.alive = false;
+      partner.grief = true;
+      dead.push(partner);
+    }
+  }
   return dead;
 }
 
 function winner(game) {
+  // Couple loup + village : il gagne s'il reste seul en vie.
+  if (mixedLovers(game) && alive(game).length === 2 && lovers(game).every((p) => p.alive)) return 'amoureux';
   const wolves = alive(game).filter((p) => p.role === 'loup').length;
   if (!wolves) return 'village';
   if (wolves >= alive(game).length - wolves) return 'loups';
@@ -265,10 +302,13 @@ async function dawn(game) {
   if (game.phase !== 'night' && game.phase !== 'witch') return;
   clearTimeout(game.timer);
   game.phase = 'dawn';
+  unmuteAll(game.channel, 'Loup-garou : le jour se lève').catch(() => {});
   const dead = kill(game, [game.saved ? null : game.victim, game.poisoned].filter(Boolean));
-  const text = dead.length
-    ? dead.map((p) => `💀 <@${p.id}> a été retrouvé(e) mort(e). C’était ${roleText(p)}.`).join('\n')
-    : '✨ Personne n’est mort cette nuit !';
+  const lines = dead.filter((p) => !p.grief).map((p) => `💀 <@${p.id}> a été retrouvé(e) mort(e). C’était ${roleText(p)}.`);
+  lines.push(...griefLines(dead));
+  if (!lines.length) lines.push('✨ Personne n’est mort cette nuit !');
+  if (game.night === 1 && game.lovers) lines.unshift('💘 Cupidon a frappé cette nuit : deux amoureux sont liés en secret.\n');
+  const text = lines.join('\n');
   await game.channel
     .send({ embeds: [new EmbedBuilder().setColor(DAY_COLOR).setTitle(`☀️ Jour ${game.night}`).setDescription(text)], ...quiet })
     .catch(() => {});
@@ -312,7 +352,12 @@ async function hunterDone(game, targetId) {
   game.phase = 'dawn';
   const dead = targetId ? kill(game, [targetId]) : [];
   await game.channel
-    .send({ content: dead.length ? `🔫 Le chasseur emporte <@${dead[0].id}> avec lui… C’était ${roleText(dead[0])}.` : '🔫 Le chasseur n’a tiré sur personne.', ...quiet })
+    .send({
+      content: dead.length
+        ? [`🔫 Le chasseur emporte <@${dead[0].id}> avec lui… C’était ${roleText(dead[0])}.`, ...griefLines(dead)].join('\n')
+        : '🔫 Le chasseur n’a tiré sur personne.',
+      ...quiet,
+    })
     .catch(() => {});
   const end = winner(game);
   if (end) return finish(game, end);
@@ -368,7 +413,12 @@ async function closeVote(game) {
     await game.channel.send({ content: `⚖️ ${best ? 'Égalité' : 'Personne n’a voté'} : personne n’est éliminé aujourd’hui.`, ...quiet }).catch(() => {});
   } else {
     dead = kill(game, top);
-    await game.channel.send({ content: `🪓 Le village élimine <@${dead[0].id}> avec **${best} voix**… C’était ${roleText(dead[0])}.`, ...quiet }).catch(() => {});
+    await game.channel
+      .send({
+        content: [`🪓 Le village élimine <@${dead[0].id}> avec **${best} voix**… C’était ${roleText(dead[0])}.`, ...griefLines(dead)].join('\n'),
+        ...quiet,
+      })
+      .catch(() => {});
   }
   afterDeaths(game, dead, () => {
     game.timer = setTimeout(() => startNight(game), 5000);
@@ -377,15 +427,22 @@ async function closeVote(game) {
 
 async function finish(game, team) {
   stop(game);
-  const winners = game.players.filter((p) => ROLES[p.role].team === team);
+  // Un couple mixte ne gagne pas avec son camp : seulement ensemble, s'il reste seul.
+  const inMixedCouple = (p) => mixedLovers(game) && game.lovers.includes(p.id);
+  const winners =
+    team === 'amoureux' ? lovers(game) : game.players.filter((p) => ROLES[p.role].team === team && !inMixedCouple(p));
   const paid = winners.filter((p) => awardChatGameWin(game.guildId, p.id, 'loupgarou'));
-  const roles = game.players.map((p) => `${ROLES[p.role].emoji} <@${p.id}> — ${ROLES[p.role].name}${p.alive ? '' : ' 💀'}`).join('\n');
+  const roles = game.players
+    .map((p) => `${ROLES[p.role].emoji} <@${p.id}> — ${ROLES[p.role].name}${game.lovers?.includes(p.id) ? ' 💘' : ''}${p.alive ? '' : ' 💀'}`)
+    .join('\n');
+  const title = { village: '🧑‍🌾 Le village gagne !', loups: '🐺 Les loups-garous gagnent !', amoureux: '💘 Les amoureux gagnent !' }[team];
+  const color = { village: 0x57f287, loups: 0xed4245, amoureux: 0xff69b4 }[team];
   await game.channel
     .send({
       embeds: [
         new EmbedBuilder()
-          .setColor(team === 'village' ? 0x57f287 : 0xed4245)
-          .setTitle(team === 'village' ? '🧑‍🌾 Le village gagne !' : '🐺 Les loups-garous gagnent !')
+          .setColor(color)
+          .setTitle(title)
           .setDescription(
             `${roles}` + (paid.length ? `\n\n🪙 **+${formatMoney(chatGameReward('loupgarou'))}** coins pour ${paid.map((p) => `<@${p.id}>`).join(', ')}` : ''),
           )
@@ -419,7 +476,8 @@ export async function handleWerewolfInteraction(interaction) {
     const wolves = me.role === 'loup' ? game.players.filter((p) => p.role === 'loup' && p.id !== me.id) : [];
     return ephemeral(
       `${roleText(me)}${me.alive ? '' : ' (mort 💀)'}\n${ROLES[me.role].about}` +
-        (wolves.length ? `\nTa meute : ${wolves.map((w) => `**${name(game, w.id)}**`).join(', ')}` : ''),
+        (wolves.length ? `\nTa meute : ${wolves.map((w) => `**${name(game, w.id)}**`).join(', ')}` : '') +
+        (partnerOf(game, me.id) ? `\n💘 Tu es amoureux(se) de **${name(game, partnerOf(game, me.id).id)}** (${roleText(partnerOf(game, me.id))}).` : ''),
     );
   }
 
@@ -478,7 +536,39 @@ export async function handleWerewolfInteraction(interaction) {
         ],
       });
     }
+    if (me.role === 'cupidon' && !game.cupidDone) {
+      return ephemeral('💘 **Désigne deux amoureux** (toi compris si tu veux). Si l’un meurt, l’autre meurt de chagrin.', {
+        components: [
+          new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('lg:cupid')
+              .setPlaceholder('Les deux amoureux…')
+              .setMinValues(2)
+              .setMaxValues(2)
+              .addOptions(alive(game).map((p) => ({ label: name(game, p.id), value: p.id }))),
+          ),
+        ],
+      });
+    }
     return ephemeral('💤 Tu dors… Rien à faire cette nuit.');
+  }
+  if (action === 'cupid') {
+    if (game.phase !== 'night' || me.role !== 'cupidon' || game.cupidDone) return ephemeral('⌛ Trop tard.');
+    const [a, b] = interaction.values.map((id) => player(game, id));
+    if (!a?.alive || !b?.alive || a.id === b.id) return ephemeral('❌ Choisis deux joueurs en vie.');
+    game.lovers = [a.id, b.id];
+    game.cupidDone = true;
+    await interaction.update({ content: `💘 **${name(game, a.id)}** et **${name(game, b.id)}** sont maintenant amoureux.`, components: [] });
+    // Chaque amoureux apprend qui est l'autre (et son rôle) en MP ; sinon avec « 🔍 Mon rôle ».
+    for (const [lover, other] of [[a, b], [b, a]]) {
+      const goal = mixedLovers(game)
+        ? '\nVous n’êtes pas du même camp : vous gagnez ensemble si vous êtes les deux derniers en vie.'
+        : '';
+      await game.channel.client.users
+        .send(lover.id, `💘 **Loup-garou** dans ${game.channel} : Cupidon t’a lié(e) à **${name(game, other.id)}** (${roleText(other)}). Si l’un de vous meurt, l’autre meurt de chagrin.${goal}`)
+        .catch(() => {});
+    }
+    return checkNightDone(game);
   }
   if (action === 'wolf') {
     if (game.phase !== 'night' || me.role !== 'loup') return ephemeral('⌛ Trop tard.');

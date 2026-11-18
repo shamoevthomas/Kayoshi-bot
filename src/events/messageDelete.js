@@ -4,6 +4,7 @@ import { takeCachedAttachments } from '../lib/attachmentCache.js';
 import { removeSentEmbed } from '../lib/store.js';
 import { isGuessFlagChannel } from '../lib/guessflag.js';
 import { rememberDeleted, forgetSnipe } from '../lib/snipe.js';
+import { deletedByGameMute } from '../lib/gamemute.js';
 
 export default {
   name: Events.MessageDelete,
@@ -14,6 +15,8 @@ export default {
     // Réponse de « +snipe » supprimée (par le staff) : le message snipé ne peut plus être réaffiché.
     forgetSnipe(message.id);
     if (message.author?.bot) return;
+    // Message d'un joueur qui n'avait pas la parole (undercover, loup-garou), supprimé par le bot : pas de log.
+    if (deletedByGameMute(message.id)) return;
     // Réponses du jeu du drapeau, supprimées par le bot : pas de log.
     if (isGuessFlagChannel(message.guild.id, message.channelId)) return;
 

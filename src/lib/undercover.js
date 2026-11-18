@@ -3,12 +3,15 @@ import { getCounting } from './store.js';
 import { awardChatGameWin, chatGameReward, chatGameRunning } from './chatgames.js';
 import { formatMoney } from './shop.js';
 import { werewolfRunning } from './werewolf.js';
+import { mutePlayers, unmutePlayers, unmuteAll } from './gamemute.js';
 
 // Undercover (« +undercover ») : les civils ont tous le même mot, le ou les undercovers un mot proche, et personne
 // ne connaît son rôle (« 🔍 Voir mon mot » le montre en privé). À chaque tour, chacun décrit son mot en un message
 // sans le dire, puis les joueurs votent pour éliminer quelqu'un, dont le rôle est révélé. Les civils gagnent quand
 // tous les undercovers sont éliminés ; les undercovers quand ils sont aussi nombreux que les civils encore en jeu
 // (ou s'ils tiennent MAX_ROUNDS tours). L'équipe gagnante reçoit des coins et une victoire pour +jeux top.
+// Pendant la partie, les joueurs ne peuvent écrire dans le salon que quand c'est leur tour de décrire leur mot
+// (lib/gamemute.js) ; la parole leur est rendue à la fin.
 // Une partie à la fois par salon, gardée en mémoire (perdue si le bot redémarre).
 
 const MIN_PLAYERS = 3;
@@ -65,6 +68,7 @@ function stop(game) {
   clearTimeout(game.timer);
   game.phase = 'done';
   games.delete(game.channelId);
+  if (game.channel) unmuteAll(game.channel, 'Undercover terminé').catch(() => {});
 }
 
 // --- Salle d'attente ---
@@ -126,6 +130,8 @@ async function launch(game) {
     p.word = game.words[p.role];
   }
   game.round = 0;
+  // Plus personne n'écrit, sauf à son tour.
+  mutePlayers(game.channel, game.players.map((p) => p.id), 'Undercover : on écrit seulement à son tour').catch(() => {});
   // Chaque mot part en MP ; ceux qui ont fermé leurs MP le voient avec « 🔍 Voir mon mot ».
   const closed = [];
   for (const p of game.players) {
@@ -171,9 +177,13 @@ async function newRound(game) {
 
 async function nextTurn(game) {
   clearTimeout(game.timer);
+  // Celui qui vient de parler se tait, le suivant peut écrire.
+  const previous = game.order[game.turn];
   game.turn += 1;
+  if (previous) mutePlayers(game.channel, [previous], 'Undercover : fin de son tour').catch(() => {});
   if (game.turn >= game.order.length) return openVote(game);
   const id = game.order[game.turn];
+  unmutePlayers(game.channel, [id], 'Undercover : son tour de parler').catch(() => {});
   await game.channel
     .send({
       content: `👉 <@${id}>, à toi : décris ton mot en un message (${TURN_MS / 1000} s).`,

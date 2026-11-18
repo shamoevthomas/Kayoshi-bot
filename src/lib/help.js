@@ -180,8 +180,8 @@ const CATEGORIES = [
       ['+avent', 'Calendrier de l’Avent du 1er au 24 décembre : une case par jour (coins, argent, boosters d’XP), gros bonus le 24 pour ceux qui ont tout ouvert'],
       ['/pokemon', '`activer` (salon, génération) — salon « Quel est ce Pokémon ? » sans fin : le premier qui écrit le nom gagne un point, le Pokémon est dévoilé avec sa description du Pokédex · ❓ indice ⏭️ passer 👑 classement 📕 Pokédex ✨ brillants (1 chance sur 64) · `desactiver`'],
       ['+pendu · +devine · +emoji · +pokemon · +flag', 'Jeux dans le salon, lancés par n’importe qui : pendu (6 vies) · nombre mystère de 1 à 1 000 · jeu ou animé en emojis · silhouette d’un Pokémon (`+pokemon 1` à `9` : une génération) · pays d’un drapeau — indice en cours de partie, coins pour le gagnant (5 victoires récompensées par jour)'],
-      ['+undercover', 'Jeu de l’imposteur (3 à 12 joueurs) : un mot secret chacun en MP, celui des undercovers est proche ; décrivez-le sans le dire, puis votez pour éliminer un suspect — coins pour l’équipe gagnante'],
-      ['+lp', 'Loup-garou (5 à 16 joueurs, rôles en MP) : loups, voyante, sorcière, chasseur et villageois ; la nuit, tout le monde clique sur 🌙 Agir, le jour on débat puis on vote — coins pour l’équipe gagnante'],
+      ['+undercover', 'Jeu de l’imposteur (3 à 12 joueurs) : un mot secret chacun en MP, celui des undercovers est proche ; décrivez-le sans le dire (les joueurs n’écrivent qu’à leur tour), puis votez pour éliminer un suspect — coins pour l’équipe gagnante'],
+      ['+lp', 'Loup-garou (5 à 16 joueurs, rôles en MP) : loups, voyante, sorcière, chasseur, Cupidon (deux amoureux qui meurent ensemble) et villageois ; la nuit, les joueurs ne peuvent plus écrire et tout le monde clique sur 🌙 Agir, le jour on débat puis on vote — coins pour l’équipe gagnante'],
       ['+jeux top · +duel top', 'Classements : victoires aux jeux du chat (`+jeux top`, ou `+jeux top <jeu>` : pendu, devine, emoji, pokemon, flag, undercover, loupgarou) et duels gagnés entre membres (`+duel top`)'],
       ['/tu-preferes', 'Dilemme « Tu préfères… » pour une durée (ex : `15m`) : options A/B au hasard ou choisies, vote, pourcentages à la fin'],
       ['/guessflag', '`activer` `desactiver` — jeu « Devine le drapeau » dans un salon (indices, passer, classement ; mauvaises réponses marquées ❌ puis supprimées après 2 s, toutes notées dans #logs-drapeau)'],
@@ -304,6 +304,8 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['+lp', 'Cupidon, et les joueurs se taisent la nuit'],
+  ['+undercover', 'les joueurs n’écrivent qu’à leur tour'],
   ['/divorce', 'option `tous` : divorcer de tous ses conjoints'],
   ['/config → Salons de stats', 'emoji de chaque salon au choix'],
   ['+snipe', '`+snipe 2` : l’avant-dernier message supprimé (jusqu’à 5)'],
@@ -312,8 +314,6 @@ const RECENT_CHANGES = [
   ['Tickets', 'pris en charge : seuls celui qui le prend et l’auteur peuvent écrire'],
   ['@Kayoshi part', 'la même pub n’est publiée qu’une fois par salon'],
   ['Statut, tag et boost', 'le tag et le boost rapportent aussi une récompense, doublée pour les boosters'],
-  ['+vc', 'boosts, bots, et les bots comptés en vocal'],
-  ['/config', 'devient un panneau : un bouton par système, vert quand il est activé'],
 ];
 
 const HOME = 'home';

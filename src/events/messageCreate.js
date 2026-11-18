@@ -12,6 +12,7 @@ import { handleVoiceStatsCommand } from '../lib/voicestats.js';
 import { handleSnipeCommand } from '../lib/snipe.js';
 import { handleTicketCommand } from '../lib/tickets.js';
 import { handleGuildCommandsCommand } from '../lib/guildcommands.js';
+import { handleMutedPlayerMessage } from '../lib/gamemute.js';
 import { handleRecreateCommand } from '../lib/recreate.js';
 import { handleHideCommand } from '../lib/hidechannel.js';
 import { handleLockCommand, handleLockdownCommand } from '../lib/lockchannel.js';
@@ -60,6 +61,9 @@ export default {
       await message.delete().catch(() => {});
       return;
     }
+
+    // Joueur d'undercover hors de son tour, ou de loup-garou la nuit : message supprimé (s'il a pu l'envoyer).
+    if (await handleMutedPlayerMessage(message).catch((err) => (console.error('[jeux muets]', err), false))) return;
 
     // Salon du jeu « Devine le drapeau » : chaque message est une réponse, supprimée aussitôt
     // (avant l'anti-spam : répondre vite n'est pas du spam).

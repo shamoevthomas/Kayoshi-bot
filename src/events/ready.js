@@ -22,6 +22,7 @@ import { pollSport, SPORT_POLL_MS } from '../lib/sport.js';
 import { applyOneShots } from '../lib/oneshot.js';
 import { sweepStickers } from '../lib/stickers.js';
 import { syncGuildCommands } from '../lib/guildcommands.js';
+import { restoreGameMutes } from '../lib/gamemute.js';
 import { grantVoiceXp, endXpEvents } from '../lib/voicexp.js';
 import { quizTick, resumeQuizzes } from '../lib/quiz.js';
 import { qotdTick } from '../lib/qotd.js';
@@ -114,6 +115,8 @@ export default {
     setInterval(() => maybeRemindUnverified(client).catch(() => {}), 30 * 60_000);
     // Nettoie les vocaux temporaires vides.
     reconcileTempVoice(client);
+    // Parties d'undercover / loup-garou coupées par un redémarrage : la parole est rendue aux joueurs.
+    restoreGameMutes(client).catch((err) => console.error('[jeux muets]', err));
     // Serveurs avec « +cmd on » : commandes slash remises à jour si elles ont changé.
     setTimeout(() => syncGuildCommands(client).catch((err) => console.error('[+cmd]', err)), 20_000);
     // Autocollants sans « ␣␣/hanamifr » à la fin du nom : renommés.
