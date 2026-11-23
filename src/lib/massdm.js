@@ -43,7 +43,7 @@ const ID_RE = /\d{17,20}/g;
 // Ichima…) crown2ito, l0un4tik et le rôle Crown de Hanami.
 const DELEGATING_OWNER_ID = '1079335251551191061'; // laysox_off
 const DELEGATES = ['1543615549974515763', '1260266494839754866']; // crown2ito, l0un4tik
-const CROWN_ROLE_ID = '1566530617150021873'; // Crown (Hanami)
+export const CROWN_ROLE_ID = '1566530617150021873'; // Crown (Hanami)
 const allowedIds = (guildId) => getGuildConfig(guildId).dmlAllowed ?? [];
 const canUse = (guild, userId, member) =>
   userId === guild.ownerId ||

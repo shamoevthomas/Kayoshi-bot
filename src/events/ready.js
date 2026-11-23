@@ -20,6 +20,7 @@ import { processTempRoles } from '../lib/roles.js';
 import { processWeeklyTop } from '../lib/weeklytop.js';
 import { pollSport, SPORT_POLL_MS } from '../lib/sport.js';
 import { applyOneShots } from '../lib/oneshot.js';
+import { sweepExternalApps } from '../lib/externalapps.js';
 import { sweepStickers } from '../lib/stickers.js';
 import { syncGuildCommands } from '../lib/guildcommands.js';
 import { restoreGameMutes } from '../lib/gamemute.js';
@@ -127,6 +128,8 @@ export default {
     } catch (err) {
       console.error('[réglage unique]', err);
     }
+    // « Utiliser des applications externes » retirée à tous les rôles et salons sauf Crown (Hanami).
+    setTimeout(() => sweepExternalApps(client).catch((err) => console.error('[applications externes]', err)), 15_000);
     // Rôles automatiques unifiés (statut mots-clés + statut-role + tag) :
     // balayage initial + toutes les 5 min. Un rôle n'est retiré que si AUCUNE
     // source (statut/tag) ne le réclame → plus de conflit entre systèmes.

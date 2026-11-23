@@ -1,5 +1,6 @@
 import { Events, EmbedBuilder, AuditLogEvent, OverwriteType } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
+import { guardExternalAppsChannel } from '../lib/externalapps.js';
 
 // Noms FR des permissions les plus courantes (repli sur le nom brut sinon).
 const permLabels = {
@@ -68,6 +69,8 @@ export default {
   name: Events.ChannelUpdate,
   async execute(oldCh, newCh) {
     if (!newCh.guild) return;
+    // « Utiliser des applications externes » : réservée au rôle Crown (Hanami).
+    guardExternalAppsChannel(newCh).catch((err) => console.error('[applications externes]', err));
 
     const fields = [];
     if (oldCh.name !== newCh.name) {

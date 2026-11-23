@@ -1,6 +1,7 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
 import { guardRoleUpdate } from '../lib/roleguard.js';
+import { guardExternalAppsRole } from '../lib/externalapps.js';
 
 // Noms FR des permissions de rôle les plus courantes (repli sur le nom brut sinon).
 const permLabels = {
@@ -49,6 +50,8 @@ export default {
     if (!newRole.guild) return;
     // Anti-nuke : permissions de staff ajoutées à un rôle → retirées.
     guardRoleUpdate(oldRole, newRole).catch((err) => console.error('[anti-nuke rôles]', err));
+    // « Utiliser des applications externes » : réservée au rôle Crown (Hanami).
+    guardExternalAppsRole(newRole).catch((err) => console.error('[applications externes]', err));
 
     const fields = [];
     if (oldRole.name !== newRole.name) {

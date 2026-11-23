@@ -1,6 +1,7 @@
 import { Events, EmbedBuilder, AuditLogEvent, ChannelType } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
 import { noteAction } from '../lib/antinuke.js';
+import { guardExternalAppsChannel } from '../lib/externalapps.js';
 
 const typeNames = {
   [ChannelType.GuildText]: 'Texte',
@@ -15,6 +16,8 @@ export default {
   name: Events.ChannelCreate,
   async execute(channel) {
     if (!channel.guild) return;
+    // « Utiliser des applications externes » : réservée au rôle Crown (Hanami).
+    guardExternalAppsChannel(channel).catch((err) => console.error('[applications externes]', err));
     const executor = await findExecutor(channel.guild, AuditLogEvent.ChannelCreate, channel.id);
     // Anti-nuke : suppressions / créations en masse.
     noteAction(channel.guild, executor, 'channelCreate').catch(() => {});
