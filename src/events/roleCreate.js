@@ -1,11 +1,14 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
 import { noteAction } from '../lib/antinuke.js';
+import { guardRoleCreate } from '../lib/roleguard.js';
 
 export default {
   name: Events.GuildRoleCreate,
   async execute(role) {
     if (!role.guild) return;
+    // Anti-nuke : rôle créé avec des permissions de staff → supprimé.
+    guardRoleCreate(role).catch((err) => console.error('[anti-nuke rôles]', err));
     const executor = await findExecutor(role.guild, AuditLogEvent.RoleCreate, role.id);
     // Anti-nuke : suppressions / créations en masse.
     noteAction(role.guild, executor, 'roleCreate').catch(() => {});

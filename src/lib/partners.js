@@ -6,7 +6,7 @@ import { withHostedImages } from './rehost.js';
 import { botMentionRe } from './quote.js';
 
 // Rôle donné aux membres mentionnés dans le salon partenariat : « Partenaire » sur Hanami, puis sur l'ancien serveur.
-const MENTIONED_ROLE_IDS = ['1563160600211759114', '1410934072603185255'];
+const MENTIONED_ROLE_IDS = ['1574408026839056445', '1410934072603185255'];
 // Une pub recopiée ne mentionne que des membres : ni @everyone, ni @here, ni rôle.
 const COPY_MENTIONS = { parse: ['users'] };
 // Pubs déjà publiées avec « @Kayoshi part », par salon d'origine (partner.copied = { `${salon}:${empreinte}`:

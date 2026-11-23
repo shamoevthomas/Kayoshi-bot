@@ -1,8 +1,9 @@
 import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { getAntiNuke, setAntiNuke, LIMITS, DANGEROUS } from '../../lib/antinuke.js';
+import { getAntiNuke, setAntiNuke, LIMITS, DANGEROUS, isTrusted } from '../../lib/antinuke.js';
+import { isOwnerLike, CO_OWNERS, isCoOwner } from '../../lib/coowners.js';
 
-// Réglages de l'anti-nuke (voir lib/antinuke.js). Seul le propriétaire du serveur peut les changer :
-// un admin malveillant ne peut pas le couper avant d'agir.
+// Réglages de l'anti-nuke (voir lib/antinuke.js et lib/roleguard.js). Seuls le propriétaire du serveur et ses
+// co-propriétaires (lib/coowners.js) peuvent les changer : un admin malveillant ne peut pas le couper avant d'agir.
 export default {
   data: new SlashCommandBuilder()
     .setName('antinuke')
@@ -35,7 +36,7 @@ export default {
       // Membres qui pourraient agir en masse et qui ne sont pas de confiance.
       await guild.members.fetch().catch(() => {});
       const watched = guild.members.cache.filter(
-        (m) => !m.user.bot && m.id !== guild.ownerId && !cfg.trusted.includes(m.id) && DANGEROUS.some((p) => m.permissions.has(p)),
+        (m) => !m.user.bot && !isTrusted(guild, m.id) && DANGEROUS.some((p) => m.permissions.has(p)),
       );
       const embed = new EmbedBuilder()
         .setColor(cfg.enabled ? 0x2ecc71 : 0x95a5a6)
@@ -43,17 +44,22 @@ export default {
         .setDescription(
           'En moins d’une minute, à partir de :\n' +
             Object.values(LIMITS).map((l) => `• **${l.max}** ${l.label}`).join('\n') +
-            '\n\n➡️ Ses rôles sont retirés (un bot est expulsé), et le propriétaire est prévenu en MP et dans les logs.',
+            '\n\n➡️ Ses rôles sont retirés (un bot est expulsé), et le propriétaire est prévenu en MP et dans les logs.' +
+            '\n\n🔐 **Rôles** : un rôle créé avec des permissions de staff (administrateur, bannir, expulser, gérer les rôles, les salons…) est supprimé ; ' +
+            'un rôle modifié pour en recevoir les perd aussitôt.',
         )
         .addFields(
-          { name: '👑 Jamais sanctionnés', value: `<@${guild.ownerId}> (propriétaire), le bot${cfg.trusted.length ? `, ${cfg.trusted.map((id) => `<@${id}>`).join(', ')}` : ''}` },
+          {
+            name: '👑 Jamais sanctionnés',
+            value: `<@${guild.ownerId}> (propriétaire)${CO_OWNERS.filter((id) => isCoOwner(guild, id)).map((id) => `, <@${id}> (co-propriétaire)`).join('')}, le bot${cfg.trusted.length ? `, ${cfg.trusted.map((id) => `<@${id}>`).join(', ')}` : ''}`,
+          },
           { name: `👀 Surveillés (${watched.size})`, value: watched.size ? watched.map((m) => `${m}`).join(', ').slice(0, 1024) : '_Personne d’autre n’a de permission dangereuse._' },
         )
-        .setFooter({ text: 'Seul le propriétaire du serveur peut changer ces réglages.' });
+        .setFooter({ text: 'Seuls le propriétaire du serveur et ses co-propriétaires peuvent changer ces réglages.' });
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    if (user.id !== guild.ownerId) return reply('❌ Seul le propriétaire du serveur peut changer les réglages de l’anti-nuke.');
+    if (!isOwnerLike(guild, user.id)) return reply('❌ Seuls le propriétaire du serveur et ses co-propriétaires peuvent changer les réglages de l’anti-nuke.');
     if (sub === 'activer' || sub === 'desactiver') {
       setAntiNuke(guild.id, { enabled: sub === 'activer' });
       return reply(sub === 'activer' ? '✅ Anti-nuke activé.' : '⏹️ Anti-nuke désactivé.');

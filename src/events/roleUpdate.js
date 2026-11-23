@@ -1,5 +1,6 @@
 import { Events, EmbedBuilder, AuditLogEvent } from 'discord.js';
 import { sendLog, Colors, findExecutor } from '../lib/logger.js';
+import { guardRoleUpdate } from '../lib/roleguard.js';
 
 // Noms FR des permissions de rôle les plus courantes (repli sur le nom brut sinon).
 const permLabels = {
@@ -46,6 +47,8 @@ export default {
   name: Events.GuildRoleUpdate,
   async execute(oldRole, newRole) {
     if (!newRole.guild) return;
+    // Anti-nuke : permissions de staff ajoutées à un rôle → retirées.
+    guardRoleUpdate(oldRole, newRole).catch((err) => console.error('[anti-nuke rôles]', err));
 
     const fields = [];
     if (oldRole.name !== newRole.name) {

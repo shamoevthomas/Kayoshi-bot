@@ -6,9 +6,15 @@ import { getGuildConfig, setGuildConfig, getRoleBoosts, setRoleBoosts } from './
 const HANAMI = '1563159382361907350';
 const ONE_SHOTS = [
   {
-    id: 'vip-boost-1.3', // 2026-11 : rôle VIP ×1,3 en XP et en argent (ensuite : /boostrole)
+    // 2026-11-23 : rôle VIP recréé après le raid (nouvel identifiant), toujours ×1,3 en XP et en argent (ensuite :
+    // /boostrole). L'ancien VIP (supprimé) est retiré des boosts.
+    id: 'vip-boost-1.3-raid',
     guildId: HANAMI,
-    run: (guildId) => setRoleBoosts(guildId, { ...getRoleBoosts(guildId), '1563160561477353493': { xp: 1.3, money: 1.3 } }),
+    run: (guildId) => {
+      const boosts = { ...getRoleBoosts(guildId), '1573940838520852563': { xp: 1.3, money: 1.3 } };
+      delete boosts['1563160561477353493'];
+      setRoleBoosts(guildId, boosts);
+    },
   },
 ];
 

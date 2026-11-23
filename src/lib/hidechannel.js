@@ -1,9 +1,8 @@
 import { PermissionFlagsBits } from 'discord.js';
 
 // « +hide [#salon] » / « +unhide [#salon] » (staff : Gérer les salons) : masque ou réaffiche un salon (celui où
-// la commande est écrite, ou celui mentionné) pour le rôle Membre de Hanami. Seule la permission « Voir le
-// salon » de ce rôle change ; ses autres permissions sur le salon sont gardées.
-const HIDE_ROLE_ID = '1563160648345591818';
+// la commande est écrite, ou celui mentionné) pour @everyone. Seule la permission « Voir le salon »
+// change ; les autres permissions de @everyone sur le salon sont gardées.
 const reply = (message, content) => message.reply({ content, allowedMentions: { parse: [], repliedUser: false } }).catch(() => {});
 
 export async function handleHideCommand(message) {
@@ -14,11 +13,7 @@ export async function handleHideCommand(message) {
   // Réservé au staff : les autres sont ignorés sans réponse.
   if (!message.member?.permissions.has(PermissionFlagsBits.ManageChannels)) return true;
 
-  const role = message.guild.roles.cache.get(HIDE_ROLE_ID);
-  if (!role) {
-    await reply(message, '❌ Le rôle à masquer n’existe pas sur ce serveur.');
-    return true;
-  }
+  const role = message.guild.roles.everyone;
   const id = arg?.match(/^<#(\d+)>$/)?.[1] ?? arg?.match(/^(\d{17,20})$/)?.[1];
   let channel = arg ? (id ? message.guild.channels.cache.get(id) : null) : message.channel;
   if (channel?.isThread?.()) channel = channel.parent;

@@ -2,17 +2,16 @@ import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { getGuildConfig, setGuildConfig } from './store.js';
 import { sendLog } from './logger.js';
 import { getSecurity } from './securityconfig.js';
+import { isOwnerLike } from './coowners.js';
 
 // Anti-nuke (/config → Anti-nuke) : si quelqu'un supprime ou crée en masse (salons, rôles), ou bannit / expulse en
 // masse, en moins d'une minute, le bot lui retire tous ses rôles (un bot est expulsé), puis prévient le
-// propriétaire en MP et dans les logs. Ne sont jamais visés : le propriétaire du serveur, le bot lui-même
-// et les membres de confiance. Actif par défaut ; réglages : data[guildId].antinuke = { enabled, trusted: [ids] }.
+// propriétaire en MP et dans les logs. Ne sont jamais visés : le propriétaire du serveur (et ses co-propriétaires,
+// lib/coowners.js), le bot lui-même et les membres de confiance. Les rôles qui reçoivent des permissions de staff
+// sont surveillés par lib/roleguard.js. Actif par défaut ; réglages : data[guildId].antinuke = { enabled, trusted: [ids] }.
 // Les bans en masse suivent leur propre seuil (/config → Sécurité → Anti-Ban-Masse).
 // Les actions sont lues dans le journal d'audit (événements channelDelete, roleDelete, guildBanAdd…).
 const WINDOW_MS = 60_000;
-// Toujours de confiance sur les serveurs de laysox_off : crown2ito et l0un4tik.
-const DELEGATING_OWNER_ID = '1079335251551191061';
-const ALWAYS_TRUSTED = ['1543615549974515763', '1260266494839754866'];
 export const LIMITS = {
   channelDelete: { max: 3, label: 'salons supprimés' },
   roleDelete: { max: 3, label: 'rôles supprimés' },
@@ -35,13 +34,10 @@ export function setAntiNuke(guildId, patch) {
   setGuildConfig(guildId, { antinuke: { ...getAntiNuke(guildId), ...patch } });
 }
 
-// Jamais sanctionnés par les protections : le propriétaire, le bot, les membres de confiance (/config → Anti-nuke
-// ajouter), et crown2ito et l0un4tik sur les serveurs de laysox_off.
+// Jamais sanctionnés par les protections : le propriétaire et ses co-propriétaires (50.nn et l0un4tik sur les
+// serveurs de laysox_off), le bot, les membres de confiance (/config → Anti-nuke ajouter).
 export const isTrusted = (guild, userId) =>
-  userId === guild.ownerId ||
-  userId === guild.client.user.id ||
-  getAntiNuke(guild.id).trusted.includes(userId) ||
-  (guild.ownerId === DELEGATING_OWNER_ID && ALWAYS_TRUSTED.includes(userId));
+  isOwnerLike(guild, userId) || userId === guild.client.user.id || getAntiNuke(guild.id).trusted.includes(userId);
 
 const durationText = (ms) => (ms % 60_000 ? `${ms / 1000} s` : `${ms / 60_000} min`);
 

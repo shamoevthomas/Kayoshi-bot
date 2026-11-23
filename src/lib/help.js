@@ -26,9 +26,9 @@ const CATEGORIES = [
       ['/config → Sanctions', 'Créer le salon qui regroupe toutes les sanctions (au lieu des logs)'],
       ['/purge', 'Supprimer des messages dans ce salon, ou ceux d’un membre dans tous les salons'],
       ['+snipe · +snipe 2', 'Réaffiche le dernier message supprimé du salon (`+snipe 2` l’avant-dernier, jusqu’à `+snipe 5`), avec ses images, pendant 1 h (staff avec « Gérer les messages », et membres qui ont le rôle du statut ou du tag, Loyal) ; si le staff supprime la réponse du bot, ce message ne peut plus être réaffiché'],
-      ['+lock · +unlock', 'Verrouiller (`+lock [raison]`) / déverrouiller l’écriture dans ce salon pour le rôle Membre (staff : permission « Gérer les salons »)'],
-      ['+lockdown · +unlockdown', 'Verrouiller l’écriture dans **tous** les salons d’un coup pour le rôle Membre (raid…), puis tout rouvrir exactement comme avant (staff)'],
-      ['+hide · +unhide', 'Masquer / réafficher ce salon (ou `+hide #salon`) pour le rôle Membre (staff : permission « Gérer les salons »)'],
+      ['+lock · +unlock', 'Verrouiller (`+lock [raison]`) / déverrouiller l’écriture dans ce salon pour @everyone (staff : permission « Gérer les salons »)'],
+      ['+lockdown · +unlockdown', 'Verrouiller l’écriture dans **tous** les salons d’un coup pour @everyone (raid…), puis tout rouvrir exactement comme avant (staff)'],
+      ['+hide · +unhide', 'Masquer / réafficher ce salon (ou `+hide #salon`) pour @everyone (staff : permission « Gérer les salons »)'],
       ['/slowmode', 'Régler le mode lent du salon (0 = off)'],
       ['/nick', 'Changer ou réinitialiser le pseudo d’un membre'],
       ['/lockpseudo · /unlockpseudo', 'Imposer un pseudo à un membre (il ne peut plus se renommer, sauf staff) / le libérer'],
@@ -254,7 +254,7 @@ const CATEGORIES = [
       ['/recreate · +recreate', 'Supprimer un salon et le recréer à l’identique, après confirmation (`+recreate` ou `+recreate #salon`) ; les réglages du bot qui visaient le salon suivent le nouveau'],
       ['/config → Salons de stats', 'Panneau : salons vocaux verrouillés en haut du serveur dont le nom affiche un chiffre à jour (membres, en ligne, en vocal, boosts), toutes les 10 min ; bouton « Choisir les emojis » pour changer l’emoji de chaque salon'],
       ['/backup', '`creer` `liste` `telecharger` `restaurer` — sauvegarde des rôles, salons et permissions (automatique chaque jour) ; la restauration recrée seulement ce qui manque, rien n’est supprimé (admin)'],
-      ['/config → Anti-nuke', '`voir` `activer` `desactiver` `ajouter` `retirer` — suppressions de salons / rôles, bans ou expulsions en masse (en moins d’une minute) : rôles retirés, propriétaire prévenu ; membres de confiance jamais visés (réglages : propriétaire du serveur)'],
+      ['/config → Anti-nuke', '`voir` `activer` `desactiver` `ajouter` `retirer` — suppressions de salons / rôles, bans ou expulsions en masse (en moins d’une minute) : rôles retirés, propriétaire prévenu ; un rôle créé avec des permissions de staff est supprimé, un rôle qui en reçoit les perd ; membres de confiance jamais visés (réglages : propriétaire et co-propriétaires)'],
     ],
   },
   {
@@ -304,6 +304,8 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['+hide · +lock · +lockdown', 'agissent sur @everyone (plus sur le rôle Membre)'],
+  ['/config → Anti-nuke', 'rôles avec permissions de staff supprimés ou corrigés'],
   ['+lp', 'Cupidon, fil privé des loups, joueurs muets la nuit et morts muets'],
   ['+undercover', 'les joueurs n’écrivent qu’à leur tour'],
   ['/divorce', 'option `tous` : divorcer de tous ses conjoints'],
@@ -312,8 +314,6 @@ const RECENT_CHANGES = [
   ['/config → Sport', 'matchs des équipes nationales (Maroc, France…)'],
   ['+snipe', 'aussi pour les membres qui ont le rôle Loyal'],
   ['Tickets', 'pris en charge : seuls celui qui le prend et l’auteur peuvent écrire'],
-  ['@Kayoshi part', 'la même pub n’est publiée qu’une fois par salon'],
-  ['Statut, tag et boost', 'le tag et le boost rapportent aussi une récompense, doublée pour les boosters'],
 ];
 
 const HOME = 'home';

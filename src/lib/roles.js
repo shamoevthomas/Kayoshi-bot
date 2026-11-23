@@ -1,18 +1,16 @@
 import { EmbedBuilder } from 'discord.js';
 import { getDueTempRoles, removeTempRole } from './store.js';
 import { sendLog, Colors } from './logger.js';
+import { isOwnerLike } from './coowners.js';
 
-// Rôle verrouillé par +lock et +unlock (celui des membres) : « Membre » sur Hanami, celui de l'ancien
-// serveur Ichima ; @everyone sur un serveur qui n'a aucun des deux.
-const LOCK_ROLE_IDS = ['1563160648345591818', '1272125126149673051'];
+// Rôle verrouillé par +lock et +unlock : celui des membres de l'ancien serveur Ichima ; @everyone partout ailleurs
+// (Hanami compris : sans vérification, les nouveaux venus n'ont pas forcément le rôle Membre).
+const LOCK_ROLE_IDS = ['1272125126149673051'];
 export const lockRole = (guild) => LOCK_ROLE_IDS.map((id) => guild.roles.cache.get(id)).find(Boolean) ?? guild.roles.everyone;
 
-// Gèrent des rôles au niveau du leur et au-dessus (toujours sous celui du bot) : le propriétaire, et 50.nn
-// (ex-crown2ito) sur les serveurs de laysox_off, à leur demande.
-const DELEGATING_OWNER_ID = '1079335251551191061'; // laysox_off
-const HIERARCHY_EXEMPT = ['1543615549974515763']; // 50.nn (ex-crown2ito)
-export const isHierarchyExempt = (guild, userId) =>
-  userId === guild.ownerId || (guild.ownerId === DELEGATING_OWNER_ID && HIERARCHY_EXEMPT.includes(userId));
+// Gèrent des rôles au niveau du leur et au-dessus (toujours sous celui du bot) : le propriétaire et ses
+// co-propriétaires (50.nn et l0un4tik sur les serveurs de laysox_off, lib/coowners.js).
+export const isHierarchyExempt = (guild, userId) => isOwnerLike(guild, userId);
 
 // Raison pour laquelle l'auteur de la commande ne peut pas donner / retirer ce rôle via le bot
 // (/role, /roletempo…), ou null.

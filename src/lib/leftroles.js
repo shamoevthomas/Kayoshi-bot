@@ -3,7 +3,7 @@ import { getGuildConfig, setGuildConfig, getLeftRoles, setLeftRoles, isBlacklist
 import { DANGEROUS } from './antinuke.js';
 
 // Rôles perso (Hanami) : ceux rangés entre ces deux séparateurs « -------------------- ».
-const PERSONAL_ROLE_BOUNDS = ['1563160652002893867', '1563160734140207255'];
+const PERSONAL_ROLE_BOUNDS = ['1573460583502848070', '1573460533363998891'];
 
 // Au retour d'un membre : rend les rôles perso qu'il avait en partant, s'ils existent encore. Pas ceux qui donnent
 // une permission dangereuse (gérer les rôles…), ni rien à un membre en quarantaine. Renvoie les rôles rendus.
