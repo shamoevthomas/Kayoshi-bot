@@ -54,6 +54,41 @@ const { SendMessages, SendMessagesInThreads, ViewChannel } = PermissionFlagsBits
 const before = (overwrite, flag) => (overwrite?.allow.has(flag) ? 'allow' : overwrite?.deny.has(flag) ? 'deny' : 'neutral');
 const restore = (state) => (state === 'allow' ? true : state === 'deny' ? false : null);
 
+// Verrouille l'écriture dans tous les salons où le rôle des membres peut écrire (+lockdown, ou l'anti-nuke pendant un
+// raid). Renvoie null si un lockdown est déjà en cours, sinon { done, failed, role }. onStart(total) est appelé avant
+// de commencer ; by : qui le déclenche (mention, pour les logs) ; byId : son ID (noté avec le lockdown).
+export async function lockdownGuild(guild, { by, byId, reason = null, auditReason, onStart }) {
+  if (getLockdown(guild.id)) return null;
+  const role = lockRole(guild);
+  const targets = [...guild.channels.cache.values()].filter((c) => WRITABLE.has(c.type) && c.permissionsFor(role)?.has([ViewChannel, SendMessages]));
+  await onStart?.(targets.length);
+  const lockdown = { at: Date.now(), by: byId, reason, channels: {} };
+  setLockdown(guild.id, lockdown);
+  let failed = 0;
+  for (const channel of targets) {
+    const overwrite = channel.permissionOverwrites.cache.get(role.id);
+    const state = { send: before(overwrite, SendMessages), threads: before(overwrite, SendMessagesInThreads) };
+    try {
+      await channel.permissionOverwrites.edit(role, { SendMessages: false, SendMessagesInThreads: false }, { reason: auditReason });
+      lockdown.channels[channel.id] = state;
+      setLockdown(guild.id, lockdown);
+    } catch {
+      failed++;
+    }
+  }
+  const done = Object.keys(lockdown.channels).length;
+  await sendLog(
+    guild,
+    new EmbedBuilder()
+      .setColor(Colors.delete)
+      .setAuthor({ name: '🔒 Lockdown du serveur' })
+      .setDescription(`${done} salon(s) verrouillé(s) pour ${role}\n-# Pour tout rouvrir comme avant : \`+unlockdown\`.`)
+      .addFields({ name: 'Raison', value: reason ?? 'Aucune raison précisée' }, { name: 'Par', value: by, inline: true })
+      .setTimestamp(),
+  ).catch(() => {});
+  return { done, failed, role };
+}
+
 export async function handleLockdownCommand(message) {
   if (!message.guild || message.author.bot) return false;
   const [cmd, ...rest] = message.content.trim().split(/\s+/);
@@ -72,36 +107,22 @@ export async function handleLockdownCommand(message) {
       return true;
     }
     const reason = rest.join(' ').trim() || null;
-    const targets = [...guild.channels.cache.values()].filter((c) => WRITABLE.has(c.type) && c.permissionsFor(role)?.has([ViewChannel, SendMessages]));
-    const status = await message.reply({ content: `🔒 Lockdown en cours sur **${targets.length}** salon(s)…`, allowedMentions: { parse: [], repliedUser: false } }).catch(() => null);
-    const lockdown = { at: Date.now(), by: author.id, reason, channels: {} };
-    setLockdown(guild.id, lockdown);
-    let failed = 0;
-    for (const channel of targets) {
-      const overwrite = channel.permissionOverwrites.cache.get(role.id);
-      const state = { send: before(overwrite, SendMessages), threads: before(overwrite, SendMessagesInThreads) };
-      try {
-        await channel.permissionOverwrites.edit(role, { SendMessages: false, SendMessagesInThreads: false }, { reason: auditReason });
-        lockdown.channels[channel.id] = state;
-        setLockdown(guild.id, lockdown);
-      } catch {
-        failed++;
-      }
-    }
-    const done = Object.keys(lockdown.channels).length;
+    let status = null;
+    const result = await lockdownGuild(guild, {
+      by: `${author}`,
+      byId: author.id,
+      reason,
+      auditReason,
+      onStart: async (total) => {
+        status = await message.reply({ content: `🔒 Lockdown en cours sur **${total}** salon(s)…`, allowedMentions: { parse: [], repliedUser: false } }).catch(() => null);
+      },
+    });
+    if (!result) return true; // lancé entre-temps (anti-nuke)
+    const { done, failed } = result;
     const text =
       `🔒 **Lockdown** : ${done} salon(s) verrouillé(s) pour ${role}${failed ? ` (${failed} impossible(s) à modifier)` : ''}.` +
       `${reason ? `\nRaison : ${reason}` : ''}\n-# Pour tout rouvrir comme avant : \`+unlockdown\`.`;
     await (status ? status.edit({ content: text, allowedMentions: { parse: [] } }) : reply(message, text)).catch(() => {});
-    await sendLog(
-      guild,
-      new EmbedBuilder()
-        .setColor(Colors.delete)
-        .setAuthor({ name: '🔒 Lockdown du serveur' })
-        .setDescription(`${done} salon(s) verrouillé(s) pour ${role}`)
-        .addFields({ name: 'Raison', value: reason ?? 'Aucune raison précisée' }, { name: 'Par', value: `${author}`, inline: true })
-        .setTimestamp(),
-    ).catch(() => {});
     return true;
   }
 

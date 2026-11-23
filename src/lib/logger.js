@@ -170,32 +170,31 @@ export async function sendVoiceLog(guild, embed) {
   await channel.send({ embeds: [embed] }).catch(() => {});
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Entrée du journal d'audit pour cette action, ou null. L'entrée peut arriver une ou deux secondes après l'événement :
+// avec tries > 1, on réessaie chaque seconde (anti-nuke : pendant un raid, une action sans auteur n'est pas comptée).
+// Une entrée liée à sa cible (targetId) est cherchée parmi les 25 dernières sur 1 min (actions en masse, journal
+// lu en retard) ; sans cible, seulement la plus récente des 10 dernières secondes.
+async function auditEntry(guild, type, targetId, tries) {
+  for (let i = 0; i < tries; i++) {
+    if (i) await sleep(1000);
+    const logs = await guild.fetchAuditLogs({ type, limit: targetId ? 25 : 5 }).catch(() => null);
+    if (!logs) return null; // permission « Voir les journaux d'audit » manquante
+    const entry = logs.entries.find((e) => (!targetId || e.targetId === targetId) && Date.now() - e.createdTimestamp < (targetId ? 60_000 : 10_000));
+    if (entry) return entry;
+  }
+  return null;
+}
+
 // Best-effort : retrouve l'auteur d'une action via les journaux d'audit.
 // Nécessite la permission "Voir les journaux d'audit". Renvoie null si indisponible.
-export async function findExecutor(guild, type, targetId) {
-  try {
-    const logs = await guild.fetchAuditLogs({ type, limit: 5 });
-    const entry = logs.entries.find(
-      (e) =>
-        (!targetId || e.targetId === targetId) &&
-        Date.now() - e.createdTimestamp < 10_000,
-    );
-    return entry?.executor ?? null;
-  } catch {
-    return null;
-  }
+export async function findExecutor(guild, type, targetId, tries = 1) {
+  return (await auditEntry(guild, type, targetId, tries))?.executor ?? null;
 }
 
 // Comme findExecutor mais renvoie aussi la raison : { executor, reason } ou null.
-export async function findAuditEntry(guild, type, targetId) {
-  try {
-    const logs = await guild.fetchAuditLogs({ type, limit: 5 });
-    const entry = logs.entries.find(
-      (e) => (!targetId || e.targetId === targetId) && Date.now() - e.createdTimestamp < 10_000,
-    );
-    if (!entry) return null;
-    return { executor: entry.executor ?? null, reason: entry.reason ?? null };
-  } catch {
-    return null;
-  }
+export async function findAuditEntry(guild, type, targetId, tries = 1) {
+  const entry = await auditEntry(guild, type, targetId, tries);
+  return entry ? { executor: entry.executor ?? null, reason: entry.reason ?? null } : null;
 }

@@ -1,4 +1,4 @@
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { getLinkConfig } from './store.js';
 import { sendLog, sendSanctionLog, Colors } from './logger.js';
 import { dmSanction, recordSanction } from './sanctions.js';
@@ -75,15 +75,14 @@ const MUTE_MS = 3 * 3_600_000;
 const MUTE_REASON = 'Anti-liens : 2 liens interdits envoyés en moins d’une minute';
 const linkStrikes = new Map();
 
-async function muteRepeatOffender(message) {
-  const key = `${message.guild.id}:${message.author.id}`;
+async function muteRepeatOffender(message, member) {
+  const key = `${message.guild.id}:${member.id}`;
   const now = Date.now();
   const strikes = (linkStrikes.get(key) ?? []).filter((t) => now - t < STRIKE_WINDOW);
   strikes.push(now);
   linkStrikes.set(key, strikes);
   if (strikes.length < 2) return false;
 
-  const member = message.member;
   if (member.id === message.guild.ownerId || !member.moderatable || member.isCommunicationDisabled()) return false;
   const ok = await member
     .timeout(MUTE_MS, MUTE_REASON)
@@ -94,16 +93,16 @@ async function muteRepeatOffender(message) {
     });
   if (!ok) return false;
   linkStrikes.delete(key);
-  recordSanction(message.guild.id, message.author.id, 'mute', { reason: MUTE_REASON, durationMs: MUTE_MS });
+  recordSanction(message.guild.id, member.id, 'mute', { reason: MUTE_REASON, durationMs: MUTE_MS });
 
   // Le timeout donné par le bot n'est pas loggué par guildMemberUpdate : on le fait ici, comme /mute.
-  await dmSanction(message.author, message.guild, 'rendu muet', `${MUTE_REASON} (3 h)`, message.client.user, false);
+  await dmSanction(member.user, message.guild, 'rendu muet', `${MUTE_REASON} (3 h)`, message.client.user, false);
   await sendSanctionLog(
     message.guild,
     new EmbedBuilder()
       .setColor(Colors.channel)
       .setAuthor({ name: '🔇 Membre rendu muet' })
-      .setDescription(`${message.author.tag} (\`${message.author.id}\`)`)
+      .setDescription(`${member.user.tag} (\`${member.id}\`)`)
       .addFields(
         { name: 'Durée', value: '3 h', inline: true },
         { name: 'Raison', value: MUTE_REASON },
@@ -114,8 +113,29 @@ async function muteRepeatOffender(message) {
   return true;
 }
 
+// Qui a envoyé le lien. Un membre : lui. Une application externe (installée par un membre, pas sur le serveur) : le
+// membre qui l'a utilisée. Un webhook créé par un membre : personne (member null), ses liens sont filtrés comme ceux
+// d'un membre bloqué. Les bots du serveur, les webhooks des applications et les messages repris d'un salon d'annonces
+// suivi ne sont pas filtrés (null).
+async function linkAuthor(message) {
+  const { guild, author } = message;
+  const userId = message.interactionMetadata?.user?.id;
+  if (userId) {
+    const appInGuild = guild.members.cache.has(author.id) || (await guild.members.fetch(author.id).catch(() => null));
+    if (appInGuild) return null;
+    const member = await guild.members.fetch(userId).catch(() => null);
+    return member && { member, who: `${member} (avec l’application **${author.username}**)` };
+  }
+  if (message.webhookId) {
+    if (message.applicationId || message.flags.has(MessageFlags.IsCrosspost)) return null;
+    return { member: null, who: `le webhook **${author.username}**` };
+  }
+  if (author.bot || !message.member) return null;
+  return { member: message.member, who: `${author}` };
+}
+
 export async function handleLinkFilter(message) {
-  if (!message.guild || message.author.bot || !message.member) return;
+  if (!message.guild) return;
   const config = getLinkConfig(message.guild.id);
   if (!config?.roleIds?.length) return;
 
@@ -128,19 +148,28 @@ export async function handleLinkFilter(message) {
 
   const urls = (message.content.match(URL_GLOBAL) || []).filter((u) => !isOwnChannelLink(u, message.guild.id));
   if (urls.length === 0) return;
+  const sender = await linkAuthor(message);
+  if (!sender) return;
+  const { member } = sender;
 
   // Un rôle autorisé (exception) l'emporte : tous les liens passent, partout,
   // sauf les invitations vers un autre serveur.
-  if (message.member.roles.cache.some((r) => config.allowedRoleIds?.includes(r.id))) {
+  if (member?.roles.cache.some((r) => config.allowedRoleIds?.includes(r.id))) {
     const invites = [];
     for (const url of urls) if (await isForeignInvite(url, message.guild)) invites.push(url);
     if (!invites.length) return;
-    await removeAndWarn(message, 'les invitations vers d’autres serveurs ne sont pas autorisées ici.');
-    return logLinks(message, config, invites, []);
+    await removeAndWarn(message, member, 'les invitations vers d’autres serveurs ne sont pas autorisées ici.');
+    return logLinks(message, sender, config, invites, []);
   }
 
-  // Seuls les membres portant un des rôles interdits sont filtrés
-  const blocked = message.member.roles.cache.some((r) => config.roleIds.includes(r.id));
+  // Seuls les membres portant un des rôles interdits sont filtrés. Si ces rôles ont tous été supprimés (raid…),
+  // tout le monde l'est, sauf les administrateurs, au lieu de personne. Un webhook l'est toujours.
+  const blockedRoles = config.roleIds.filter((id) => message.guild.roles.cache.has(id));
+  const blocked =
+    !member ||
+    (blockedRoles.length
+      ? member.roles.cache.some((r) => blockedRoles.includes(r.id))
+      : !member.permissions.has(PermissionFlagsBits.Administrator));
   if (!blocked) return;
 
   // Interdits vs autorisés. Les GIF restent autorisés mais ne sont PAS loggés.
@@ -148,30 +177,32 @@ export async function handleLinkFilter(message) {
   const allowed = urls.filter((u) => isAllowedLink(u) && !isGifLink(u));
 
   // Le message est supprimé dès qu'un lien interdit est présent ; à la 2ᵉ fois dans la minute, mute 3 h.
-  if (forbidden.length) await removeAndWarn(message, 'les liens ne sont pas autorisés ici.');
+  if (forbidden.length) await removeAndWarn(message, member, 'les liens ne sont pas autorisés ici.');
 
   // Rien à enregistrer : ni lien interdit, ni lien autorisé loggable (hors GIF)
   // dans un salon dédié.
   if (!forbidden.length && !(config.logChannelId && allowed.length)) return;
-  await logLinks(message, config, forbidden, allowed);
+  await logLinks(message, sender, config, forbidden, allowed);
 }
 
-// Supprime le message et prévient le membre ; au 2ᵉ lien interdit dans la minute, mute 3 h.
-async function removeAndWarn(message, reason) {
+// Supprime le message et prévient le membre ; au 2ᵉ lien interdit dans la minute, mute 3 h. Un message de webhook
+// (sans membre) est seulement supprimé.
+async function removeAndWarn(message, member, reason) {
   await message.delete().catch(() => {});
-  const muted = await muteRepeatOffender(message);
+  if (!member) return;
+  const muted = await muteRepeatOffender(message, member);
   const warn = await message.channel
-    .send(muted ? `🔇 ${message.author} a été mute 3 h : liens envoyés à répétition.` : `❌ ${message.author}, ${reason}`)
+    .send(muted ? `🔇 ${member} a été mute 3 h : liens envoyés à répétition.` : `❌ ${member}, ${reason}`)
     .catch(() => null);
   if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
 }
 
-async function logLinks(message, config, forbidden, allowed) {
+async function logLinks(message, { who }, config, forbidden, allowed) {
   const embed = new EmbedBuilder()
     .setColor(forbidden.length ? Colors.delete : Colors.role)
     .setAuthor({ name: forbidden.length ? '🔗 Lien bloqué' : '🔗 Lien autorisé' })
     .setDescription(
-      `Message de ${message.author} dans ${message.channel}${forbidden.length ? ' — **supprimé**' : ''}`,
+      `Message de ${who} dans ${message.channel}${forbidden.length ? ' — **supprimé**' : ''}`,
     )
     .setTimestamp();
   if (forbidden.length) embed.addFields({ name: '⛔ Bloqué(s)', value: forbidden.join('\n').slice(0, 1000) });

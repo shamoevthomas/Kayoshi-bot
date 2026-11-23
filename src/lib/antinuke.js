@@ -3,12 +3,14 @@ import { getGuildConfig, setGuildConfig } from './store.js';
 import { sendLog } from './logger.js';
 import { getSecurity } from './securityconfig.js';
 import { isOwnerLike } from './coowners.js';
+import { lockdownGuild } from './lockchannel.js';
 
 // Anti-nuke (/config → Anti-nuke) : si quelqu'un supprime ou crée en masse (salons, rôles), ou bannit / expulse en
 // masse, en moins d'une minute, le bot lui retire tous ses rôles (un bot est expulsé), puis prévient le
 // propriétaire en MP et dans les logs. Ne sont jamais visés : le propriétaire du serveur (et ses co-propriétaires,
 // lib/coowners.js), le bot lui-même et les membres de confiance. Les rôles qui reçoivent des permissions de staff
-// sont surveillés par lib/roleguard.js. Actif par défaut ; réglages : data[guildId].antinuke = { enabled, trusted: [ids] }.
+// sont surveillés par lib/roleguard.js ; un raid à plusieurs comptes, plus bas (noteServerAction). Actif par défaut ;
+// réglages : data[guildId].antinuke = { enabled, trusted: [ids] }.
 // Les bans en masse suivent leur propre seuil (/config → Sécurité → Anti-Ban-Masse).
 // Les actions sont lues dans le journal d'audit (événements channelDelete, roleDelete, guildBanAdd…).
 const WINDOW_MS = 60_000;
@@ -21,9 +23,15 @@ export const LIMITS = {
   roleCreate: { max: 8, label: 'rôles créés' },
 };
 const PUNISHED_MS = 5 * 60_000; // pas de deuxième sanction pour la même personne pendant 5 min
+// Raid à plusieurs (le 20 novembre 2026, quatre comptes se sont partagé les suppressions pour rester chacun sous la
+// limite) : au-delà de GLOBAL_MAX salons ou rôles supprimés en une minute sur tout le serveur, par au moins deux
+// comptes qui ne sont pas de confiance, ils sont tous sanctionnés et le serveur passe en lockdown (+unlockdown).
+const GLOBAL_KINDS = new Set(['channelDelete', 'roleDelete']);
+export const GLOBAL_MAX = 5;
 
 const actions = new Map(); // `${guildId}:${userId}:${kind}` → [instants]
 const punished = new Map(); // `${guildId}:${userId}` → instant de la sanction
+const serverActions = new Map(); // guildId → [{ at, executor }] (suppressions de salons et de rôles)
 
 export function getAntiNuke(guildId) {
   const cfg = getGuildConfig(guildId).antinuke ?? {};
@@ -46,6 +54,7 @@ export async function noteAction(guild, executor, kind) {
   if (!guild || !executor || !LIMITS[kind] || isTrusted(guild, executor.id)) return;
   const ban = kind === 'ban' ? getSecurity(guild.id, 'ban') : null;
   if (ban ? !ban.enabled : !getAntiNuke(guild.id).enabled) return;
+  if (GLOBAL_KINDS.has(kind)) await noteServerAction(guild, executor);
   const max = ban?.max ?? LIMITS[kind].max;
   const windowMs = ban ? ban.seconds * 1000 : WINDOW_MS;
   const key = `${guild.id}:${executor.id}:${kind}`;
@@ -59,6 +68,28 @@ export async function noteAction(guild, executor, kind) {
     what: `**${recent.length} ${LIMITS[kind].label}** en moins de ${durationText(windowMs)}`,
     reason: `${ban ? 'Anti-ban de masse' : 'Anti-nuke'} : ${recent.length} ${LIMITS[kind].label} en moins de ${durationText(windowMs)}`,
   }).catch((err) => console.error('[anti-nuke]', err));
+}
+
+// Suppressions de tout le serveur sur la dernière minute (comptes qui ne sont pas de confiance) : au-delà de la limite,
+// avec au moins deux auteurs, tous sont sanctionnés et le serveur est verrouillé. Un seul auteur : la limite par
+// personne (plus basse) s'en charge.
+async function noteServerAction(guild, executor) {
+  const now = Date.now();
+  const recent = (serverActions.get(guild.id) ?? []).filter((a) => now - a.at < WINDOW_MS);
+  recent.push({ at: now, executor });
+  serverActions.set(guild.id, recent);
+  const executors = new Map(recent.map((a) => [a.executor.id, a.executor]));
+  if (recent.length < GLOBAL_MAX || executors.size < 2) return;
+  serverActions.delete(guild.id);
+  const what = `**${recent.length} salons ou rôles supprimés** en moins d’une minute par ${executors.size} comptes (raid à plusieurs)`;
+  const reason = `Anti-nuke : raid à plusieurs (${recent.length} salons ou rôles supprimés en moins d’une minute)`;
+  await Promise.all([...executors.values()].map((ex) => sanctionStaff(guild, ex, { title: '🚨 Anti-nuke : raid à plusieurs', what, reason }).catch(() => {})));
+  await lockdownGuild(guild, {
+    by: `${guild.client.user} (anti-nuke)`,
+    byId: guild.client.user.id,
+    reason: `Anti-nuke : raid à plusieurs (${[...executors.values()].map((ex) => ex.tag ?? ex.username).join(', ')})`,
+    auditReason: 'Anti-nuke : raid à plusieurs',
+  }).catch((err) => console.error('[anti-nuke lockdown]', err));
 }
 
 // Sanction d'un membre qui abuse de ses permissions (anti-nuke, anti-bot, anti-déco…) : tous ses rôles retirés

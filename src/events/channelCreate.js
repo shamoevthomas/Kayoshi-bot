@@ -18,7 +18,7 @@ export default {
     if (!channel.guild) return;
     // « Utiliser des applications externes » : réservée au rôle Crown (Hanami).
     guardExternalAppsChannel(channel).catch((err) => console.error('[applications externes]', err));
-    const executor = await findExecutor(channel.guild, AuditLogEvent.ChannelCreate, channel.id);
+    const executor = await findExecutor(channel.guild, AuditLogEvent.ChannelCreate, channel.id, 3);
     // Anti-nuke : suppressions / créations en masse.
     noteAction(channel.guild, executor, 'channelCreate').catch(() => {});
 

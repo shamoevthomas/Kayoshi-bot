@@ -6,7 +6,7 @@ export default {
   name: Events.GuildBanAdd,
   async execute(ban) {
     const guild = ban.guild;
-    const entry = await findAuditEntry(guild, AuditLogEvent.MemberBanAdd, ban.user.id);
+    const entry = await findAuditEntry(guild, AuditLogEvent.MemberBanAdd, ban.user.id, 3);
     // Anti-nuke : bannissements en masse.
     noteAction(guild, entry?.executor, 'ban').catch(() => {});
 

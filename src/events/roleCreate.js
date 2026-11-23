@@ -12,7 +12,7 @@ export default {
     guardRoleCreate(role).catch((err) => console.error('[anti-nuke rôles]', err));
     // « Utiliser des applications externes » : réservée au rôle Crown (Hanami).
     guardExternalAppsRole(role).catch((err) => console.error('[applications externes]', err));
-    const executor = await findExecutor(role.guild, AuditLogEvent.RoleCreate, role.id);
+    const executor = await findExecutor(role.guild, AuditLogEvent.RoleCreate, role.id, 3);
     // Anti-nuke : suppressions / créations en masse.
     noteAction(role.guild, executor, 'roleCreate').catch(() => {});
 

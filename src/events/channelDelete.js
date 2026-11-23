@@ -15,7 +15,7 @@ export default {
   name: Events.ChannelDelete,
   async execute(channel) {
     if (!channel.guild) return;
-    const executor = await findExecutor(channel.guild, AuditLogEvent.ChannelDelete, channel.id);
+    const executor = await findExecutor(channel.guild, AuditLogEvent.ChannelDelete, channel.id, 3);
     // Anti-nuke : suppressions / créations en masse.
     noteAction(channel.guild, executor, 'channelDelete').catch(() => {});
 

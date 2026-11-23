@@ -240,7 +240,7 @@ const CATEGORIES = [
       ['/config → Sport', 'Deux salons, un message par match ⚽ (compétitions de clubs au choix, et matchs des équipes nationales choisies : Maroc, France…) ou par combat 🥊 UFC, avec une image club vs club / combattant vs combattant : annoncé la veille (2 jours avant pour l’UFC), score en direct, puis remplacé par le résultat'],
       ['/config → Logs', 'Salon des logs du serveur (les logs vocaux vont dans #voc-logs, créé automatiquement à côté)'],
       ['/config → Sécurité', 'Panneau des protections, chacune à activer et régler : anti-mention, anti-spam, anti-spam multi-salons (mute ou ban), anti-invite (avertissement), anti-liens, anti-everyone, anti-nuke, anti-vanity-URL, anti-modification du serveur, anti-ban de masse, anti-déco vocaux, anti-bot (bot expulsé, celui qui l’a ajouté derank) — jamais contre le propriétaire et les membres de confiance (admin)'],
-      ['/config → Anti-liens', 'Blocage des liens (par salon et par rôle) — 2 liens interdits en 1 min = mute 3 h'],
+      ['/config → Anti-liens', 'Blocage des liens (par salon et par rôle) — 2 liens interdits en 1 min = mute 3 h ; aussi les webhooks et les applications externes ; si les rôles bloqués ont été supprimés, tout le monde est filtré (sauf les administrateurs)'],
       ['/config → Anti-spam', '`activer` `desactiver` `voir` — anti-spam (seuil, mute, rôles exemptés, salons ignorés ; le multi-salons se règle dans `/config → Sécurité`)'],
       ['/config → Message GIF', 'Message envoyé quand un membre poste un GIF sans la perm image (+ 4 rôles ignorés)'],
       ['/one-message', '`activer` `desactiver` `liste` — messages supprimés automatiquement'],
@@ -254,7 +254,7 @@ const CATEGORIES = [
       ['/recreate · +recreate', 'Supprimer un salon et le recréer à l’identique, après confirmation (`+recreate` ou `+recreate #salon`) ; les réglages du bot qui visaient le salon suivent le nouveau'],
       ['/config → Salons de stats', 'Panneau : salons vocaux verrouillés en haut du serveur dont le nom affiche un chiffre à jour (membres, en ligne, en vocal, boosts), toutes les 10 min ; bouton « Choisir les emojis » pour changer l’emoji de chaque salon'],
       ['/backup', '`creer` `liste` `telecharger` `restaurer` — sauvegarde des rôles, salons et permissions (automatique chaque jour) ; la restauration recrée seulement ce qui manque, rien n’est supprimé (admin)'],
-      ['/config → Anti-nuke', '`voir` `activer` `desactiver` `ajouter` `retirer` — suppressions de salons / rôles, bans ou expulsions en masse (en moins d’une minute) : rôles retirés, propriétaire prévenu ; un rôle créé avec des permissions de staff est supprimé, un rôle qui en reçoit les perd ; membres de confiance jamais visés (réglages : propriétaire et co-propriétaires)'],
+      ['/config → Anti-nuke', '`voir` `activer` `desactiver` `ajouter` `retirer` — suppressions de salons / rôles, bans ou expulsions en masse (en moins d’une minute) : rôles retirés, propriétaire prévenu ; un rôle créé avec des permissions de staff est supprimé, un rôle qui en reçoit les perd ; raid à plusieurs comptes (plus de 5 salons ou rôles supprimés en 1 min) : tous sanctionnés et lockdown ; membres de confiance jamais visés (réglages : propriétaire et co-propriétaires)'],
     ],
   },
   {
@@ -304,16 +304,16 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['/config → Anti-liens', 'webhooks et applications externes filtrés ; rôles bloqués supprimés : tout le monde filtré'],
   ['@Kayoshi cmd', 'sans token jusqu’à 5 membres, cible « hors ligne », 50.nn et l0un4tik donnent ou retirent l’accès'],
   ['+vc', 'nouvel embed : membres, en ligne, vocal, stream, actifs et mute'],
   ['+hide · +lock · +lockdown', 'agissent sur @everyone (plus sur le rôle Membre)'],
-  ['/config → Anti-nuke', 'rôles avec permissions de staff supprimés ou corrigés'],
+  ['/config → Anti-nuke', 'raid à plusieurs comptes : tous sanctionnés et lockdown ; rôles avec permissions de staff supprimés ou corrigés'],
   ['+lp', 'Cupidon, fil privé des loups, joueurs muets la nuit et morts muets'],
   ['+undercover', 'les joueurs n’écrivent qu’à leur tour'],
   ['/divorce', 'option `tous` : divorcer de tous ses conjoints'],
   ['/config → Salons de stats', 'emoji de chaque salon au choix'],
   ['+snipe', '`+snipe 2` : l’avant-dernier message supprimé (jusqu’à 5)'],
-  ['/config → Sport', 'matchs des équipes nationales (Maroc, France…)'],
 ];
 
 const HOME = 'home';

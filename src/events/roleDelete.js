@@ -6,7 +6,7 @@ export default {
   name: Events.GuildRoleDelete,
   async execute(role) {
     if (!role.guild) return;
-    const executor = await findExecutor(role.guild, AuditLogEvent.RoleDelete, role.id);
+    const executor = await findExecutor(role.guild, AuditLogEvent.RoleDelete, role.id, 3);
     // Anti-nuke : suppressions / créations en masse.
     noteAction(role.guild, executor, 'roleDelete').catch(() => {});
 

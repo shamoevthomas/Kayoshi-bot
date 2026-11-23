@@ -1,5 +1,5 @@
 import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { getAntiNuke, setAntiNuke, LIMITS, DANGEROUS, isTrusted } from '../../lib/antinuke.js';
+import { getAntiNuke, setAntiNuke, LIMITS, DANGEROUS, isTrusted, GLOBAL_MAX } from '../../lib/antinuke.js';
 import { isOwnerLike, CO_OWNERS, isCoOwner } from '../../lib/coowners.js';
 
 // Réglages de l'anti-nuke (voir lib/antinuke.js et lib/roleguard.js). Seuls le propriétaire du serveur et ses
@@ -46,7 +46,9 @@ export default {
             Object.values(LIMITS).map((l) => `• **${l.max}** ${l.label}`).join('\n') +
             '\n\n➡️ Ses rôles sont retirés (un bot est expulsé), et le propriétaire est prévenu en MP et dans les logs.' +
             '\n\n🔐 **Rôles** : un rôle créé avec des permissions de staff (administrateur, bannir, expulser, gérer les rôles, les salons…) est supprimé ; ' +
-            'un rôle modifié pour en recevoir les perd aussitôt.',
+            'un rôle modifié pour en recevoir les perd aussitôt.' +
+            `\n\n👥 **Raid à plusieurs** : au-delà de **${GLOBAL_MAX}** salons ou rôles supprimés en une minute par plusieurs comptes, ` +
+            'ils sont tous sanctionnés et le serveur passe en lockdown (`+unlockdown` pour rouvrir).',
         )
         .addFields(
           {
