@@ -269,7 +269,7 @@ const CATEGORIES = [
       ['+meilleurami', 'Top 5 des membres avec qui tu échanges le plus (ou un membre) : réponses et mentions dans les deux sens, 30 derniers jours'],
       ['+graph', 'Courbe d’activité du serveur en image : messages et heures de vocal jour par jour, total, moyenne et record (`+graph 7`, `14` ou `30` jours, 30 par défaut)'],
       ['s?u s?t s?m s?v', 'Stats en image (14 derniers jours) : `s?u` les tiennes ou celles d’un membre, `s?t` le top, `s?m` les messages, `s?v` le vocal'],
-      ['+vc', 'Statistiques du serveur : membres, bots, boosts (et niveau), en ligne, en vocal, actifs (en vocal, ni mute ni en sourdine), en stream et mute (bots compris dans les chiffres du vocal)'],
+      ['+vc', 'Statistiques du serveur avec sa photo : membres, en ligne, en vocal, en stream, actifs (en vocal, ni mute ni en sourdine) et mute (bots compris dans les chiffres du vocal)'],
       ['/serverinfo', 'Statistiques du serveur'],
       ['/userinfo', 'Fiche d’un membre : niveau, argent, coins (poche, banque, livret), réputation, team, famille, activité et dernier message, invitations, quiz, avertissements, rôles, venues d’avant et anciens rôles'],
       ['/pseudo', 'Envoyer le pseudo d’un membre'],
@@ -304,6 +304,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['+vc', 'nouvel embed : membres, en ligne, vocal, stream, actifs et mute'],
   ['+hide · +lock · +lockdown', 'agissent sur @everyone (plus sur le rôle Membre)'],
   ['/config → Anti-nuke', 'rôles avec permissions de staff supprimés ou corrigés'],
   ['+lp', 'Cupidon, fil privé des loups, joueurs muets la nuit et morts muets'],
@@ -313,7 +314,6 @@ const RECENT_CHANGES = [
   ['+snipe', '`+snipe 2` : l’avant-dernier message supprimé (jusqu’à 5)'],
   ['/config → Sport', 'matchs des équipes nationales (Maroc, France…)'],
   ['+snipe', 'aussi pour les membres qui ont le rôle Loyal'],
-  ['Tickets', 'pris en charge : seuls celui qui le prend et l’auteur peuvent écrire'],
 ];
 
 const HOME = 'home';

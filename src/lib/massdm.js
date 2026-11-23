@@ -97,7 +97,7 @@ export async function handleMassDmCommand(message) {
   if (!hasCmd || sub) return false;
   if (!canUse(message.guild, message.author.id, message.member)) {
     await message
-      .reply({ content: '❌ `@Kayoshi cmd` est réservé au propriétaire du serveur et aux membres qu’il autorise (`@Kayoshi cmd @membre`).', allowedMentions: { parse: [], repliedUser: false } })
+      .reply({ content: '❌ vous n’avez pas le droit d’utiliser `@Kayoshi cmd`.', allowedMentions: { parse: [], repliedUser: false } })
       .catch(() => {});
     return true;
   }
@@ -135,7 +135,7 @@ async function handleAccessCommand(message, sub, text) {
   const who = targets.map((id) => `<@${id}>`).join(', ');
   return reply(
     !revoke
-      ? `✅ ${who} peut maintenant utiliser \`@Kayoshi cmd\` sur ce serveur, avec le token de son propre bot.\n-# Pour reprendre ce droit : \`@Kayoshi cmd retirer @membre\`.`
+      ? `✅ ${who} peut maintenant vous aider sur ce serveur.`
       : `✅ ${who} ne peut plus utiliser \`@Kayoshi cmd\` sur ce serveur.`,
   );
 }
