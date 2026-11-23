@@ -18,11 +18,13 @@ import {
 } from 'discord.js';
 import { botMentionRe } from './quote.js';
 import { getGuildConfig, setGuildConfig } from './store.js';
+import { isOwnerLike } from './coowners.js';
 
 // « @Kayoshi cmd » (propriétaire du serveur, et membres qu'il autorise) : DM de masse aux membres du serveur. Un panneau
-// (Components V2) règle le token du bot qui envoie (obligatoire : Kayoshi n'envoie jamais de DM de masse lui-même,
-// pour ne pas risquer d'être banni), le message et/ou un embed, la cible
-// (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger) et des IDs à ignorer. « DMall »
+// (Components V2) règle le token du bot qui envoie (obligatoire au-delà de 5 membres : Kayoshi n'envoie jamais de DM
+// de masse lui-même, pour ne pas risquer d'être banni ; jusqu'à 5, sans token, c'est lui qui envoie), le message
+// et/ou un embed, la cible
+// (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger / hors ligne) et des IDs à ignorer. « DMall »
 // demande confirmation, puis envoie un DM toutes les 1,5 à 2 s : les MP fermés (erreur 50007) sont comptés
 // sans arrêter l'envoi, l'avancement s'affiche sur le panneau et un récapitulatif est envoyé à la fin.
 // Le token se tape dans un formulaire (dans le salon, les logs et +snipe le recopieraient) et n'est jamais
@@ -32,8 +34,9 @@ const PAUSE_MIN_MS = 1500;
 const PAUSE_MAX_MS = 2000;
 const SESSION_MS = 30 * 60_000; // panneau abandonné au bout de 30 min sans action
 const MAX_ERRORS_IN_A_ROW = 10; // le bot n'arrive plus à envoyer (bloqué par Discord…) : arrêt
+const MAX_WITHOUT_TOKEN = 5; // sans token, Kayoshi envoie lui-même, jusqu'à ce nombre de membres
 const COLOR = 0x5865f2;
-const STATUSES = { online: '🟢 En ligne', idle: '🌙 Absent', dnd: '⛔ Ne pas déranger' };
+const STATUSES = { online: '🟢 En ligne', idle: '🌙 Absent', dnd: '⛔ Ne pas déranger', offline: '⚫ Hors ligne' };
 const ID_RE = /\d{17,20}/g;
 // Qui peut utiliser le DMall sur un serveur : son propriétaire, les membres qu'il y a autorisés lui-même
 // (« @Kayoshi cmd @membre », data[guildId].dmlAllowed), et sur les serveurs de laysox_off (Hanami,
@@ -112,12 +115,15 @@ export async function handleMassDmCommand(message) {
   return true;
 }
 
-// « @Kayoshi cmd @membre… » / « retirer @membre… » / « autorisés » : le propriétaire du serveur donne ou
-// reprend lui-même le droit d'utiliser le DMall sur son serveur (le membre autorisé envoie avec le token de son bot).
+// « @Kayoshi cmd @membre… » / « retirer @membre… » / « autorisés » : le propriétaire du serveur et ses
+// co-propriétaires (50.nn et l0un4tik sur les serveurs de laysox_off, lib/coowners.js) donnent ou reprennent le droit
+// d'utiliser le DMall sur le serveur (le membre autorisé envoie avec le token de son bot).
 async function handleAccessCommand(message, sub, text) {
   const { guild } = message;
   const reply = (content) => message.reply({ content, allowedMentions: { parse: [], repliedUser: false } }).catch(() => {});
-  if (message.author.id !== guild.ownerId) return reply('❌ Seul le propriétaire du serveur peut donner ou retirer le droit d’utiliser `@Kayoshi cmd`.');
+  if (!isOwnerLike(guild, message.author.id)) {
+    return reply('❌ Seuls le propriétaire du serveur et ses co-propriétaires peuvent donner ou retirer le droit d’utiliser `@Kayoshi cmd`.');
+  }
   const current = allowedIds(guild.id);
   const targets = ids(text).filter((id) => id !== guild.ownerId && id !== message.client.user.id);
   const revoke = sub.startsWith('retir');
@@ -126,7 +132,7 @@ async function handleAccessCommand(message, sub, text) {
     return reply(
       current.length
         ? `👥 Autorisés à utiliser \`@Kayoshi cmd\` ici : ${current.map((id) => `<@${id}>`).join(', ')}\n-# Ajouter : \`@Kayoshi cmd @membre\` · retirer : \`@Kayoshi cmd retirer @membre\``
-        : 'ℹ️ Personne d’autre que toi n’est autorisé ici. Pour autoriser un membre : `@Kayoshi cmd @membre`.',
+        : 'ℹ️ Aucun membre autorisé ici pour l’instant. Pour autoriser un membre : `@Kayoshi cmd @membre`.',
     );
   }
   if (!targets.length) return reply('❌ Mentionne le ou les membres (ou leurs IDs) : `@Kayoshi cmd retirer @membre`.');
@@ -152,7 +158,7 @@ function panelPayload(session) {
     new SectionBuilder()
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `**🤖 Token**\n${session.botName ? `Bot : **${session.botName}**` : '*Aucun token ajouté (obligatoire : Kayoshi n’envoie pas les DM lui-même)*'}`,
+          `**🤖 Token**\n${session.botName ? `Bot : **${session.botName}**` : `*Aucun token ajouté : Kayoshi envoie lui-même jusqu’à ${MAX_WITHOUT_TOKEN} membres, au-delà le token est obligatoire*`}`,
         ),
       )
       .setButtonAccessory(button('dml_token', '➕ Définir le token', ButtonStyle.Primary)),
@@ -207,7 +213,7 @@ function tokenModal() {
     .addLabelComponents(
       new LabelBuilder()
         .setLabel('Token du bot qui envoie les DM')
-        .setDescription('Obligatoire. Le bot doit être sur ce serveur.')
+        .setDescription(`Obligatoire au-delà de ${MAX_WITHOUT_TOKEN} membres. Le bot doit être sur ce serveur.`)
         .setTextInputComponent(new TextInputBuilder().setCustomId('token').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200)),
     );
 }
@@ -261,13 +267,13 @@ function statusModal({ target }) {
   const select = new StringSelectMenuBuilder()
     .setCustomId('statuses')
     .setMinValues(1)
-    .setMaxValues(3)
+    .setMaxValues(Object.keys(STATUSES).length)
     .addOptions(Object.entries(STATUSES).map(([value, label]) => ({ value, label, default: current.includes(value) })));
   return new ModalBuilder()
     .setCustomId('dml_status_modal')
     .setTitle('Cible par statut')
     .addLabelComponents(
-      new LabelBuilder().setLabel('Statuts').setDescription('Les membres connectés avec ces statuts recevront le DM').setStringSelectMenuComponent(select),
+      new LabelBuilder().setLabel('Statuts').setDescription('Les membres avec ces statuts recevront le DM (hors ligne : aussi les invisibles)').setStringSelectMenuComponent(select),
     );
 }
 
@@ -383,7 +389,7 @@ async function resolveTargets(guild, { target, ignore }) {
   } else {
     const all = await guild.members.fetch({ withPresences: target.type === 'status' });
     members = [...all.values()].filter((m) =>
-      target.type === 'role' ? m.roles.cache.has(target.roleId) : target.statuses.includes(m.presence?.status),
+      target.type === 'role' ? m.roles.cache.has(target.roleId) : target.statuses.includes(m.presence?.status ?? 'offline'),
     );
   }
   const skip = new Set(ignore);
@@ -397,17 +403,21 @@ async function confirmDmAll(interaction, session) {
     return interaction.reply({ content: '❌ Définis d’abord le message ou l’embed (📝 Définir le message).', ephemeral: true });
   }
   if (!session.target) return interaction.reply({ content: '❌ Choisis d’abord la cible (⚙️ Options de DM ou ⭐ Définir le status).', ephemeral: true });
-  if (!session.botName) {
-    return interaction.reply({ content: '❌ Ajoute d’abord le token du bot qui envoie (➕ Définir le token) : Kayoshi n’envoie pas les DM de masse lui-même.', ephemeral: true });
-  }
   await interaction.deferReply({ ephemeral: true });
-  session.pending = await resolveTargets(interaction.guild, session);
-  const n = session.pending.length;
+  const targets = await resolveTargets(interaction.guild, session);
+  const n = targets.length;
   if (!n) return interaction.editReply('❌ Personne à qui envoyer le DM avec cette cible.');
+  // Sans token, Kayoshi n'envoie lui-même qu'à quelques membres : pas de DM de masse avec son compte.
+  if (!session.rest && n > MAX_WITHOUT_TOKEN) {
+    return interaction.editReply(
+      `❌ Ajoute d’abord le token du bot qui envoie (➕ Définir le token) : sans token, Kayoshi n’envoie lui-même qu’à **${MAX_WITHOUT_TOKEN} membres** au plus (ici ${plural(n, 'membre')}).`,
+    );
+  }
+  session.pending = targets;
   const minutes = Math.max(1, Math.round((n * (PAUSE_MIN_MS + PAUSE_MAX_MS)) / 2 / 60_000));
   return interaction.editReply({
     content:
-      `⚠️ Envoyer le DM à **${plural(n, 'membre')}** avec **${session.botName}** ?\n` +
+      `⚠️ Envoyer le DM à **${plural(n, 'membre')}** avec **${session.botName ?? interaction.client.user.username}** ?\n` +
       `-# Environ ${minutes} min · tu pourras l’arrêter avec le bouton ⏹️ sur le panneau.`,
     components: [
       new ActionRowBuilder().addComponents(
@@ -433,8 +443,10 @@ async function startDmAll(interaction, session) {
 const DM_ERRORS = { closed: 50007 }; // MP fermés ou bot bloqué
 
 async function runDmAll(interaction, session, run) {
-  const { rest, content, embed, panel, pending: targets } = session;
-  const { botName } = session;
+  const { content, embed, panel, pending: targets } = session;
+  // Sans token (5 membres au plus, vérifié à la confirmation) : Kayoshi envoie lui-même.
+  const rest = session.rest ?? interaction.client.rest;
+  const botName = session.botName ?? interaction.client.user.username;
   const stats = { sent: 0, closed: 0, failed: 0 };
   const startedAt = Date.now();
   let errorsInARow = 0;

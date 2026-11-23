@@ -221,7 +221,7 @@ const CATEGORIES = [
       ['/modifierembed', 'Modifier ou renvoyer (📨) un embed existant (embeds de /embed, partenariat, bienvenue / départ, panneau de tickets et ses motifs, qu’on peut réorganiser)'],
       ['/gw', '`start` `end` `reroll` `retirer-participant` · `salon-gagnants` (salon où tous les gagnants sont notés, créé si besoin) — giveaways : argent (crédité automatiquement aux gagnants), prix personnalisé (ex : Nitro) et/ou rôle à gagner (`role_gagne`, donné automatiquement)'],
       ['@Kayoshi part (en réponse)', 'Réponds à une pub de partenariat (dans un ticket…) avec `@Kayoshi part` : son texte et ses images sont recopiés dans le salon partenariat en mentionnant son auteur, puis l’embed partenariat est envoyé à ton nom (`[@]` = toi, +1 partenariat pour toi) ; la même pub n’est publiée qu’une fois par salon — réservé à ceux qui peuvent écrire dans ce salon'],
-      ['@Kayoshi cmd', 'DM de masse (aussi `kayoshi cmd`), réservé au **propriétaire du serveur** et aux membres qu’il autorise lui-même (`@Kayoshi cmd @membre` · `retirer @membre` · `autorisés`) — sur Hanami, aussi le rôle Crown. Panneau : token du bot qui envoie (**obligatoire**, Kayoshi n’envoie pas les DM lui-même), message et/ou embed, cible (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger), IDs à ignorer — un DM toutes les 1,5 à 2 s, MP fermés ignorés, bouton ⏹️ et récapitulatif'],
+      ['@Kayoshi cmd', 'DM de masse (aussi `kayoshi cmd`), réservé au **propriétaire du serveur** et aux membres qu’il autorise (`@Kayoshi cmd @membre` · `retirer @membre` · `autorisés`, aussi par 50.nn et l0un4tik sur les serveurs de laysox_off) — sur Hanami, aussi le rôle Crown. Panneau : token du bot qui envoie (**obligatoire au-delà de 5 membres** : jusqu’à 5, Kayoshi envoie lui-même), message et/ou embed, cible (un rôle, des IDs, ou les membres en ligne / absents / ne pas déranger / hors ligne), IDs à ignorer — un DM toutes les 1,5 à 2 s, MP fermés ignorés, bouton ⏹️ et récapitulatif'],
       ['/say', 'Faire parler le bot (les membres mentionnés sont notifiés)'],
       ['/save', '`emplacement` (save1 à save5, avec aperçu) · `action` : enregistrer un message ou envoyer celui enregistré'],
       ['/profilbot', '`modifier` `reinitialiser` — photo, bannière et bio du bot sur ce serveur uniquement ; chaque changement est noté dans #logs-profil (qui et quoi)'],
@@ -304,6 +304,7 @@ const RECENT = [
 // Les 10 dernières commandes modifiées, la plus récente en premier (page d'accueil).
 // À mettre à jour à chaque changement d'une commande existante : l'ajouter (ou la remonter) en tête.
 const RECENT_CHANGES = [
+  ['@Kayoshi cmd', 'sans token jusqu’à 5 membres, cible « hors ligne », 50.nn et l0un4tik donnent ou retirent l’accès'],
   ['+vc', 'nouvel embed : membres, en ligne, vocal, stream, actifs et mute'],
   ['+hide · +lock · +lockdown', 'agissent sur @everyone (plus sur le rôle Membre)'],
   ['/config → Anti-nuke', 'rôles avec permissions de staff supprimés ou corrigés'],
@@ -313,7 +314,6 @@ const RECENT_CHANGES = [
   ['/config → Salons de stats', 'emoji de chaque salon au choix'],
   ['+snipe', '`+snipe 2` : l’avant-dernier message supprimé (jusqu’à 5)'],
   ['/config → Sport', 'matchs des équipes nationales (Maroc, France…)'],
-  ['+snipe', 'aussi pour les membres qui ont le rôle Loyal'],
 ];
 
 const HOME = 'home';
